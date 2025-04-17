@@ -17,11 +17,11 @@ export default function CadastroUsuario() {
 
   const [estado, setEstado] = useState(null);
   const [estados, setEstados] = useState([]);
-  const [estadoSearch, setEstadoSearch] = useState(''); // Adicionando a variável de busca
+  const [estadoSearch, setEstadoSearch] = useState('');
 
   const [cidade, setCidade] = useState('');
   const [cidades, setCidades] = useState([]);
-  const [cidadeSearch, setCidadeSearch] = useState(''); // Opcional: para também permitir busca de cidades
+  const [cidadeSearch, setCidadeSearch] = useState('');
 
   const [showEstados, setShowEstados] = useState(false);
   const [showCidades, setShowCidades] = useState(false);
@@ -29,17 +29,20 @@ export default function CadastroUsuario() {
   const handleEstadoChange = async (selectedEstado) => {
     setEstado(selectedEstado);
     setShowEstados(false);
-    setCidade(''); // Resetar cidade quando mudar o estado
+    setCidade(''); // Reset cidade when state changes
     try {
       const cidadesData = await getCidadesPorEstado(selectedEstado);
-      setCidades(cidadesData);
+      setCidades(cidadesData || []); // Ensure it's always an array
     } catch (error) {
       console.error('Erro ao carregar as cidades:', error);
+      setCidades([]); // Set to empty array on error
     }
   };
 
   const handleCidadeSelect = (selectedCidade) => {
-    setCidade(selectedCidade.nome);
+    if (selectedCidade && selectedCidade.nome) {
+      setCidade(selectedCidade.nome);
+    }
     setShowCidades(false);
   };
 
@@ -48,21 +51,22 @@ export default function CadastroUsuario() {
       try {
         const estadosData = await getEstados();
         console.log('Estados carregados:', estadosData);
-        setEstados(estadosData);
+        setEstados(estadosData || []); // Ensure it's always an array
       } catch (error) {
         console.error('Erro ao carregar os estados:', error);
+        setEstados([]); // Set to empty array on error
       }
     }
     setShowEstados(!showEstados);
     if (showEstados) {
-      setEstadoSearch(''); // Limpa a busca quando fechar o dropdown
+      setEstadoSearch(''); // Clear search when closing dropdown
     }
   };
 
   const toggleCidades = () => {
     setShowCidades(!showCidades);
     if (showCidades) {
-      setCidadeSearch(''); // Opcional: limpar busca de cidades
+      setCidadeSearch(''); // Clear cidade search when closing dropdown
     }
   };
 
@@ -70,14 +74,27 @@ export default function CadastroUsuario() {
     const fetchData = async () => {
       try {
         const sexosData = await getSexoUsuario();
-        setSexos(sexosData);
+        setSexos(sexosData || []); // Ensure it's always an array
       } catch (error) {
         console.error('Erro ao carregar os sexos:', error);
+        setSexos([]); // Set to empty array on error
       }
     };
 
     fetchData();
   }, []);
+
+  // Safe filter function that handles undefined values
+  const filterEstados = (item) => {
+    if (!item) return false;
+    return item.toLowerCase().includes((estadoSearch || '').toLowerCase());
+  };
+
+  // Safe filter function that handles undefined values
+  const filterCidades = (item) => {
+    if (!item || !item.nome) return false;
+    return item.nome.toLowerCase().includes((cidadeSearch || '').toLowerCase());
+  };
 
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
@@ -104,12 +121,16 @@ export default function CadastroUsuario() {
                 Sexo <Text style={styles.required}>*</Text>
               </Text>
               <View style={styles.checkboxContainer}>
-                {sexos.map((item, index) => (
-                  <TouchableOpacity key={index} style={styles.checkboxWrapper} onPress={() => setSexo(item.descricao)}>
+                {(sexos || []).map((item, index) => (
+                  <TouchableOpacity 
+                    key={index} 
+                    style={styles.checkboxWrapper} 
+                    onPress={() => setSexo(item?.descricao || '')}
+                  >
                     <View style={styles.checkboxCustom}>
-                      {sexo === item.descricao && <View style={styles.checkboxInner} />}
+                      {sexo === item?.descricao && <View style={styles.checkboxInner} />}
                     </View>
-                    <Text style={styles.checkboxLabel}>{item.descricao}</Text>
+                    <Text style={styles.checkboxLabel}>{item?.descricao || ''}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
@@ -163,15 +184,15 @@ export default function CadastroUsuario() {
                     onChangeText={setEstadoSearch}
                   />
                   <ScrollView style={{ maxHeight: 200 }}>
-                    {estados
-                      .filter((item) => item.toLowerCase().includes(estadoSearch.toLowerCase()))
+                    {(estados || [])
+                      .filter(filterEstados)
                       .map((item, index) => (
                         <TouchableOpacity
                           key={index}
                           style={styles.dropdownItem}
                           onPress={() => handleEstadoChange(item)}
                         >
-                          <Text style={styles.dropdownItemText}>{item}</Text>
+                          <Text style={styles.dropdownItemText}>{item || ''}</Text>
                         </TouchableOpacity>
                       ))}
                   </ScrollView>
@@ -187,22 +208,31 @@ export default function CadastroUsuario() {
               <TouchableOpacity
                 style={[styles.dropdown, !estado && { backgroundColor: '#ccc' }]}
                 onPress={estado ? toggleCidades : null}
+                disabled={!estado}
               >
                 <Text style={styles.dropdownText}>{cidade || 'Selecione uma cidade'}</Text>
                 <Text style={styles.dropdownIcon}>{showCidades ? '▲' : '▼'}</Text>
               </TouchableOpacity>
               {showCidades && (
                 <View style={styles.dropdownList}>
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Pesquisar cidade..."
+                    value={cidadeSearch}
+                    onChangeText={setCidadeSearch}
+                  />
                   <ScrollView style={{ maxHeight: 200 }}>
-                    {cidades.map((item, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.dropdownItem}
-                        onPress={() => handleCidadeSelect(item)} // Seleciona cidade
-                      >
-                        <Text style={styles.dropdownItemText}>{item.nome}</Text>
-                      </TouchableOpacity>
-                    ))}
+                    {(cidades || [])
+                      .filter(filterCidades)
+                      .map((item, index) => (
+                        <TouchableOpacity
+                          key={index}
+                          style={styles.dropdownItem}
+                          onPress={() => handleCidadeSelect(item)}
+                        >
+                          <Text style={styles.dropdownItemText}>{item?.nome || ''}</Text>
+                        </TouchableOpacity>
+                      ))}
                   </ScrollView>
                 </View>
               )}
