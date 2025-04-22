@@ -1,7 +1,7 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://tcc-back-ivory.vercel.app/api', // <-- 👈 Use /api aqui
+  baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
   timeout: 10000,
 });
 
