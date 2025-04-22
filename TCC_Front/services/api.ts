@@ -1,9 +1,21 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: process.env.NEXT_PUBLIC_API_URL + '/api',
+  baseURL: 'http://192.168.110.225:3000/api',
   timeout: 10000,
 });
+
+
+
+// Adicionando interceptor de erro para todas as requisições
+api.interceptors.response.use(
+  (response) => response,
+  (error) => {
+    const errorMessage = error.response?.data || { error: 'Erro na requisição' };
+    console.error('Erro:', errorMessage);
+    return Promise.reject(errorMessage);
+  }
+);
 
 // Exemplo de chamada de login
 export const login = async (email: string, senha: string) => {
@@ -11,7 +23,7 @@ export const login = async (email: string, senha: string) => {
     const response = await api.post('/auth/login', { email, senha });
     return response.data;
   } catch (error: any) {
-    throw error.response?.data || { error: 'Erro ao fazer login' };
+    throw error || { error: 'Erro ao fazer login' };
   }
 };
 
@@ -22,11 +34,9 @@ export const getPets = async () => {
 };
 
 // Chamada para obter os estados
-// Chamada para obter os estados, retornando apenas os nomes
 export const getEstados = async () => {
   try {
     const response = await api.get('/estados');
-    // Assumindo que a resposta tem um array de objetos com o campo 'nome'
     return response.data.map((estado: { nome: string }) => estado.nome);
   } catch (error) {
     console.error('Erro ao carregar os estados', error);
@@ -34,11 +44,10 @@ export const getEstados = async () => {
   }
 };
 
-// Chamada para obter as cidades por estado, retornando apenas os nomes
+// Chamada para obter as cidades por estado
 export const getCidadesPorEstado = async (estadoId: number) => {
   try {
     const response = await api.get(`/cidades?estadoId=${estadoId}`);
-    // Assumindo que a resposta tem um array de objetos com o campo 'nome'
     return response.data.map((cidade: { nome: string }) => cidade.nome);
   } catch (error) {
     console.error('Erro ao carregar as cidades', error);
@@ -90,6 +99,13 @@ export const getFavoritos = async () => {
 
 // Chamada para obter sexo do usuário
 export const getSexoUsuario = async () => {
-  const response = await api.get('/sexoUsuario');
-  return response.data;
+  try {
+    console.log('Fazendo requisição para /sexoUsuario');
+    const response = await api.get('/sexoUsuario');
+    console.log('Resposta recebida:', response.data);
+    return response.data.map((sexo: { descricao: string }) => sexo.descricao);
+  } catch (error: any) {
+    console.error('Erro completo:', error);
+    return [];
+  }
 };
