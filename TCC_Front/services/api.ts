@@ -1,11 +1,9 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://192.168.110.225:3000/api',
+  baseURL: 'http://10.0.2.2:3000/api',
   timeout: 10000,
 });
-
-
 
 // Adicionando interceptor de erro para todas as requisições
 api.interceptors.response.use(
@@ -45,10 +43,22 @@ export const getEstados = async () => {
 };
 
 // Chamada para obter as cidades por estado
-export const getCidadesPorEstado = async (estadoId: number) => {
+export const getCidadesPorEstado = async (estadoNome) => {
   try {
+    // Primeiro obtém o ID do estado pelo nome
+    const estadosResponse = await api.get('/estados');
+    const estado = estadosResponse.data.find((e) => e.nome === estadoNome);
+
+    if (!estado) {
+      console.error('Estado não encontrado:', estadoNome);
+      return [];
+    }
+
+    const estadoId = estado.id;
+
+    // Agora busca as cidades usando o ID do estado
     const response = await api.get(`/cidades?estadoId=${estadoId}`);
-    return response.data.map((cidade: { nome: string }) => cidade.nome);
+    return response.data.map((cidade) => ({ nome: cidade.nome }));
   } catch (error) {
     console.error('Erro ao carregar as cidades', error);
     return [];
