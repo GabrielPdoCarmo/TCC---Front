@@ -43,11 +43,15 @@ export const getEstados = async () => {
 };
 
 // Chamada para obter as cidades por estado
-export const getCidadesPorEstado = async (estadoNome) => {
+// Chamada para obter as cidades por estado
+type Cidade = {
+  nome: string;
+};
+
+export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]> => {
   try {
-    // Primeiro obtém o ID do estado pelo nome
     const estadosResponse = await api.get('/estados');
-    const estado = estadosResponse.data.find((e) => e.nome === estadoNome);
+    const estado = estadosResponse.data.find((e: { nome: string; id: string }) => e.nome === estadoNome);
 
     if (!estado) {
       console.error('Estado não encontrado:', estadoNome);
@@ -56,14 +60,14 @@ export const getCidadesPorEstado = async (estadoNome) => {
 
     const estadoId = estado.id;
 
-    // Agora busca as cidades usando o ID do estado
     const response = await api.get(`/cidades?estadoId=${estadoId}`);
-    return response.data.map((cidade) => ({ nome: cidade.nome }));
+    return response.data.map((cidade: { nome: string }) => ({ nome: cidade.nome }));
   } catch (error) {
     console.error('Erro ao carregar as cidades', error);
     return [];
   }
 };
+
 
 // Chamada para obter os usuários
 export const getUsuarios = async () => {

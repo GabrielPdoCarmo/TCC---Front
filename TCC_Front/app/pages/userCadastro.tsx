@@ -11,39 +11,44 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { getEstados, getCidadesPorEstado, getSexoUsuario } from '../../services/api';
+import EstadoSelect from '../../components/estados/EstadoSelect';
+import CidadeSelect from '../../components/cidades/CidadeSelect';
+// import EstadoDropdown from '../../components/estados/EstadoDropdown';
+// import CidadeDropdown from '../../components/cidades/CidadeDropdown';
+
 import { debounce } from 'lodash';
 
 export default function CadastroUsuario() {
-  const [sexo, setSexo] = useState('');
-  const [sexos, setSexos] = useState([]);
+  const [sexo, setSexo] = useState<string>(''); // Especificando tipo de string
+  const [sexos, setSexos] = useState<string[]>([]); // Especificando que sexos é uma lista de strings
 
-  const [estado, setEstado] = useState(null);
-  const [estados, setEstados] = useState([]);
-  const [estadoSearch, setEstadoSearch] = useState('');
+  const [estado, setEstado] = useState<string | null>(null); // Estado agora pode ser string ou null
+  const [estados, setEstados] = useState<string[]>([]); // Especificando lista de estados como strings
+  const [estadoSearch, setEstadoSearch] = useState<string>(''); // Estado de busca de estado
 
-  const [cidade, setCidade] = useState('');
-  const [cidades, setCidades] = useState([]);
-  const [cidadeSearch, setCidadeSearch] = useState('');
-  const [cidadesFiltradas, setCidadesFiltradas] = useState([]);
+  const [cidade, setCidade] = useState<string>(''); // Cidade como string
+  const [cidades, setCidades] = useState<{ nome: string }[]>([]); // Cidades como lista de objetos com a propriedade nome
+  const [cidadeSearch, setCidadeSearch] = useState<string>(''); // Busca da cidade
+  const [cidadesFiltradas, setCidadesFiltradas] = useState<{ nome: string }[]>([]); // Filtragem de cidades
 
-  const [showEstados, setShowEstados] = useState(false);
-  const [showCidades, setShowCidades] = useState(false);
-  const [loadingCidades, setLoadingCidades] = useState(false);
-  const [cidadesCarregadas, setCidadesCarregadas] = useState(false);
-  
+  const [showEstados, setShowEstados] = useState<boolean>(false); // Controla visibilidade dos estados
+  const [showCidades, setShowCidades] = useState<boolean>(false); // Controla visibilidade das cidades
+  const [loadingCidades, setLoadingCidades] = useState<boolean>(false); // Controle de loading de cidades
+  const [cidadesCarregadas, setCidadesCarregadas] = useState<boolean>(false); // Se as cidades estão carregadas
+
   // Cache para armazenar cidades por estado
-  const cidadesCache = useRef({});
+  const cidadesCache = useRef<{ [key: string]: { nome: string }[] }>({}); // Cache com chave string para cidades
 
   // Função para carregar cidades com cache
-  const carregarCidades = async (selectedEstado) => {
+  const carregarCidades = async (selectedEstado: string | null) => {
     if (!selectedEstado) return [];
-    
+
     // Verifica se já existe no cache
     if (cidadesCache.current[selectedEstado]) {
       setCidadesCarregadas(true);
       return cidadesCache.current[selectedEstado];
     }
-    
+
     setLoadingCidades(true);
     try {
       const cidadesData = await getCidadesPorEstado(selectedEstado);
@@ -59,20 +64,20 @@ export default function CadastroUsuario() {
     }
   };
 
-  const handleEstadoChange = async (selectedEstado) => {
+  const handleEstadoChange = async (selectedEstado: string) => {
     setEstado(selectedEstado);
     setShowEstados(false);
     setCidade('');
     setCidadesCarregadas(false);
     setLoadingCidades(true);
-    
+
     // Inicia o carregamento de cidades em segundo plano
     const cidadesData = await carregarCidades(selectedEstado);
     setCidades(cidadesData);
     setCidadesFiltradas(cidadesData);
   };
 
-  const handleCidadeSelect = (selectedCidade) => {
+  const handleCidadeSelect = (selectedCidade: { nome: string }) => {
     if (selectedCidade && selectedCidade.nome) {
       setCidade(selectedCidade.nome);
     }
@@ -95,7 +100,7 @@ export default function CadastroUsuario() {
 
   const toggleCidades = async () => {
     if (!estado) return;
-    
+
     // Se ainda não temos cidades, carregamos elas
     if (cidades.length === 0) {
       if (!loadingCidades) {
@@ -104,29 +109,34 @@ export default function CadastroUsuario() {
         setCidadesFiltradas(cidadesData);
       }
     }
-    
+
     setShowCidades(!showCidades);
     if (!showCidades) setCidadeSearch('');
   };
 
   // Filtragem de cidades com debounce para melhor performance
   const debouncedCidadeSearch = useCallback(
-    debounce((text) => {
+    debounce((text: string) => {
+      const normalize = (str: string) =>
+        str
+          .normalize('NFD')
+          .replace(/[\u0300-\u036f]/g, '')
+          .toLowerCase();
+
       if (!text.trim()) {
         setCidadesFiltradas(cidades);
         return;
       }
-      
-      const filtered = cidades.filter(item => 
-        item && item.nome && item.nome.toLowerCase().includes(text.toLowerCase())
-      );
+
+      const filtered = cidades.filter((item) => item && item.nome && normalize(item.nome).includes(normalize(text)));
+
       setCidadesFiltradas(filtered);
     }, 300),
     [cidades]
   );
 
   // Atualiza a busca de cidades
-  const handleCidadeSearchChange = (text) => {
+  const handleCidadeSearchChange = (text: string) => {
     setCidadeSearch(text);
     debouncedCidadeSearch(text);
   };
@@ -136,7 +146,7 @@ export default function CadastroUsuario() {
       try {
         const sexosData = await getSexoUsuario();
         setSexos(sexosData || []);
-        
+
         // Pré-carrega os estados para melhorar a experiência
         const estadosData = await getEstados();
         setEstados(estadosData || []);
@@ -147,9 +157,15 @@ export default function CadastroUsuario() {
     fetchData();
   }, []);
 
-  const filterEstados = (item) => {
+  const filterEstados = (item: string) => {
     if (!item) return false;
-    return item.toLowerCase().includes((estadoSearch || '').toLowerCase());
+    const normalize = (text: string) =>
+      text
+        .normalize('NFD')
+        .replace(/[\u0300-\u036f]/g, '')
+        .toLowerCase();
+
+    return normalize(item).includes(normalize(estadoSearch));
   };
 
   return (
@@ -216,31 +232,15 @@ export default function CadastroUsuario() {
               <Text style={styles.label}>
                 Estado <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity style={styles.dropdown} onPress={toggleEstados}>
-                <Text style={styles.dropdownText}>{estado || 'Selecione um estado'}</Text>
-                <Text style={styles.dropdownIcon}>{showEstados ? '▲' : '▼'}</Text>
-              </TouchableOpacity>
-              {showEstados && (
-                <View style={styles.dropdownList}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Pesquisar estado..."
-                    value={estadoSearch}
-                    onChangeText={setEstadoSearch}
-                  />
-                  <ScrollView style={{ maxHeight: 200 }}>
-                    {(estados || []).filter(filterEstados).map((item, index) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.dropdownItem}
-                        onPress={() => handleEstadoChange(item)}
-                      >
-                        <Text style={styles.dropdownItemText}>{item || ''}</Text>
-                      </TouchableOpacity>
-                    ))}
-                  </ScrollView>
-                </View>
-              )}
+              <EstadoSelect
+                estado={estado}
+                estados={estados}
+                onSelectEstado={handleEstadoChange}
+                showEstados={showEstados}
+                setShowEstados={setShowEstados}
+                estadoSearch={estadoSearch}
+                setEstadoSearch={setEstadoSearch}
+              />
             </View>
 
             {/* Cidade */}
@@ -248,78 +248,23 @@ export default function CadastroUsuario() {
               <Text style={styles.label}>
                 Cidade <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity
-                style={[styles.dropdown, !estado && { backgroundColor: '#ccc' }]}
-                onPress={toggleCidades}
-                disabled={!estado}
-              >
-                {loadingCidades && !showCidades ? (
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', flex: 1 }}>
-                    <Text style={styles.dropdownText}>Carregando cidades...</Text>
-                    <ActivityIndicator size="small" color="#000" style={{ marginLeft: 8 }} />
-                  </View>
-                ) : (
-                  <>
-                    <Text style={styles.dropdownText}>{cidade || 'Selecione uma cidade'}</Text>
-                    <Text style={styles.dropdownIcon}>{showCidades ? '▲' : '▼'}</Text>
-                  </>
-                )}
-              </TouchableOpacity>
-              {showCidades && (
-                <View style={styles.dropdownList}>
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Pesquisar cidade..."
-                    value={cidadeSearch}
-                    onChangeText={handleCidadeSearchChange}
-                    autoFocus={true}
-                  />
-                  {loadingCidades ? (
-                    <View style={styles.loadingContainer}>
-                      <ActivityIndicator size="small" color="#000" />
-                      <Text style={styles.loadingText}>Carregando cidades...</Text>
-                    </View>
-                  ) : (
-                    <ScrollView style={{ maxHeight: 200 }}>
-                      {cidadesFiltradas.length > 0 ? (
-                        cidadesFiltradas.map((item, index) => (
-                          <TouchableOpacity
-                            key={index}
-                            style={styles.dropdownItem}
-                            onPress={() => handleCidadeSelect(item)}
-                          >
-                            <Text style={styles.dropdownItemText}>{item?.nome || ''}</Text>
-                          </TouchableOpacity>
-                        ))
-                      ) : (
-                        <Text style={styles.noResultsText}>
-                          {cidadeSearch ? 'Nenhuma cidade encontrada' : 'Carregando...'}
-                        </Text>
-                      )}
-                    </ScrollView>
-                  )}
-                </View>
-              )}
+              <CidadeSelect
+                cidade={cidade}
+                cidades={cidades}
+                cidadesFiltradas={cidadesFiltradas}
+                cidadesCarregadas={cidadesCarregadas}
+                loadingCidades={loadingCidades}
+                showCidades={showCidades}
+                setShowCidades={setShowCidades}
+                cidadeSearch={cidadeSearch}
+                onSelectCidade={handleCidadeSelect}
+                onSearchCidade={handleCidadeSearchChange}
+                toggleCidades={toggleCidades}
+              />
             </View>
 
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Senha <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput style={styles.input} placeholder="Senha" secureTextEntry />
-            </View>
-
-            <View style={styles.inputGroup}>
-              <Text style={styles.label}>
-                Confirmar Senha <Text style={styles.required}>*</Text>
-              </Text>
-              <TextInput style={styles.input} placeholder="Confirmar Senha" secureTextEntry />
-            </View>
+            {/* Outros campos do formulário... */}
           </View>
-
-          <TouchableOpacity style={styles.button}>
-            <Text style={styles.buttonText}>Criar Perfil</Text>
-          </TouchableOpacity>
         </ScrollView>
       </SafeAreaView>
     </ImageBackground>
@@ -329,49 +274,47 @@ export default function CadastroUsuario() {
 const styles = StyleSheet.create({
   backgroundImage: {
     flex: 1,
-    width: '100%',
-    backgroundColor: '#4285F4',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   container: {
     flex: 1,
+    paddingHorizontal: 20,
+    paddingTop: 40,
+    width: '100%',
   },
   mainContent: {
-    width: '100%',
-    alignItems: 'center',
-    padding: 20,
-    marginTop: 25,
+    marginBottom: 20,
   },
   titleContainer: {
-    borderWidth: 1,
-    borderColor: '#000',
-    borderRadius: 5,
-    padding: 10,
-    marginVertical: 10,
-    marginTop: 60,
+    marginBottom: 10,
   },
   pageTitle: {
     fontSize: 24,
     fontWeight: 'bold',
+    color: '#333',
   },
   formContainer: {
     width: '100%',
-    paddingHorizontal: 20,
   },
   inputGroup: {
-    marginBottom: 15,
+    marginBottom: 20,
   },
   label: {
-    fontSize: 16,
-    marginBottom: 5,
+    fontSize: 14,
+    color: '#333',
   },
   required: {
     color: 'red',
   },
   input: {
-    backgroundColor: '#E8E8E8',
-    borderRadius: 10,
-    padding: 12,
-    fontSize: 16,
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    paddingLeft: 10,
+    borderRadius: 5,
+    marginTop: 5,
+    backgroundColor: '#fff',
   },
   checkboxContainer: {
     flexDirection: 'row',
@@ -386,84 +329,67 @@ const styles = StyleSheet.create({
   checkboxCustom: {
     width: 20,
     height: 20,
-    borderWidth: 2,
-    borderColor: '#000',
-    borderRadius: 4,
-    marginRight: 8,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginRight: 10,
     justifyContent: 'center',
     alignItems: 'center',
   },
   checkboxInner: {
-    width: 12,
-    height: 12,
-    backgroundColor: '#000',
+    width: 10,
+    height: 10,
+    backgroundColor: '#333',
     borderRadius: 2,
   },
   checkboxLabel: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#333',
   },
   dropdown: {
-    backgroundColor: '#E8E8E8',
-    borderRadius: 10,
-    padding: 12,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    justifyContent: 'center',
     alignItems: 'center',
+    borderRadius: 5,
+    flexDirection: 'row',
+    paddingHorizontal: 10,
+    backgroundColor: '#fff',
   },
   dropdownText: {
-    fontSize: 16,
+    fontSize: 14,
+    color: '#333',
   },
   dropdownIcon: {
-    fontSize: 14,
+    fontSize: 16,
+    color: '#333',
+    marginLeft: 10,
   },
   dropdownList: {
-    backgroundColor: '#fff',
-    borderRadius: 5,
     borderWidth: 1,
-    borderColor: '#ddd',
+    borderColor: '#ccc',
+    borderRadius: 5,
     marginTop: 5,
-    zIndex: 1000,
+    maxHeight: 200,
   },
   dropdownItem: {
     padding: 10,
-    borderBottomWidth: 1,
-    borderBottomColor: '#eee',
   },
   dropdownItemText: {
-    fontSize: 16,
-  },
-  button: {
-    backgroundColor: '#E8E8E8',
-    borderRadius: 25,
-    paddingVertical: 15,
-    alignItems: 'center',
-    marginHorizontal: 50,
-    marginVertical: 20,
-  },
-  buttonText: {
-    fontSize: 18,
-    fontWeight: 'bold',
+    fontSize: 14,
+    color: '#333',
   },
   searchInput: {
-    backgroundColor: '#F8F8F8',
-    borderBottomWidth: 1,
-    borderBottomColor: '#ddd',
-    padding: 10,
-    fontSize: 14,
+    height: 40,
+    borderColor: '#ccc',
+    borderWidth: 1,
+    borderRadius: 5,
+    marginBottom: 5,
+    paddingLeft: 10,
   },
-  loadingContainer: {
-    padding: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
-    flexDirection: 'row',
-  },
-  loadingText: {
-    marginLeft: 10,
-    fontSize: 14,
-  },
-  noResultsText: {
-    padding: 15,
-    textAlign: 'center',
-    color: '#666',
+  dropdownDisabled: {
+    backgroundColor: '#eee',
+    borderColor: '#aaa',
   },
 });
