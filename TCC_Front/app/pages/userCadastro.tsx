@@ -168,6 +168,10 @@ export default function CadastroUsuario() {
     return normalize(item).includes(normalize(estadoSearch));
   };
 
+  function handleSelectCidade(selectedCidade: { nome: string; }): void {
+    throw new Error('Function not implemented.');
+  }
+
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
       <SafeAreaView style={styles.container}>
@@ -251,14 +255,11 @@ export default function CadastroUsuario() {
               <CidadeSelect
                 cidade={cidade}
                 cidades={cidades}
-                cidadesFiltradas={cidadesFiltradas}
                 cidadesCarregadas={cidadesCarregadas}
                 loadingCidades={loadingCidades}
                 showCidades={showCidades}
                 setShowCidades={setShowCidades}
-                cidadeSearch={cidadeSearch}
-                onSelectCidade={handleCidadeSelect}
-                onSearchCidade={handleCidadeSearchChange}
+                onSelectCidade={handleSelectCidade}
                 toggleCidades={toggleCidades}
               />
             </View>

@@ -60,8 +60,12 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
 
     const estadoId = estado.id;
 
-    const response = await api.get(`/cidades?estadoId=${estadoId}`);
-    return response.data.map((cidade: { nome: string }) => ({ nome: cidade.nome }));
+    // 👇 Ajuste aqui: chamada por rota dinâmica, não mais query param
+    const response = await api.get(`/cidades/${estadoId}`);
+    const cidades = response.data.map((cidade: { nome: string }) => ({ nome: cidade.nome }));
+
+    // 🔤 Ordenar por ordem alfabética
+    return cidades.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
   } catch (error) {
     console.error('Erro ao carregar as cidades', error);
     return [];
