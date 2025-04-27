@@ -1,9 +1,16 @@
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'http://10.0.2.2:3000/api',
+  baseURL: 'http://192.168.1.12:3000/api',
   timeout: 10000,
 });
+
+//android Studio emulator
+// const api = axios.create({
+//baseURL: 'http://10.0.2.2:3000/api',
+//timeout: 10000,
+// });
+
 
 // Adicionando interceptor de erro para todas as requisições
 api.interceptors.response.use(
@@ -35,12 +42,15 @@ export const getPets = async () => {
 export const getEstados = async () => {
   try {
     const response = await api.get('/estados');
-    return response.data.map((estado: { nome: string }) => estado.nome);
+    return response.data
+      .map((estado: { nome: string }) => estado.nome)
+      .sort((a: string, b: string) => a.localeCompare(b)); // <-- Ordenação alfabética
   } catch (error) {
     console.error('Erro ao carregar os estados', error);
     return [];
   }
 };
+
 
 // Chamada para obter as cidades por estado
 // Chamada para obter as cidades por estado
@@ -127,3 +137,21 @@ export const getSexoUsuario = async () => {
     return [];
   }
 };
+export const createUsuario = async (usuarioData: {
+  nome: string;
+  sexo_id: number;
+  telefone: string;
+  email: string;
+  senha: string;
+  cpf: string;
+  cidade_id: number; // cidade_id é obrigatório
+  cep?: string;      // cep é opcional
+}) => {
+  try {
+    const response = await api.post('/usuarios', usuarioData);
+    return response.data;
+  } catch (error: any) {
+    throw error || { error: 'Erro ao criar usuário' };
+  }
+};
+
