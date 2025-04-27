@@ -10,20 +10,24 @@ type Props = {
   setShowCidades: React.Dispatch<React.SetStateAction<boolean>>;
   onSelectCidade: (selectedCidade: { nome: string }) => void;
   toggleCidades: () => void;
+  disabled: boolean; // <-- Adicionado aqui
 };
+
 
 const CidadeSelect: React.FC<Props> = ({
   cidade,
   cidades,
+  cidadesCarregadas,
   loadingCidades,
   onSelectCidade,
+  disabled, // agora usado
 }) => {
   const [cidadeSearch, setCidadeSearch] = useState('');
   const [cidadesFiltradas, setCidadesFiltradas] = useState<{ nome: string }[]>([]);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    setCidadesFiltradas(cidades); // inicializa com todas
+    setCidadesFiltradas(cidades);
   }, [cidades]);
 
   const normalizeText = (text: string) =>
@@ -42,12 +46,13 @@ const CidadeSelect: React.FC<Props> = ({
 
   const handleSelectCidade = (cidade: { nome: string }) => {
     onSelectCidade(cidade);
-    setShowModal(false); // fecha o modal ao selecionar a cidade
+    setShowModal(false);
   };
 
   const inputStyle = {
     ...styles.input,
     borderColor: cidade ? '#4CAF50' : '#ccc',
+    backgroundColor: disabled ? '#eee' : '#fff', // <-- AQUI
   };
 
   return (
@@ -58,14 +63,16 @@ const CidadeSelect: React.FC<Props> = ({
         <>
           <TouchableOpacity
             style={inputStyle}
-            onPress={() => setShowModal(true)} // abre o modal
+            onPress={() => !disabled && setShowModal(true)} // <-- Bloqueia clique
+            activeOpacity={disabled ? 1 : 0.7} // <-- Deixa o toque "duro" se desativado
+            disabled={disabled} // <-- Também desativa o botão
           >
-            <Text style={styles.pickerText}>
+            <Text style={[styles.pickerText, { color: disabled ? '#888' : '#000' }]}>
               {cidade || 'Selecione uma cidade'}
             </Text>
           </TouchableOpacity>
 
-          {showModal && (
+          {showModal && !disabled && ( // <-- Não deixa abrir modal se desativado
             <Modal
               transparent={true}
               animationType="fade"
@@ -115,7 +122,7 @@ const CidadeSelect: React.FC<Props> = ({
 
 const styles = StyleSheet.create({
   searchInput: {
-    height: 35,
+    height: 45,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 5,

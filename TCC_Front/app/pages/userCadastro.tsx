@@ -21,7 +21,10 @@ import { debounce } from 'lodash';
 export default function CadastroUsuario() {
   const [sexo, setSexo] = useState<string>(''); // Especificando tipo de string
   const [sexos, setSexos] = useState<string[]>([]); // Especificando que sexos é uma lista de strings
-
+  const [nome, setNome] = useState('');
+  const [cpf, setCpf] = useState('');
+  const [telefone, setTelefone] = useState('');
+  
   const [estado, setEstado] = useState<string | null>(null); // Estado agora pode ser string ou null
   const [estados, setEstados] = useState<string[]>([]); // Especificando lista de estados como strings
   const [estadoSearch, setEstadoSearch] = useState<string>(''); // Estado de busca de estado
@@ -35,6 +38,8 @@ export default function CadastroUsuario() {
   const [showCidades, setShowCidades] = useState<boolean>(false); // Controla visibilidade das cidades
   const [loadingCidades, setLoadingCidades] = useState<boolean>(false); // Controle de loading de cidades
   const [cidadesCarregadas, setCidadesCarregadas] = useState<boolean>(false); // Se as cidades estão carregadas
+  const [senha, setSenha] = useState<string>('');
+  const [confirmarSenha, setConfirmarSenha] = useState<string>('');
 
   // Cache para armazenar cidades por estado
   const cidadesCache = useRef<{ [key: string]: { nome: string }[] }>({}); // Cache com chave string para cidades
@@ -134,7 +139,50 @@ export default function CadastroUsuario() {
     }, 300),
     [cidades]
   );
-
+  const handleSalvar = () => {
+    // Validação de campos obrigatórios
+    if (!nome) {
+      alert('Por favor, preencha o campo Nome.');
+      return;
+    }
+    if (!cpf) {
+      alert('Por favor, preencha o campo CPF.');
+      return;
+    }
+    if (!estado) {
+      alert('Por favor, selecione o Estado.');
+      return;
+    }
+    if (!sexo) {
+      alert('Por favor, selecione o Sexo.');
+      return;
+    }
+    if (!telefone) {
+      alert('Por favor, preencha o campo Telefone.');
+      return;
+    }
+    if (!cidade) {
+      alert('Por favor, selecione a Cidade.');
+      return;
+    }
+    if (!senha) {
+      alert('Por favor, preencha o campo Senha.');
+      return;
+    }
+    if (!confirmarSenha) {
+      alert('Por favor, confirme sua Senha.');
+      return;
+    }
+    if (senha !== confirmarSenha) {
+      alert('As senhas não coincidem!');
+      return;
+    }
+  
+    // Se tudo estiver correto, prossiga com o salvamento
+    console.log('Dados salvos com sucesso!');
+    // Aqui você pode implementar a lógica de salvamento, como um POST ou PUT
+  };
+  
   // Atualiza a busca de cidades
   const handleCidadeSearchChange = (text: string) => {
     setCidadeSearch(text);
@@ -167,10 +215,6 @@ export default function CadastroUsuario() {
 
     return normalize(item).includes(normalize(estadoSearch));
   };
-
-  function handleSelectCidade(selectedCidade: { nome: string; }): void {
-    throw new Error('Function not implemented.');
-  }
 
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
@@ -259,11 +303,39 @@ export default function CadastroUsuario() {
                 loadingCidades={loadingCidades}
                 showCidades={showCidades}
                 setShowCidades={setShowCidades}
-                onSelectCidade={handleSelectCidade}
+                onSelectCidade={handleCidadeSelect}
                 toggleCidades={toggleCidades}
+                disabled={!estado} // Desabilita se o estado não estiver selecionado
+              />
+            </View>
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Senha <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Senha"
+                secureTextEntry={true}
+                value={senha}
+                onChangeText={setSenha} // Atualiza o estado da senha
               />
             </View>
 
+            <View style={styles.inputGroup}>
+              <Text style={styles.label}>
+                Confirmar Senha <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Confirmar Senha"
+                secureTextEntry={true}
+                value={confirmarSenha}
+                onChangeText={setConfirmarSenha} // Atualiza o estado da confirmação da senha
+              />
+            </View>
+            <TouchableOpacity style={styles.saveButton} onPress={handleSalvar}>
+              <Text style={styles.saveButtonText}>Cadastrar</Text>
+            </TouchableOpacity>
             {/* Outros campos do formulário... */}
           </View>
         </ScrollView>
@@ -277,6 +349,20 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  saveButton: {
+    backgroundColor: '#4CAF50', // Cor do botão
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  
+  saveButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: 'bold',
   },
   container: {
     flex: 1,

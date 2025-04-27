@@ -96,7 +96,7 @@ const EstadoSelect: React.FC<Props> = ({ estado, estados, onSelectEstado, estado
 
 const styles = StyleSheet.create({
   searchInput: {
-    height: 35,
+    height: 45,
     borderColor: '#ccc',
     borderWidth: 1,
     borderRadius: 5,
