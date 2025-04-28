@@ -2,88 +2,79 @@ import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TextInput, Modal, TouchableOpacity, FlatList } from 'react-native';
 
 type Props = {
-  estado: string | null;
-  estados: string[];
-  onSelectEstado: (selectedEstado: string) => Promise<void>;
+  estado: { id: number; nome: string } | null;
+  estados: { id: number; nome: string }[];
+  onSelectEstado: (selectedEstado: { id: number; nome: string }) => Promise<void>;
   showEstados: boolean;
   setShowEstados: React.Dispatch<React.SetStateAction<boolean>>;
-  estadoSearch: string;
-  setEstadoSearch: React.Dispatch<React.SetStateAction<string>>;
+  estadoSearch: { id: number; nome: string }; // Mantendo o tipo { id: number; nome: string }
+  setEstadoSearch: React.Dispatch<React.SetStateAction<{ id: number; nome: string }>>; // Mantendo o tipo { id: number; nome: string }
 };
 
 const EstadoSelect: React.FC<Props> = ({ estado, estados, onSelectEstado, estadoSearch, setEstadoSearch }) => {
-  const [estadosFiltrados, setEstadosFiltrados] = useState<string[]>([]);
+  const [estadosFiltrados, setEstadosFiltrados] = useState<{ id: number; nome: string }[]>([]); // Filtra com base em objetos
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    setEstadosFiltrados(estados); // Inicializa com todos os estados
+    setEstadosFiltrados(estados);
   }, [estados]);
 
   const normalizeText = (text: string) =>
-    text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
 
   const handleSearch = (text: string) => {
-    setEstadoSearch(text);
     const textoNormalizado = normalizeText(text);
 
-    const filtrados = estados.filter((estado) =>
-      normalizeText(estado).includes(textoNormalizado)
-    );
+    // Filtra os estados com base no nome (texto normalizado)
+    const filtrados = estados.filter((estado) => normalizeText(estado.nome).includes(textoNormalizado));
 
     setEstadosFiltrados(filtrados);
+    setEstadoSearch({ id: -1, nome: text }); // Atualiza o estado de busca com o texto digitado como parte do objeto
   };
 
-  const handleSelectEstado = (estado: string) => {
-    onSelectEstado(estado);
-    setShowModal(false); // Fecha o modal ao selecionar o estado
+  const handleSelectEstado = async (estado: { id: number; nome: string }) => {
+    await onSelectEstado(estado);
+    setShowModal(false); // Fecha o modal após a seleção
   };
 
   return (
-    <View style={{ marginVertical: 10 }}>
+    <View>
       <TouchableOpacity
         style={styles.input}
         onPress={() => setShowModal(true)} // Abre o modal
       >
-        <Text style={styles.pickerText}>{estado ?? 'Selecione um estado'}</Text>
+        <Text style={styles.pickerText}>{estado?.nome ?? 'Selecione um estado'}</Text>
       </TouchableOpacity>
 
       {showModal && (
-        <Modal
-          transparent={true}
-          animationType="fade"
-          visible={showModal}
-          onRequestClose={() => setShowModal(false)}
-        >
+        <Modal transparent={true} animationType="fade" visible={showModal} onRequestClose={() => setShowModal(false)}>
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
               <TextInput
                 style={styles.searchInput}
                 placeholder="Buscar estado..."
                 placeholderTextColor="#888"
-                value={estadoSearch}
+                value={estadoSearch.nome} // Exibe o nome do estado no campo de busca
                 onChangeText={handleSearch}
               />
 
               <FlatList
                 data={estadosFiltrados}
-                keyExtractor={(item) => item}
-                renderItem={({ item }) => (
-                  <TouchableOpacity
-                    style={styles.modalItem}
-                    onPress={() => handleSelectEstado(item)}
-                  >
-                    <Text>{item}</Text>
-                  </TouchableOpacity>
-                )}
-                ListEmptyComponent={
-                  <Text style={styles.emptyMessage}>Nenhum estado encontrado.</Text>
+                keyExtractor={(item, index) => item?.id?.toString() ?? index.toString()}
+                renderItem={({ item }) =>
+                  item ? (
+                    <TouchableOpacity style={styles.modalItem} onPress={() => handleSelectEstado(item)}>
+                      <Text>{item.nome ?? 'Estado desconhecido'}</Text>
+                    </TouchableOpacity>
+                  ) : null
                 }
+                ListEmptyComponent={<Text style={styles.emptyMessage}>Nenhum estado encontrado.</Text>}
               />
 
-              <TouchableOpacity
-                style={styles.closeButton}
-                onPress={() => setShowModal(false)}
-              >
+              <TouchableOpacity style={styles.closeButton} onPress={() => setShowModal(false)}>
                 <Text style={styles.closeButtonText}>Fechar</Text>
               </TouchableOpacity>
             </View>

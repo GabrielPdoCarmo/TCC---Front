@@ -1,16 +1,15 @@
 import axios from 'axios';
-
+//Android
 const api = axios.create({
-  baseURL: 'http://192.168.1.12:3000/api',
+  baseURL: 'http://192.168.110.225:3000/api', // Remova o espaço extra
   timeout: 10000,
 });
 
-//android Studio emulator
+// //android Studio emulator
 // const api = axios.create({
-//baseURL: 'http://10.0.2.2:3000/api',
-//timeout: 10000,
+//   baseURL: 'http://10.0.2.2:3000/api',
+//   timeout: 10000,
 // });
-
 
 // Adicionando interceptor de erro para todas as requisições
 api.interceptors.response.use(
@@ -37,24 +36,27 @@ export const getPets = async () => {
   const response = await api.get('/pets');
   return response.data;
 };
-
 // Chamada para obter os estados
 export const getEstados = async () => {
   try {
     const response = await api.get('/estados');
     return response.data
-      .map((estado: { nome: string }) => estado.nome)
-      .sort((a: string, b: string) => a.localeCompare(b)); // <-- Ordenação alfabética
+      .map((estado: { id: number; nome: string }) => {
+        return { nome: estado.nome, id: estado.id };
+      })
+      .sort((a: { id: number; nome: string }, b: { id: number; nome: string }) => {
+        return a.nome.localeCompare(b.nome); // Ordenação alfabética pela propriedade 'nome'
+      });
   } catch (error) {
     console.error('Erro ao carregar os estados', error);
     return [];
   }
 };
 
-
 // Chamada para obter as cidades por estado
 // Chamada para obter as cidades por estado
 type Cidade = {
+  id: number;
   nome: string;
 };
 
@@ -72,7 +74,7 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
 
     // 👇 Ajuste aqui: chamada por rota dinâmica, não mais query param
     const response = await api.get(`/cidades/${estadoId}`);
-    const cidades = response.data.map((cidade: { nome: string }) => ({ nome: cidade.nome }));
+    const cidades = response.data.map((cidade: { id: number; nome: string }) => ({ id: cidade.id, nome: cidade.nome }));
 
     // 🔤 Ordenar por ordem alfabética
     return cidades.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
@@ -81,7 +83,6 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
     return [];
   }
 };
-
 
 // Chamada para obter os usuários
 export const getUsuarios = async () => {
@@ -131,12 +132,17 @@ export const getSexoUsuario = async () => {
     console.log('Fazendo requisição para /sexoUsuario');
     const response = await api.get('/sexoUsuario');
     console.log('Resposta recebida:', response.data);
-    return response.data.map((sexo: { descricao: string }) => sexo.descricao);
+
+    return response.data.map((sexo: { id: number; descricao: string }) => ({
+      id: sexo.id,
+      descricao: sexo.descricao,
+    }));
   } catch (error: any) {
     console.error('Erro completo:', error);
     return [];
   }
 };
+
 export const createUsuario = async (usuarioData: {
   nome: string;
   sexo_id: number;
@@ -145,7 +151,7 @@ export const createUsuario = async (usuarioData: {
   senha: string;
   cpf: string;
   cidade_id: number; // cidade_id é obrigatório
-  cep?: string;      // cep é opcional
+  cep?: string; // cep é opcional
 }) => {
   try {
     const response = await api.post('/usuarios', usuarioData);
@@ -155,3 +161,79 @@ export const createUsuario = async (usuarioData: {
   }
 };
 
+interface ValidationResponse {
+  exists?: boolean;
+  [key: string]: any;
+}
+
+interface UsuarioData {
+  nome: string;
+  sexo_id: number;
+  telefone: string;
+  email: string;
+  senha: string;
+  cpf: string;
+  cidade_id?: number; // cidade_id opcional porque pode ser preenchido pelo cep
+  cep?: string; // cep opcional
+}
+
+export async function validarUsuario(usuarioData: UsuarioData): Promise<ValidationResponse> {
+  const { senha, cep } = usuarioData;
+
+  // Verificar se a senha foi fornecida
+  if (!senha) {
+    throw { error: 'Senha é obrigatória.' };
+  }
+
+  // Verificar se a senha tem pelo menos 12 caracteres
+  if (senha.length < 12) {
+    throw { error: 'Senha muito curta', message: 'A senha deve ter pelo menos 12 caracteres.' };
+  }
+
+  // Se o usuário NÃO informou cidade_id mas informou o cep, precisamos validar o cep
+  if (!usuarioData.cidade_id && cep) {
+    try {
+      const response = await axios.get(`https://viacep.com.br/ws/${cep}/json/`);
+      const endereco = response.data;
+
+      if (endereco?.erro) {
+        throw { error: 'CEP inválido ou não encontrado.' };
+      }
+
+      if (!endereco.uf || !endereco.localidade) {
+        throw { error: 'Dados de endereço incompletos no CEP informado.' };
+      }
+    } catch (error) {
+      throw { error: 'Erro ao validar o CEP.' };
+    }
+  }
+
+  // Se nem cidade_id nem cep forem informados, aí dá erro
+  if (!usuarioData.cidade_id && !cep) {
+    throw { error: 'É necessário informar o Cidade ou o CEP.' };
+  }
+
+  // Validação dos outros campos obrigatórios
+  if (!usuarioData.nome) {
+    throw { error: 'Nome é obrigatório.' };
+  }
+
+  if (!usuarioData.sexo_id) {
+    throw { error: 'Sexo é obrigatório.' };
+  }
+
+  if (!usuarioData.telefone) {
+    throw { error: 'Telefone é obrigatório.' };
+  }
+
+  if (!usuarioData.email) {
+    throw { error: 'Email é obrigatório.' };
+  }
+
+  if (!usuarioData.cpf) {
+    throw { error: 'CPF é obrigatório.' };
+  }
+
+  // Retornar resposta de sucesso se tudo estiver válido
+  return { exists: false, valid: true };
+}

@@ -1,18 +1,19 @@
 import React, { useEffect, useState } from 'react';
 import { View, Text, ActivityIndicator, StyleSheet, TextInput, Modal, TouchableOpacity, FlatList } from 'react-native';
 
+type CidadeItem = { id: number; nome: string }; // Updated to make id optional
+
 type Props = {
-  cidade: string;
-  cidades: { nome: string }[];
+  cidade: { id: number; nome: string } | null;
+  cidades: CidadeItem[]; // Using the new type
   cidadesCarregadas: boolean;
   loadingCidades: boolean;
   showCidades: boolean;
   setShowCidades: React.Dispatch<React.SetStateAction<boolean>>;
-  onSelectCidade: (selectedCidade: { nome: string }) => void;
+  onSelectCidade: (selectedCidade: { id: number; nome: string }) => void;
   toggleCidades: () => void;
-  disabled: boolean; // <-- Adicionado aqui
+  disabled: boolean;
 };
-
 
 const CidadeSelect: React.FC<Props> = ({
   cidade,
@@ -20,39 +21,48 @@ const CidadeSelect: React.FC<Props> = ({
   cidadesCarregadas,
   loadingCidades,
   onSelectCidade,
-  disabled, // agora usado
+  disabled,
 }) => {
   const [cidadeSearch, setCidadeSearch] = useState('');
-  const [cidadesFiltradas, setCidadesFiltradas] = useState<{ nome: string }[]>([]);
+  const [cidadesFiltradas, setCidadesFiltradas] = useState<CidadeItem[]>([]);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
-    setCidadesFiltradas(cidades);
-  }, [cidades]);
+    if (!loadingCidades) {
+      setCidadesFiltradas(cidades);
+    }
+  }, [cidades, loadingCidades]);
+  
 
   const normalizeText = (text: string) =>
-    text.normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
+    text
+      .normalize('NFD')
+      .replace(/[\u0300-\u036f]/g, '')
+      .toLowerCase();
 
   const handleSearch = (text: string) => {
     setCidadeSearch(text);
     const textoNormalizado = normalizeText(text);
 
-    const filtradas = cidades.filter((c) =>
-      normalizeText(c.nome).includes(textoNormalizado)
-    );
+    const filtradas = cidades.filter((c) => normalizeText(c.nome).includes(textoNormalizado));
 
     setCidadesFiltradas(filtradas);
   };
 
-  const handleSelectCidade = (cidade: { nome: string }) => {
-    onSelectCidade(cidade);
+  const handleSelectCidade = (cidade: CidadeItem) => {
+    // Fix: Ensure id is present before passing to onSelectCidade
+    // If id is missing, provide a default value or generate one
+    onSelectCidade({
+      id: cidade.id || -1, // Using -1 as default if id is missing
+      nome: cidade.nome,
+    });
     setShowModal(false);
   };
 
   const inputStyle = {
     ...styles.input,
     borderColor: cidade ? '#4CAF50' : '#ccc',
-    backgroundColor: disabled ? '#eee' : '#fff', // <-- AQUI
+    backgroundColor: disabled ? '#eee' : '#fff',
   };
 
   return (
@@ -63,16 +73,16 @@ const CidadeSelect: React.FC<Props> = ({
         <>
           <TouchableOpacity
             style={inputStyle}
-            onPress={() => !disabled && setShowModal(true)} // <-- Bloqueia clique
-            activeOpacity={disabled ? 1 : 0.7} // <-- Deixa o toque "duro" se desativado
-            disabled={disabled} // <-- Também desativa o botão
+            onPress={() => !disabled && setShowModal(true)}
+            activeOpacity={disabled ? 1 : 0.7}
+            disabled={disabled}
           >
             <Text style={[styles.pickerText, { color: disabled ? '#888' : '#000' }]}>
-              {cidade || 'Selecione uma cidade'}
+              {cidade?.nome || 'Selecione uma cidade'}
             </Text>
           </TouchableOpacity>
 
-          {showModal && !disabled && ( // <-- Não deixa abrir modal se desativado
+          {showModal && !disabled && (
             <Modal
               transparent={true}
               animationType="fade"
@@ -93,21 +103,13 @@ const CidadeSelect: React.FC<Props> = ({
                     data={cidadesFiltradas}
                     keyExtractor={(item) => item.nome}
                     renderItem={({ item }) => (
-                      <TouchableOpacity
-                        style={styles.modalItem}
-                        onPress={() => handleSelectCidade(item)}
-                      >
+                      <TouchableOpacity style={styles.modalItem} onPress={() => handleSelectCidade(item)}>
                         <Text>{item.nome}</Text>
                       </TouchableOpacity>
                     )}
-                    ListEmptyComponent={
-                      <Text style={styles.emptyMessage}>Nenhuma cidade encontrada.</Text>
-                    }
+                    ListEmptyComponent={<Text style={styles.emptyMessage}>Nenhuma cidade encontrada.</Text>}
                   />
-                  <TouchableOpacity
-                    style={styles.closeButton}
-                    onPress={() => setShowModal(false)}
-                  >
+                  <TouchableOpacity style={styles.closeButton} onPress={() => setShowModal(false)}>
                     <Text style={styles.closeButtonText}>Fechar</Text>
                   </TouchableOpacity>
                 </View>
@@ -181,6 +183,5 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-
 
 export default CidadeSelect;
