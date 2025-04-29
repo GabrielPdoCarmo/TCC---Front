@@ -1,73 +1,94 @@
 // PetAdoptionScreen.tsx
+import { router } from 'expo-router';
 import React, { useState } from 'react';
-import { View, Text, TextInput, Image, StyleSheet, TouchableOpacity, FlatList, SafeAreaView } from 'react-native';
+import {
+  View,
+  Text,
+  TextInput,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  FlatList,
+  ImageBackground,
+  SafeAreaView,
+} from 'react-native';
 
-const PetAdoptionScreen: React.FC = () => {
+function PetAdoptionScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   return (
     <SafeAreaView style={styles.container}>
-      {/* Barra de pesquisa */}
-      <View style={styles.searchBarContainer}>
-        <Image source={require('./assets/search-icon.png')} style={styles.searchIcon} />
-        <TextInput
-          style={styles.searchInput}
-          placeholder="Qual nome de pet você..."
-          value={searchQuery}
-          onChangeText={setSearchQuery}
-        />
-        <TouchableOpacity style={styles.notificationButton}>
-          <Image source={require('./assets/notification-icon.png')} style={styles.notificationIcon} />
-        </TouchableOpacity>
-        <TouchableOpacity style={styles.settingsButton}>
-          <Image source={require('./assets/settings-icon.png')} style={styles.settingsIcon} />
-        </TouchableOpacity>
-      </View>
+      <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
+        <View style={styles.searchBarContainer}>
+          <Image source={require('../../assets/images/Icone/search-icon.png')} style={styles.searchIcon} />
+          <TextInput
+            style={styles.searchInput}
+            placeholder="Qual nome de pet você gostaria de bus..."
+            value={searchQuery}
+            onChangeText={setSearchQuery}
+          />
+          <TouchableOpacity style={styles.notificationButton}>
+            <Image
+              source={require('../../assets/images/Icone/notification-icon.png')}
+              style={styles.notificationIcon}
+            />
+          </TouchableOpacity>
+          <TouchableOpacity style={styles.settingsButton}>
+            <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Botões de filtro */}
-      <View style={styles.filterContainer}>
-        <TouchableOpacity style={styles.filterButton}>
-          <Text style={styles.filterButtonText}>Filtro Avançado</Text>
-          <Image source={require('./assets/arrow-right.png')} style={styles.arrowIcon} />
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.myPetsButton}>
-          <Text style={styles.myPetsButtonText}>Meus Pets</Text>
-          <Image source={require('./assets/arrow-right.png')} style={styles.arrowIcon} />
-        </TouchableOpacity>
-      </View>
+        {/* Botões de filtro */}
+        <View style={styles.filterContainer}>
+          <TouchableOpacity style={styles.filterButton}>
+            <Text style={styles.filterButtonText}>Filtro Avançado</Text>
+            <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.arrowIcon} />
+          </TouchableOpacity>
 
-      {/* Aqui seria inserida a lista de pets que foi omitida conforme solicitado */}
-      <View style={styles.petListContainer}>
-        {/* Lista de pets omitida */}
-      </View>
+          <TouchableOpacity style={styles.myPetsButton}>
+            <Text style={styles.myPetsButtonText}>Meus Pets</Text>
+            <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.arrowIcon} />
+          </TouchableOpacity>
+        </View>
 
-      {/* Barra de navegação inferior */}
-      <View style={styles.bottomNavigation}>
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require('./assets/adoption-icon.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>Adoção</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require('./assets/donation-icon.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>Doação</Text>
-        </TouchableOpacity>
-        
-        <TouchableOpacity style={styles.navItem}>
-          <Image source={require('./assets/profile-icon.png')} style={styles.navIcon} />
-          <Text style={styles.navText}>Perfil</Text>
-        </TouchableOpacity>
-      </View>
+        {/* Aqui seria inserida a lista de pets que foi omitida conforme solicitado */}
+        <View style={styles.petListContainer}>{/* Lista de pets omitida */}</View>
+
+        {/* Barra de navegação inferior */}
+        <View style={styles.bottomNavigation}>
+          <TouchableOpacity
+            style={styles.navItem}
+            onPress={() => router.push('/pages/PetDonation')} // substitua 'outraTela' pelo nome da sua tela
+          >
+            <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
+            <Text style={styles.navText}>Adoção</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navItem}>
+            <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
+            <Text style={styles.navText}>Doação</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.navItem}>
+            <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
+            <Text style={styles.navText}>Perfil</Text>
+          </TouchableOpacity>
+        </View>
+      </ImageBackground>
     </SafeAreaView>
   );
-};
+}
 
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4682B4', // Azul como mostrado na imagem
-    paddingHorizontal: 10,
+    backgroundColor: '#4682B4',
+  },
+  backgroundImage: {
+    flex: 1,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
   },
   searchBarContainer: {
     flexDirection: 'row',
@@ -75,7 +96,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#E8E8E8',
     borderRadius: 25,
     paddingHorizontal: 15,
-    marginVertical: 10,
+    marginHorizontal: 10,
+    marginTop: 10,
     height: 50,
   },
   searchIcon: {

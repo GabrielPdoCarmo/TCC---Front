@@ -11,7 +11,7 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Link } from 'expo-router';  // Importando Link do expo-router
+import { Link, router } from 'expo-router';  // Importando Link do expo-router
 import { login } from '../../services/api';
 
 export default function App() {
@@ -55,7 +55,18 @@ export default function App() {
     setLoading(true);
     try {
       const data = await login(email, senha);
-      Alert.alert('Sucesso', `Bem-vindo, ${data.usuario?.nome || 'usuário'}!`);
+      Alert.alert(
+        'Sucesso',
+        `Bem-vindo, ${data.usuario?.nome || 'usuário'}!`,
+        [
+          {
+            text: 'OK',
+            onPress: () => router.push('/pages/PetAdoptionScreen'), // ou o caminho da sua tela
+          },
+        ],
+        { cancelable: false }
+      );
+      
       // Navegar ou executar outra ação após o sucesso no login
     } catch (error: any) {
       Alert.alert('Erro', error.error || 'Falha ao fazer login');

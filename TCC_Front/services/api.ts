@@ -32,10 +32,57 @@ export const login = async (email: string, senha: string) => {
 };
 
 // Chamada para obter os pets
-export const getPets = async () => {
-  const response = await api.get('/pets');
-  return response.data;
+interface PetPayload {
+  nome: string;
+  especie_id: number;
+  raca_id: number;
+  idade: number;
+  faixa_etaria_id: number;
+  usuario_id: number;
+  sexo_id: number;
+  motivoDoacao: string;
+  status_id: number;
+  quantidade: number;
+  doencas: string[]; // nomes das doenças
+  foto?: File | null;
+}
+
+export const postPet = async (petData: PetPayload) => {
+  try {
+    const formData = new FormData();
+
+    formData.append('nome', petData.nome);
+    formData.append('especie_id', String(petData.especie_id));
+    formData.append('raca_id', String(petData.raca_id));
+    formData.append('idade', String(petData.idade));
+    formData.append('faixa_etaria_id', String(petData.faixa_etaria_id));
+    formData.append('usuario_id', String(petData.usuario_id));
+    formData.append('sexo_id', String(petData.sexo_id));
+    formData.append('motivoDoacao', petData.motivoDoacao);
+    formData.append('status_id', String(petData.status_id));
+    formData.append('quantidade', String(petData.quantidade));
+
+    petData.doencas.forEach((nome, index) => {
+      formData.append(`doencas[${index}]`, nome);
+    });
+
+    if (petData.foto) {
+      formData.append('foto', petData.foto);
+    }
+
+    const response = await api.post('/pets', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao cadastrar o pet', error);
+    return null;
+  }
 };
+
 // Chamada para obter os estados
 export const getEstados = async () => {
   try {
@@ -86,14 +133,55 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
 
 // Chamada para obter os usuários
 export const getUsuarios = async () => {
-  const response = await api.get('/usuarios');
-  return response.data;
+  try {
+    const response = await api.get('/usuarios'); // Rota correta para listar todos
+    return response.data.map((usuario: { id: number; nome: string; cidade_id: number }) => ({
+      id: usuario.id,
+      nome: usuario.nome,
+      cidade_id: usuario.cidade_id,
+    }));
+  } catch (error) {
+    console.error('Erro ao carregar os usuários', error);
+    return [];
+  }
+};
+
+export const getUsuarioById = async (id: number) => {
+  try {
+    const response = await api.get(`/usuarios/${id}`);
+    const { id: userId, nome, cidade_id } = response.data;
+    return { id: userId, nome, cidade_id };
+  } catch (error) {
+    console.error(`Erro ao buscar o usuário com ID ${id}`, error);
+    return null;
+  }
 };
 
 // Chamada para obter faixa etária
 export const getFaixaEtaria = async () => {
-  const response = await api.get('/faixa-etaria');
-  return response.data;
+  try {
+    const response = await api.get('/faixa-etaria');
+    return response.data.map(
+      (faixa: {
+        id: number;
+        nome: string;
+        idade_min: number;
+        idade_max: number;
+        unidade: string;
+        especie_id: number;
+      }) => ({
+        id: faixa.id,
+        nome: faixa.nome,
+        idade_min: faixa.idade_min,
+        idade_max: faixa.idade_max,
+        unidade: faixa.unidade,
+        especie_id: faixa.especie_id,
+      })
+    );
+  } catch (error) {
+    console.error('Erro ao carregar as faixas etárias', error);
+    return [];
+  }
 };
 
 // Chamada para obter status
@@ -104,21 +192,49 @@ export const getStatus = async () => {
 
 // Chamada para obter doenças e deficiências
 export const getDoencasDeficiencias = async () => {
-  const response = await api.get('/doencasdeficiencias');
-  return response.data;
+  try {
+    const response = await api.get('/doencas-deficiencias');
+    return response.data.map((item: { id: number; nome: string }) => ({
+      id: item.id,
+      nome: item.nome,
+    }));
+  } catch (error) {
+    console.error('Erro ao carregar doenças/deficiências', error);
+    return [];
+  }
 };
 
 // Chamada para obter espécies
 export const getEspecies = async () => {
-  const response = await api.get('/especies');
-  return response.data;
+  try {
+    const response = await api.get('/especies');
+    return response.data.map((especie: { id: number; nome: string }) => ({
+      id: especie.id,
+      nome: especie.nome,
+    }));
+  } catch (error) {
+    console.error('Erro ao carregar espécies', error);
+    return [];
+  }
 };
 
 // Chamada para obter raças
-export const getRacas = async () => {
-  const response = await api.get('/racas');
-  return response.data;
+export const getRacas = async (especieId: number) => {
+  try {
+    const response = await api.get(`/racas?especie_id=${especieId}`);
+    return response.data
+    .map((raca: { id: number; nome: string; especie_id: number }) => ({
+      id: raca.id,
+      nome: raca.nome,
+      especie_id: raca.especie_id,
+    }))
+    .sort((a: { nome: string }, b: { nome: string }) => a.nome.localeCompare(b.nome));    
+  } catch (error) {
+    console.error('Erro ao carregar raças', error);
+    return [];
+  }
 };
+
 
 // Chamada para obter favoritos
 export const getFavoritos = async () => {
