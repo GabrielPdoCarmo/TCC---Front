@@ -148,21 +148,46 @@ export const getUsuarios = async () => {
 
 export const getUsuarioById = async (id: number) => {
   try {
+    // Busca o usuário
     const response = await api.get(`/usuarios/${id}`);
     const { id: userId, nome, cidade_id } = response.data;
-    return { id: userId, nome, cidade_id };
+
+    // Busca a cidade para pegar o estado_id
+    const cidadeResponse = await api.get(`/cidades/${cidade_id}`);
+    const { nome: nomeCidade, estado_id } = cidadeResponse.data;
+
+    // Busca o estado pelo ID
+    const estadoResponse = await api.get(`/estados/${estado_id}`);
+    const { nome: nomeEstado } = estadoResponse.data;
+
+    return {
+      id: userId,
+      nome,
+      cidade: {
+        id: cidade_id,
+        nome: nomeCidade
+      },
+      estado: {
+        id: estado_id,
+        nome: nomeEstado
+      }
+    };
   } catch (error) {
     console.error(`Erro ao buscar o usuário com ID ${id}`, error);
     return null;
   }
 };
 
+
 // Chamada para obter faixa etária
 export const getFaixaEtaria = async () => {
   try {
     const response = await api.get('/faixa-etaria');
-    return response.data.map(
-      (faixa: {
+
+    const ordemDesejada = ['Filhote', 'Jovem', 'Adulto', 'Sênior', 'Idoso'];
+
+    return response.data
+      .map((faixa: {
         id: number;
         nome: string;
         idade_min: number;
@@ -176,13 +201,18 @@ export const getFaixaEtaria = async () => {
         idade_max: faixa.idade_max,
         unidade: faixa.unidade,
         especie_id: faixa.especie_id,
-      })
-    );
+      }))
+      .sort((a: { nome: string }, b: { nome: string }) =>
+        ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
+      );
+
   } catch (error) {
     console.error('Erro ao carregar as faixas etárias', error);
     return [];
   }
 };
+
+
 
 // Chamada para obter status
 export const getStatus = async () => {
@@ -217,23 +247,30 @@ export const getEspecies = async () => {
     return [];
   }
 };
+export type Raca = {
+  id: number;
+  nome: string;
+  especie_id: number;
+};
 
 // Chamada para obter raças
-export const getRacas = async (especieId: number) => {
+export const getRacasPorEspecie = async (especieId: number): Promise<Raca[]> => {
   try {
-    const response = await api.get(`/racas?especie_id=${especieId}`);
-    return response.data
-    .map((raca: { id: number; nome: string; especie_id: number }) => ({
+    const response = await api.get(`/racas/${especieId}`);
+    const racas: Raca[] = response.data.map((raca: any) => ({
       id: raca.id,
       nome: raca.nome,
       especie_id: raca.especie_id,
-    }))
-    .sort((a: { nome: string }, b: { nome: string }) => a.nome.localeCompare(b.nome));    
+    }));
+
+    return racas.sort((a: Raca, b: Raca) => a.nome.localeCompare(b.nome));
   } catch (error) {
-    console.error('Erro ao carregar raças', error);
+    console.error('Erro ao carregar raças por espécie', error);
     return [];
   }
 };
+
+
 
 
 // Chamada para obter favoritos
@@ -247,6 +284,22 @@ export const getSexoUsuario = async () => {
   try {
     console.log('Fazendo requisição para /sexoUsuario');
     const response = await api.get('/sexoUsuario');
+    console.log('Resposta recebida:', response.data);
+
+    return response.data.map((sexo: { id: number; descricao: string }) => ({
+      id: sexo.id,
+      descricao: sexo.descricao,
+    }));
+  } catch (error: any) {
+    console.error('Erro completo:', error);
+    return [];
+  }
+};
+
+export const getSexoPet = async () => {
+  try {
+    console.log('Fazendo requisição para /sexoPet');
+    const response = await api.get('/sexoPet');
     console.log('Resposta recebida:', response.data);
 
     return response.data.map((sexo: { id: number; descricao: string }) => ({
