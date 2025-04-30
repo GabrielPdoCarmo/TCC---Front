@@ -169,6 +169,31 @@ export const getEstados = async () => {
     return [];
   }
 };
+export const getCidades_Estado = async (id: number, estado_id: number) => {
+  try {
+    // Faz a requisição para obter as cidades de um estado com base no id e estado_id
+    const response = await api.get(`/${id}/${estado_id}`);
+
+    // Verifica se a resposta tem os dados esperados
+    if (!response.data || !Array.isArray(response.data)) {
+      console.error('Resposta da API de cidades em formato inválido');
+      return [];
+    }
+
+    // Retorna a lista de cidades ordenada pelo nome
+    return response.data
+      .map((cidade: { id: number; nome: string }) => {
+        return { nome: cidade.nome, id: cidade.id };
+      })
+      .sort((a: { id: number; nome: string }, b: { id: number; nome: string }) => {
+        return a.nome.localeCompare(b.nome); // Ordenação alfabética pela propriedade 'nome'
+      });
+  } catch (error) {
+    // Caso ocorra algum erro durante a requisição, trata o erro e retorna um array vazio
+    console.error('Erro ao carregar as cidades', error);
+    return [];
+  }
+};
 
 // Chamada para obter as cidades por estado
 // Chamada para obter as cidades por estado
@@ -218,22 +243,14 @@ export const getUsuarios = async () => {
 
 export const getUsuarioById = async (id: number) => {
   try {
-    // Busca o usuário
+    // 1. Buscar o usuário
     console.log(`Buscando usuário com ID: ${id}`);
     const response = await api.get(`/usuarios/${id}`);
-    console.log('Resposta da API de usuário:', response.data);
+    const usuario = response.data;
 
-    // Verificar se a resposta contém os dados esperados
-    if (!response.data || typeof response.data !== 'object') {
-      console.error('Resposta da API de usuário em formato inválido');
-      return null;
-    }
+    const { id: userId, nome, cidade_id } = usuario;
 
-    const { id: userId, nome, cidade_id } = response.data;
-
-    // Se não houver cidade_id, retornar apenas os dados básicos do usuário
     if (!cidade_id) {
-      console.log('Usuário não tem cidade_id associada');
       return {
         id: userId,
         nome,
@@ -242,70 +259,39 @@ export const getUsuarioById = async (id: number) => {
       };
     }
 
-    try {
-      // Busca a cidade para pegar o estado_id
-      console.log(`Buscando cidade com ID: ${cidade_id}`);
-      const cidadeResponse = await api.get(`/cidades/${cidade_id}`);
-      console.log('Resposta da API de cidade:', cidadeResponse.data);
+    // 2. Buscar cidade + estado pela rota /{cidade_id}/{estado_id}
+    const cidadeEstadoResponse = await api.get(`/${cidade_id}/estado`);
+    const { nome: nomeCidade, estado_id } = cidadeEstadoResponse.data;
 
-      // Verificar se a resposta contém os dados esperados
-      if (!cidadeResponse.data || typeof cidadeResponse.data !== 'object') {
-        throw new Error('Resposta da API de cidade em formato inválido');
-      }
-
-      const { nome: nomeCidade, estado_id } = cidadeResponse.data;
-
-      // Se não houver estado_id, retornar dados parciais
-      if (!estado_id) {
-        console.log('Cidade não tem estado_id associado');
-        return {
-          id: userId,
-          nome,
-          cidade: { id: cidade_id, nome: nomeCidade || 'Não identificada' },
-          estado: { id: null, nome: 'Não informado' },
-        };
-      }
-
-      try {
-        // Busca o estado pelo ID
-        console.log(`Buscando estado com ID: ${estado_id}`);
-        const estadoResponse = await api.get(`/estados/${estado_id}`);
-        console.log('Resposta da API de estado:', estadoResponse.data);
-
-        // Verificar se a resposta contém os dados esperados
-        if (!estadoResponse.data || typeof estadoResponse.data !== 'object') {
-          throw new Error('Resposta da API de estado em formato inválido');
-        }
-
-        const { nome: nomeEstado } = estadoResponse.data;
-
-        // Retornar todos os dados completos
-        return {
-          id: userId,
-          nome,
-          cidade: { id: cidade_id, nome: nomeCidade },
-          estado: { id: estado_id, nome: nomeEstado },
-        };
-      } catch (estadoError) {
-        console.error(`Erro ao buscar o estado com ID ${estado_id}:`, estadoError);
-        // Retornar dados parciais se houver erro na busca do estado
-        return {
-          id: userId,
-          nome,
-          cidade: { id: cidade_id, nome: nomeCidade },
-          estado: { id: estado_id, nome: 'Estado não disponível' },
-        };
-      }
-    } catch (cidadeError) {
-      console.error(`Erro ao buscar a cidade com ID ${cidade_id}:`, cidadeError);
-      // Retornar dados parciais se houver erro na busca da cidade
+    if (!estado_id) {
       return {
         id: userId,
         nome,
-        cidade: { id: cidade_id, nome: 'Cidade não disponível' },
-        estado: { id: null, nome: 'Não disponível' },
+        cidade: { id: cidade_id, nome: nomeCidade || 'Cidade não identificada' },
+        estado: { id: null, nome: 'Não informado' },
       };
     }
+
+    // 3. Buscar lista de cidades e estados
+    const cidades = await getCidades_Estado(cidade_id, estado_id);
+    const cidadeEncontrada = cidades.find((c) => c.id === cidade_id);
+
+    const estados = await getEstados();
+    const estadoEncontrado = estados.find((e: { id: number; nome: string }) => e.id === estado_id);
+
+    // 4. Retornar resultado final
+    return {
+      id: userId,
+      nome,
+      cidade: {
+        id: cidade_id,
+        nome: cidadeEncontrada?.nome || nomeCidade || 'Cidade não encontrada',
+      },
+      estado: {
+        id: estado_id,
+        nome: estadoEncontrado?.nome || 'Estado não encontrado',
+      },
+    };
   } catch (error) {
     console.error(`Erro ao buscar o usuário com ID ${id}:`, error);
     return null;
