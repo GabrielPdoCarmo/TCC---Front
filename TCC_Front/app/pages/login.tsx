@@ -11,7 +11,8 @@ import {
   Alert,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
-import { Link, router } from 'expo-router';  // Importando Link do expo-router
+import { Link, router } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Importação do AsyncStorage
 import { login } from '../../services/api';
 
 export default function App() {
@@ -20,8 +21,10 @@ export default function App() {
   const [mostrarSenha, setMostrarSenha] = useState(false);
   const [emailErro, setEmailErro] = useState('');
   const [senhaErro, setSenhaErro] = useState('');
-  const [loading, setLoading] = useState(false); // Estado de loading
-
+  const [loading, setLoading] = useState(false);
+  interface ApiError {
+    error: string;
+  }
   // Limpar erros conforme o campo é alterado
   useEffect(() => {
     if (email) setEmailErro('');
@@ -38,43 +41,67 @@ export default function App() {
     // Validações
     if (!email) {
       setEmailErro('O e-mail é obrigatório');
+      return;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       setEmailErro('E-mail inválido');
+      return;
     }
 
     if (!senha) {
       setSenhaErro('A senha é obrigatória');
+      return;
     } else if (senha.length < 8) {
       setSenhaErro('A senha deve ter pelo menos 8 caracteres');
+      return;
     }
-
-    // Se houver erros, não continua o login
-    if (emailErro || senhaErro || !email || !senha) return;
 
     // Iniciar o processo de login
     setLoading(true);
     try {
+      // Executa o login e aguarda a resposta
       const data = await login(email, senha);
+
+      // Importante: Dar um pequeno tempo para garantir que o AsyncStorage
+      // tenha concluído as operações assíncronas
+      await new Promise((resolve) => setTimeout(resolve, 500));
+
+      // Agora verificamos se os dados foram salvos
+      const userId = await AsyncStorage.getItem('@App:userId');
+      const userJson = await AsyncStorage.getItem('@App:user');
+
+      console.log('Dados salvos no AsyncStorage:', { userId, userJson });
+
+      if (!userId || !userJson) {
+        console.error('Falha ao recuperar dados do usuário do AsyncStorage');
+        throw { error: 'Falha ao finalizar login. Por favor, tente novamente.' };
+      }
+
+      // Login bem-sucedido, exibe mensagem de boas-vindas
       Alert.alert(
         'Sucesso',
         `Bem-vindo, ${data.usuario?.nome || 'usuário'}!`,
         [
           {
             text: 'OK',
-            onPress: () => router.push('/pages/PetAdoptionScreen'), // ou o caminho da sua tela
+            onPress: () => router.push('/pages/PetAdoptionScreen'),
           },
         ],
         { cancelable: false }
       );
-      
-      // Navegar ou executar outra ação após o sucesso no login
-    } catch (error: any) {
-      Alert.alert('Erro', error.error || 'Falha ao fazer login');
+      // Adicione esta interface no topo do arquivo, após as importações
+
+      // E então modifique o bloco catch para:
+    } catch (error: unknown) {
+      console.error('Erro completo:', error);
+
+      // Cast para o tipo ApiError se possível
+      const apiError = error as ApiError;
+
+      Alert.alert('Erro', apiError.error || 'Falha ao fazer login');
     } finally {
-      setLoading(false); // Finalizar o carregamento
+      setLoading(false);
     }
   };
-
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
       <SafeAreaView style={styles.container}>
@@ -88,6 +115,8 @@ export default function App() {
             placeholderTextColor="#666"
             value={email}
             onChangeText={setEmail}
+            keyboardType="email-address"
+            autoCapitalize="none"
           />
           {emailErro ? <Text style={styles.errorTextEmail}>{emailErro}</Text> : null}
           {/* Campo de Senha */}
@@ -105,18 +134,9 @@ export default function App() {
             </TouchableOpacity>
           </View>
           <Text style={styles.errorTextSenha}>{senhaErro}</Text>
-          <Text
-            style={[
-              styles.forgotPassword,
-              (emailErro || senhaErro) && { marginTop: 0 },
-            ]}
-          >
-            Esqueceu sua senha?
-          </Text>
+          <Text style={[styles.forgotPassword, (emailErro || senhaErro) && { marginTop: 0 }]}>Esqueceu sua senha?</Text>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.loginButtonText}>
-              {loading ? 'Carregando...' : 'Entrar'}
-            </Text>
+            <Text style={styles.loginButtonText}>{loading ? 'Carregando...' : 'Entrar'}</Text>
           </TouchableOpacity>
           <View style={styles.registerContainer}>
             <Text style={styles.noAccountText}>Não possui cadastro?</Text>
@@ -249,4 +269,3 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
 });
-

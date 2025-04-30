@@ -4,7 +4,7 @@ const api = axios.create({
   baseURL: 'http://192.168.110.225:3000/api', // Remova o espaço extra
   timeout: 10000,
 });
-
+import AsyncStorage from '@react-native-async-storage/async-storage';
 // //android Studio emulator
 // const api = axios.create({
 //   baseURL: 'http://10.0.2.2:3000/api',
@@ -22,15 +22,85 @@ api.interceptors.response.use(
 );
 
 // Exemplo de chamada de login
-export const login = async (email: string, senha: string) => {
+// Função de login modificada para retornar o ID do usuário
+// Função de login compatível com a resposta do backend
+// Definindo interfaces para tipagem adequada
+interface Usuario {
+  id: number;
+  nome: string;
+  email: string;
+}
+
+interface LoginResponse {
+  message: string;
+  token: string;
+  usuario: Usuario;
+}
+
+interface ApiErrorResponse {
+  message?: string;
+  [key: string]: any;
+}
+
+// Estrutura de erro personalizada que lançamos
+interface CustomError {
+  error: string;
+}
+
+export const login = async (email: string, senha: string): Promise<LoginResponse> => {
   try {
     const response = await api.post('/auth/login', { email, senha });
-    return response.data;
-  } catch (error: any) {
-    throw error || { error: 'Erro ao fazer login' };
+    const responseData = response.data as LoginResponse;
+    console.log('Resposta do login:', responseData);
+
+    // Verifica se temos os dados necessários
+    if (!responseData || !responseData.token || !responseData.usuario) {
+      throw new Error('Resposta de login inválida');
+    }
+
+    // Armazenar o token no AsyncStorage
+    await AsyncStorage.setItem('@App:token', responseData.token);
+
+    // Armazenar os dados do usuário no AsyncStorage
+    await AsyncStorage.setItem('@App:user', JSON.stringify(responseData.usuario));
+
+    // Armazenar o ID do usuário separadamente
+    if (responseData.usuario.id) {
+      await AsyncStorage.setItem('@App:userId', responseData.usuario.id.toString());
+
+      // Verificação de confirmação após salvar
+      const savedId = await AsyncStorage.getItem('@App:userId');
+      console.log('ID do usuário confirmado salvo:', savedId);
+    }
+
+    // Retornar o objeto conforme recebido
+    return responseData;
+  } catch (error: unknown) {
+    console.error('Erro de login:', error);
+
+    // Verifica se é um erro com resposta do servidor
+    if (
+      error &&
+      typeof error === 'object' &&
+      'response' in error &&
+      error.response &&
+      typeof error.response === 'object' &&
+      'data' in error.response
+    ) {
+      const errorResponse = error.response.data as ApiErrorResponse;
+      const errorMessage = errorResponse.message || 'Erro ao fazer login';
+      throw { error: errorMessage } as CustomError;
+    }
+
+    // Se for um Error padrão
+    if (error instanceof Error) {
+      throw { error: error.message } as CustomError;
+    }
+
+    // Erro genérico ou de rede
+    throw { error: 'Erro ao fazer login. Verifique sua conexão.' } as CustomError;
   }
 };
-
 // Chamada para obter os pets
 interface PetPayload {
   nome: string;
@@ -149,35 +219,98 @@ export const getUsuarios = async () => {
 export const getUsuarioById = async (id: number) => {
   try {
     // Busca o usuário
+    console.log(`Buscando usuário com ID: ${id}`);
     const response = await api.get(`/usuarios/${id}`);
+    console.log('Resposta da API de usuário:', response.data);
+
+    // Verificar se a resposta contém os dados esperados
+    if (!response.data || typeof response.data !== 'object') {
+      console.error('Resposta da API de usuário em formato inválido');
+      return null;
+    }
+
     const { id: userId, nome, cidade_id } = response.data;
 
-    // Busca a cidade para pegar o estado_id
-    const cidadeResponse = await api.get(`/cidades/${cidade_id}`);
-    const { nome: nomeCidade, estado_id } = cidadeResponse.data;
+    // Se não houver cidade_id, retornar apenas os dados básicos do usuário
+    if (!cidade_id) {
+      console.log('Usuário não tem cidade_id associada');
+      return {
+        id: userId,
+        nome,
+        cidade: { id: null, nome: 'Não informada' },
+        estado: { id: null, nome: 'Não informado' },
+      };
+    }
 
-    // Busca o estado pelo ID
-    const estadoResponse = await api.get(`/estados/${estado_id}`);
-    const { nome: nomeEstado } = estadoResponse.data;
+    try {
+      // Busca a cidade para pegar o estado_id
+      console.log(`Buscando cidade com ID: ${cidade_id}`);
+      const cidadeResponse = await api.get(`/cidades/${cidade_id}`);
+      console.log('Resposta da API de cidade:', cidadeResponse.data);
 
-    return {
-      id: userId,
-      nome,
-      cidade: {
-        id: cidade_id,
-        nome: nomeCidade
-      },
-      estado: {
-        id: estado_id,
-        nome: nomeEstado
+      // Verificar se a resposta contém os dados esperados
+      if (!cidadeResponse.data || typeof cidadeResponse.data !== 'object') {
+        throw new Error('Resposta da API de cidade em formato inválido');
       }
-    };
+
+      const { nome: nomeCidade, estado_id } = cidadeResponse.data;
+
+      // Se não houver estado_id, retornar dados parciais
+      if (!estado_id) {
+        console.log('Cidade não tem estado_id associado');
+        return {
+          id: userId,
+          nome,
+          cidade: { id: cidade_id, nome: nomeCidade || 'Não identificada' },
+          estado: { id: null, nome: 'Não informado' },
+        };
+      }
+
+      try {
+        // Busca o estado pelo ID
+        console.log(`Buscando estado com ID: ${estado_id}`);
+        const estadoResponse = await api.get(`/estados/${estado_id}`);
+        console.log('Resposta da API de estado:', estadoResponse.data);
+
+        // Verificar se a resposta contém os dados esperados
+        if (!estadoResponse.data || typeof estadoResponse.data !== 'object') {
+          throw new Error('Resposta da API de estado em formato inválido');
+        }
+
+        const { nome: nomeEstado } = estadoResponse.data;
+
+        // Retornar todos os dados completos
+        return {
+          id: userId,
+          nome,
+          cidade: { id: cidade_id, nome: nomeCidade },
+          estado: { id: estado_id, nome: nomeEstado },
+        };
+      } catch (estadoError) {
+        console.error(`Erro ao buscar o estado com ID ${estado_id}:`, estadoError);
+        // Retornar dados parciais se houver erro na busca do estado
+        return {
+          id: userId,
+          nome,
+          cidade: { id: cidade_id, nome: nomeCidade },
+          estado: { id: estado_id, nome: 'Estado não disponível' },
+        };
+      }
+    } catch (cidadeError) {
+      console.error(`Erro ao buscar a cidade com ID ${cidade_id}:`, cidadeError);
+      // Retornar dados parciais se houver erro na busca da cidade
+      return {
+        id: userId,
+        nome,
+        cidade: { id: cidade_id, nome: 'Cidade não disponível' },
+        estado: { id: null, nome: 'Não disponível' },
+      };
+    }
   } catch (error) {
-    console.error(`Erro ao buscar o usuário com ID ${id}`, error);
+    console.error(`Erro ao buscar o usuário com ID ${id}:`, error);
     return null;
   }
 };
-
 
 // Chamada para obter faixa etária
 export const getFaixaEtaria = async () => {
@@ -187,32 +320,31 @@ export const getFaixaEtaria = async () => {
     const ordemDesejada = ['Filhote', 'Jovem', 'Adulto', 'Sênior', 'Idoso'];
 
     return response.data
-      .map((faixa: {
-        id: number;
-        nome: string;
-        idade_min: number;
-        idade_max: number;
-        unidade: string;
-        especie_id: number;
-      }) => ({
-        id: faixa.id,
-        nome: faixa.nome,
-        idade_min: faixa.idade_min,
-        idade_max: faixa.idade_max,
-        unidade: faixa.unidade,
-        especie_id: faixa.especie_id,
-      }))
-      .sort((a: { nome: string }, b: { nome: string }) =>
-        ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
+      .map(
+        (faixa: {
+          id: number;
+          nome: string;
+          idade_min: number;
+          idade_max: number;
+          unidade: string;
+          especie_id: number;
+        }) => ({
+          id: faixa.id,
+          nome: faixa.nome,
+          idade_min: faixa.idade_min,
+          idade_max: faixa.idade_max,
+          unidade: faixa.unidade,
+          especie_id: faixa.especie_id,
+        })
+      )
+      .sort(
+        (a: { nome: string }, b: { nome: string }) => ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
       );
-
   } catch (error) {
     console.error('Erro ao carregar as faixas etárias', error);
     return [];
   }
 };
-
-
 
 // Chamada para obter status
 export const getStatus = async () => {
@@ -254,8 +386,17 @@ export type Raca = {
 };
 
 // Chamada para obter raças
-export const getRacasPorEspecie = async (especieId: number): Promise<Raca[]> => {
+export const getRacasPorEspecie = async (especie_Id: number): Promise<Raca[]> => {
   try {
+    const especiesResponse = await api.get('/especies');
+    const especie = especiesResponse.data.find((e: { nome: string; id: number }) => e.id === especie_Id);
+
+    if (!especie) {
+      console.error('Espécie não encontrada:', especie_Id);
+      return [];
+    }
+
+    const especieId = especie.id;
     const response = await api.get(`/racas/${especieId}`);
     const racas: Raca[] = response.data.map((raca: any) => ({
       id: raca.id,
@@ -263,15 +404,12 @@ export const getRacasPorEspecie = async (especieId: number): Promise<Raca[]> => 
       especie_id: raca.especie_id,
     }));
 
-    return racas.sort((a: Raca, b: Raca) => a.nome.localeCompare(b.nome));
+    return racas.sort((a: Raca, b: Raca) => a.nome.localeCompare(b.nome)); // ✅ retorno garantido
   } catch (error) {
     console.error('Erro ao carregar raças por espécie', error);
-    return [];
+    return []; // ✅ retorno no catch
   }
 };
-
-
-
 
 // Chamada para obter favoritos
 export const getFavoritos = async () => {

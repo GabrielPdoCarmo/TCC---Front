@@ -22,6 +22,7 @@ import {
   getSexoPet,
 } from '../../services/api';
 import RacasSelectionModal from './RacasSelectionModal'; // Importando o novo componente
+import AsyncStorage from '@react-native-async-storage/async-storage'; // Importando AsyncStorage
 
 // Tipos
 interface PetDonationModalProps {
@@ -59,6 +60,20 @@ interface RacasResponse {
   [key: string]: any; // For other possible structures
 }
 
+// Interface para dados do usuário
+interface UserData {
+  id: number;
+  nome: string;
+  cidade: {
+    id: number;
+    nome: string;
+  };
+  estado: {
+    id: number;
+    nome: string;
+  };
+}
+
 const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, onSubmit }) => {
   const router = useRouter();
 
@@ -70,6 +85,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
   const [racas, setRacas] = useState<any[]>([]); // Estado para todas as raças
   const [racasFiltradas, setRacasFiltradas] = useState<any[]>([]); // Estado para raças filtradas
   const [showRacasModal, setShowRacasModal] = useState<boolean>(false); // Estado para controlar a visibilidade do modal de raças
+
+  // Estado para armazenar dados do usuário logado
+  const [userData, setUserData] = useState<UserData | null>(null);
+  const [isLoading, setIsLoading] = useState<boolean>(true);
 
   // Estados para erros de validação
   const [especieErro, setEspecieErro] = useState<string>('');
@@ -96,10 +115,57 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     foto: null,
   });
 
+  // Função para buscar dados do usuário logado
+  const fetchUserData = async () => {
+    try {
+      // Usar a mesma chave '@App:userId' que foi usada para armazenar
+      const userId = await AsyncStorage.getItem('@App:userId');
+
+      
+      if (!userId) {
+        console.error('ID do usuário não encontrado no AsyncStorage');
+        Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
+        return;
+      }
+      
+      const userIdNumber = parseInt(userId, 10);
+      
+      // Resto do código permanece igual...
+      const userData = await getUsuarioById(userIdNumber);
+      
+      if (!userData) {
+        console.error('Dados do usuário não encontrados');
+        Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
+        return;
+      }
+      
+      console.log('Dados do usuário carregados:', userData);
+      
+      setUserData(userData);
+      
+      setFormData(prevState => ({
+        ...prevState,
+        responsavel: userData.nome,
+        cidade: userData.cidade.nome,
+        estado: userData.estado.nome,
+      }));
+    } catch (error) {
+      console.error('Erro ao buscar dados do usuário:', error);
+      Alert.alert('Erro', 'Falha ao carregar dados do usuário. Por favor, tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
   // Buscar dados das APIs quando o componente é montado
   useEffect(() => {
     const fetchData = async () => {
       try {
+        setIsLoading(true);
+        
+        // Buscar dados do usuário
+        await fetchUserData();
+        
         // Buscar espécies
         const especiesData = await getEspecies();
         console.log('especiesData:', especiesData);
@@ -167,6 +233,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       } catch (error) {
         console.error('Erro ao carregar dados iniciais:', error);
         Alert.alert('Erro', 'Falha ao carregar dados. Por favor, tente novamente.');
+      } finally {
+        setIsLoading(false);
       }
     };
 
@@ -178,7 +246,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     console.log('Espécies carregadas:', especies);
     console.log('Faixas etárias carregadas:', faixasEtarias);
     console.log('Opções de sexo carregadas:', sexoOpcoes);
-  }, [especies, faixasEtarias, sexoOpcoes]);
+    console.log('Dados do usuário carregados:', userData);
+  }, [especies, faixasEtarias, sexoOpcoes, userData]);
 
   // Função para carregar raças baseadas na espécie selecionada
   const loadRacasByEspecie = async (especieId: number) => {
@@ -232,6 +301,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
 
   // Função para atualizar o estado do formulário
   const handleChange = (name: keyof FormData, value: string | any) => {
+    // Impedir alterações nos campos do usuário (responsável, cidade, estado)
+    if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
+      return; // Não permitir alterações nesses campos
+    }
+    
     // Caso especial para o campo de idade
     if (name === 'idade') {
       // Verifica se o valor digitado é apenas numérico
@@ -360,7 +434,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     // Envia os dados do formulário para a função onSubmit passada como prop
     onSubmit(formData);
 
-    // Reseta o formulário
+    // Reseta o formulário, mantendo os dados do usuário
     setFormData({
       especie: '',
       nome: '',
@@ -368,9 +442,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       raca: '',
       idadeCategoria: '',
       idade: '',
-      responsavel: '',
-      estado: '',
-      cidade: '',
+      responsavel: userData?.nome || '',
+      estado: userData?.estado.nome || '',
+      cidade: userData?.cidade.nome || '',
       sexo: '',
       possuiDoenca: '',
       doencaDescricao: '',
@@ -446,6 +520,17 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       return `${idadeMin} - ${idadeMax} ${formData.idadeCategoria.unidade || 'anos'}`;
     }
   };
+
+  // Exibir loading enquanto os dados são carregados
+  if (isLoading) {
+    return (
+      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+        <View style={styles.loadingContainer}>
+          <Text style={styles.loadingText}>Carregando dados...</Text>
+        </View>
+      </Modal>
+    );
+  }
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
@@ -605,47 +690,47 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               ) : null}
             </View>
 
-            {/* Responsável */}
+            {/* Responsável (Não editável) */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Responsável <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
-                placeholder="Responsável - (Nome do Usuário)"
+                style={[styles.input, styles.readonlyInput]}
+                placeholder="Responsável"
                 value={formData.responsavel}
-                onChangeText={(value) => handleChange('responsavel', value)}
+                editable={false} // Torna o campo não editável
               />
+              <Text style={styles.infoText}>Campo preenchido automaticamente com seu nome</Text>
             </View>
 
-            {/* Estado */}
+            {/* Estado (Não editável) */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Estado <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => Alert.alert('Estados', 'Lista de estados será implementada aqui.')}
-              >
-                <Text style={styles.dropdownText}>{formData.estado || 'Estado - (Estado do Usuário)'}</Text>
-                <Text style={styles.dropdownIcon}>▼</Text>
-              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, styles.readonlyInput]}
+                placeholder="Estado"
+                value={formData.estado}
+                editable={false} // Torna o campo não editável
+              />
+              <Text style={styles.infoText}>Campo preenchido automaticamente com seu estado</Text>
             </View>
 
-            {/* Cidade */}
+            {/* Cidade (Não editável) */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Cidade <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity
-                style={styles.dropdown}
-                onPress={() => Alert.alert('Cidades', 'Lista de cidades será implementada aqui.')}
-              >
-                <Text style={styles.dropdownText}>{formData.cidade || 'Cidade - (Cidade do Usuário)'}</Text>
-                <Text style={styles.dropdownIcon}>▼</Text>
-              </TouchableOpacity>
+              <TextInput
+                style={[styles.input, styles.readonlyInput]}
+                placeholder="Cidade"
+                value={formData.cidade}
+                editable={false} // Torna o campo não editável
+              />
+              <Text style={styles.infoText}>Campo preenchido automaticamente com sua cidade</Text>
             </View>
-
             {/* Sexo */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
@@ -1012,6 +1097,25 @@ const styles = StyleSheet.create({
   placeholderText: {
     color: '#999',
     fontSize: 16,
+  },
+  loadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  
+  // Add this for the loading text
+  loadingText: {
+    fontSize: 16,
+    marginTop: 10,
+    color: '#333',
+  },
+  
+  // Add this for readonly inputs
+  readonlyInput: {
+    backgroundColor: '#f0f0f0',
+    color: '#666',
+    opacity: 0.8,
   },
 });
 

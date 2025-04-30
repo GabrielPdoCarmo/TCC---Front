@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View,
   Text,
@@ -7,6 +7,7 @@ import {
   Modal,
   FlatList,
   Image,
+  TextInput,
 } from 'react-native';
 
 interface RacasSelectionModalProps {
@@ -24,25 +25,35 @@ const RacasSelectionModal: React.FC<RacasSelectionModalProps> = ({
   racasFiltradas,
   hasEspecie,
 }) => {
+  const [searchText, setSearchText] = useState('');
+  
   // Função para verificar se o objeto tem a propriedade descricao
   const getDescricao = (obj: any) => {
     if (!obj) return '';
-
+    
     // Tenta diferentes propriedades comuns para descrição
     if (obj.descricao) return obj.descricao;
     if (obj.description) return obj.description;
     if (obj.nome) return obj.nome;
     if (obj.name) return obj.name;
-
+    
     // Se nenhuma propriedade esperada for encontrada, retorna uma representação do objeto
     return JSON.stringify(obj);
   };
 
+  // Filtra as raças com base no texto de pesquisa
+  const filteredRacas = searchText.trim() === '' 
+    ? racasFiltradas 
+    : racasFiltradas.filter(raca => {
+        const descricao = getDescricao(raca).toLowerCase();
+        return descricao.includes(searchText.toLowerCase());
+      });
+  
   return (
     <Modal
       visible={visible}
-      animationType="slide"
-      transparent={true}
+      transparent
+      animationType="fade"
       onRequestClose={onClose}
     >
       <View style={styles.racasModalContainer}>
@@ -50,30 +61,52 @@ const RacasSelectionModal: React.FC<RacasSelectionModalProps> = ({
           <View style={styles.racasModalHeader}>
             <Text style={styles.racasModalTitle}>Selecionar Raça</Text>
             <TouchableOpacity onPress={onClose}>
-              <Image source={require('../../assets/images/Icone/close-icon.png')} style={styles.closeIcon} />
+              <Image
+                source={require('../../assets/images/Icone/close-icon.png')}
+                style={styles.closeIcon}
+              />
             </TouchableOpacity>
           </View>
 
+          {/* Campo de pesquisa */}
+          <View style={styles.searchContainer}>
+            <TextInput
+              style={styles.searchInput}
+              placeholder="Pesquisar raças..."
+              value={searchText}
+              onChangeText={setSearchText}
+              autoCorrect={false}
+              clearButtonMode="while-editing"
+            />
+          </View>
+          
           {!hasEspecie ? (
-            <Text style={styles.infoText}>Selecione uma espécie primeiro</Text>
+            <Text style={styles.infoText}>
+              Selecione uma espécie primeiro
+            </Text>
           ) : racasFiltradas.length === 0 ? (
-            <Text style={styles.infoText}>Carregando raças...</Text>
+            <Text style={styles.infoText}>
+              Carregando raças...
+            </Text>
           ) : (
             <FlatList
-              data={racasFiltradas}
+              data={filteredRacas}
               keyExtractor={(item, index) => index.toString()}
               renderItem={({ item }) => (
-                <TouchableOpacity style={styles.racaItem} onPress={() => onSelectRaca(item)}>
+                <TouchableOpacity
+                  style={styles.racaItem}
+                  onPress={() => onSelectRaca(item)}>
                   <Text style={styles.racaItemText}>{getDescricao(item)}</Text>
                 </TouchableOpacity>
               )}
               style={styles.racasList}
+              ListEmptyComponent={
+                <Text style={styles.infoText}>
+                  Nenhuma raça encontrada para a pesquisa.
+                </Text>
+              }
             />
           )}
-
-          <TouchableOpacity style={styles.racasModalCloseButton} onPress={onClose}>
-            <Text style={styles.racasModalCloseButtonText}>Cancelar</Text>
-          </TouchableOpacity>
         </View>
       </View>
     </Modal>
@@ -136,6 +169,15 @@ const styles = StyleSheet.create({
     marginBottom: 10,
     textAlign: 'center',
     padding: 20,
+  },
+  searchContainer: {
+    marginBottom: 10,
+  },
+  searchInput: {
+    backgroundColor: '#f0f0f0',
+    borderRadius: 5,
+    padding: 10,
+    fontSize: 16,
   },
 });
 
