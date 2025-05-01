@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: 'http://192.168.110.225:3000/api', // Remova o espaço extra
+  baseURL: 'http://192.168.1.12:3000/api', // Remova o espaço extra
   timeout: 10000,
 });
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -172,7 +172,7 @@ export const getEstados = async () => {
 export const getCidades_Estado = async (id: number, estado_id: number) => {
   try {
     // Faz a requisição para obter as cidades de um estado com base no id e estado_id
-    const response = await api.get(`/${id}/${estado_id}`);
+    const response = await api.get(`/cidades/${id}/${estado_id}`);
 
     // Verifica se a resposta tem os dados esperados
     if (!response.data || !Array.isArray(response.data)) {
@@ -248,34 +248,29 @@ export const getUsuarioById = async (id: number) => {
     const response = await api.get(`/usuarios/${id}`);
     const usuario = response.data;
 
-    const { id: userId, nome, cidade_id } = usuario;
+    const { id: userId, nome, cidade_id, estado_id } = usuario;
 
-    if (!cidade_id) {
+    if (!cidade_id || !estado_id) {
       return {
         id: userId,
         nome,
-        cidade: { id: null, nome: 'Não informada' },
-        estado: { id: null, nome: 'Não informado' },
+        cidade: { id: cidade_id || null, nome: cidade_id ? 'Cidade não identificada' : 'Não informada' },
+        estado: { id: estado_id || null, nome: estado_id ? 'Estado não identificado' : 'Não informado' },
       };
     }
 
-    // 2. Buscar cidade + estado pela rota /{cidade_id}/{estado_id}
-    const cidadeEstadoResponse = await api.get(`/${cidade_id}/estado`);
-    const { nome: nomeCidade, estado_id } = cidadeEstadoResponse.data;
-
-    if (!estado_id) {
-      return {
-        id: userId,
-        nome,
-        cidade: { id: cidade_id, nome: nomeCidade || 'Cidade não identificada' },
-        estado: { id: null, nome: 'Não informado' },
-      };
+    // 2. Buscar informações da cidade utilizando a rota getCidades_Estado
+    const cidadeResponse = await api.get(`/cidades/${cidade_id}/${estado_id}`);
+    let nomeCidade = '';
+    
+    if (cidadeResponse.data && Array.isArray(cidadeResponse.data)) {
+      const cidadeInfo = cidadeResponse.data.find((c: { id: number; nome: string }) => c.id === cidade_id);
+      if (cidadeInfo) {
+        nomeCidade = cidadeInfo.nome;
+      }
     }
 
-    // 3. Buscar lista de cidades e estados
-    const cidades = await getCidades_Estado(cidade_id, estado_id);
-    const cidadeEncontrada = cidades.find((c) => c.id === cidade_id);
-
+    // 3. Buscar lista de estados
     const estados = await getEstados();
     const estadoEncontrado = estados.find((e: { id: number; nome: string }) => e.id === estado_id);
 
@@ -285,7 +280,7 @@ export const getUsuarioById = async (id: number) => {
       nome,
       cidade: {
         id: cidade_id,
-        nome: cidadeEncontrada?.nome || nomeCidade || 'Cidade não encontrada',
+        nome: nomeCidade || 'Cidade não encontrada',
       },
       estado: {
         id: estado_id,
@@ -467,6 +462,7 @@ interface UsuarioData {
   senha: string;
   cpf: string;
   cidade_id?: number; // cidade_id opcional porque pode ser preenchido pelo cep
+  estado_id?: number; //
   cep?: string; // cep opcional
 }
 

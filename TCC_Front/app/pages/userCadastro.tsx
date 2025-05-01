@@ -373,6 +373,7 @@ export default function CadastroUsuario() {
         senha,
         cpf: stripNonNumeric(cpf),
         cidade_id: cidade.id,
+        estado_id: estado?.id,
         cep: stripNonNumeric(cep),
       });
 
@@ -388,6 +389,7 @@ export default function CadastroUsuario() {
         cpf: stripNonNumeric(cpf),
         telefone: stripNonNumeric(telefone),
         cidade_id: cidade.id,
+        estado_id: estado?.id,
         sexo_id: sexo.id,
         email,
         senha,
