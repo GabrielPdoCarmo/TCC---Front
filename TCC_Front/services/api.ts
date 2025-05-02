@@ -1,7 +1,11 @@
 import axios from 'axios';
 //Android
+import Constants from 'expo-constants';
+
+const IP = Constants.expoConfig?.extra?.API_IP;
+
 const api = axios.create({
-  baseURL: 'http://192.168.1.12:3000/api', // Remova o espaço extra
+  baseURL: `http://${IP}:3000/api`,
   timeout: 10000,
 });
 import AsyncStorage from '@react-native-async-storage/async-storage';
