@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://192.168.110.225:3000/api`,
+  baseURL: `http://10.10.15.90:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);
@@ -238,6 +238,16 @@ export const getUsuarios = async () => {
     }));
   } catch (error) {
     console.error('Erro ao carregar os usuários', error);
+    return [];
+  }
+};
+
+export const getPetsByUsuarioId = async (usuario_id: number) => {
+  try {
+    const response = await api.get(`/pets/${usuario_id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao carregar os pets do usuário', error);
     return [];
   }
 };
