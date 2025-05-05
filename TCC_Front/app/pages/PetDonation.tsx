@@ -64,7 +64,7 @@ function PetDonationScreen() {
 
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
             <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Doação</Text>
+            <Text style={styles.navText}>Pets</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem}>

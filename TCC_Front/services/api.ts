@@ -1,13 +1,10 @@
 import axios from 'axios';
 //Android
-import Constants from 'expo-constants';
-
-const IP = Constants.expoConfig?.extra?.API_IP;
-
 const api = axios.create({
-  baseURL: `http://${IP}:3000/api`,
+  baseURL: `http://192.168.110.225:3000/api`,
   timeout: 10000,
 });
+console.log('Base URL:', api.defaults.baseURL);
 import AsyncStorage from '@react-native-async-storage/async-storage';
 // //android Studio emulator
 // const api = axios.create({

@@ -23,21 +23,47 @@ import {
 } from '../../services/api';
 import RacasSelectionModal from './RacasSelectionModal'; // Importando o novo componente
 import AsyncStorage from '@react-native-async-storage/async-storage'; // Importando AsyncStorage
+import * as ImagePicker from 'expo-image-picker';
 
-// Tipos
+// Interfaces
 interface PetDonationModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (formData: FormData) => void;
 }
 
-interface FormData {
-  especie: any;
+// Interface para dados de API
+interface Raca {
+  id: string | number;
   nome: string;
-  quantidade: string;
+  // Add any other properties that exist in your race object
+}
+
+// Interface para o payload enviado à API
+interface PetPayload {
+  nome: string;
+  especie_id: number;
+  raca_id: number;
+  estado_id: number;
+  cidade_id: number;
+  idade: number;
+  faixa_etaria_id: number;
+  usuario_id: number;
+  sexo_id: number;
+  motivoDoacao: string;
+  status_id: number;
+  quantidade: number;
+  doencas: string[];
+  foto: any;
+}
+
+// Interface para o formulário que corresponde à estrutura real usada
+interface FormData {
+  nome: string;
+  especie: any; // Objeto espécie completo da API
   raca: string;
-  idadeCategoria: any;
   idade: string;
+  idadeCategoria: any; // Objeto faixa etária completo da API
   responsavel: string;
   estado: string;
   cidade: string;
@@ -45,12 +71,8 @@ interface FormData {
   possuiDoenca: string;
   doencaDescricao: string;
   motivoDoacao: string;
-  foto: string | null;
-}
-interface Raca {
-  id: string | number;
-  nome: string;
-  // Add any other properties that exist in your race object
+  quantidade: string;
+  foto: any;
 }
 
 // Define possible response formats from your API
@@ -97,14 +119,13 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
   const [idadeErro, setIdadeErro] = useState<string>(''); // Estado para erro de idade
   const [racaErro, setRacaErro] = useState<string>(''); // Estado para erro de raça
 
-  // Estado inicial do formulário
+  // Estado inicial do formulário - corrigido
   const [formData, setFormData] = useState<FormData>({
-    especie: '',
     nome: '',
-    quantidade: '',
+    especie: '', // Corrigido: valor inicial vazio em vez de vírgula pendente
     raca: '',
-    idadeCategoria: '',
     idade: '',
+    idadeCategoria: '',
     responsavel: '',
     estado: '',
     cidade: '',
@@ -112,6 +133,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     possuiDoenca: '',
     doencaDescricao: '',
     motivoDoacao: '',
+    quantidade: '',
     foto: null,
   });
 
@@ -121,29 +143,28 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       // Usar a mesma chave '@App:userId' que foi usada para armazenar
       const userId = await AsyncStorage.getItem('@App:userId');
 
-      
       if (!userId) {
         console.error('ID do usuário não encontrado no AsyncStorage');
         Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
         return;
       }
-      
+
       const userIdNumber = parseInt(userId, 10);
-      
+
       // Resto do código permanece igual...
       const userData = await getUsuarioById(userIdNumber);
-      
+
       if (!userData) {
         console.error('Dados do usuário não encontrados');
         Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
         return;
       }
-      
+
       console.log('Dados do usuário carregados:', userData);
-      
+
       setUserData(userData);
-      
-      setFormData(prevState => ({
+
+      setFormData((prevState) => ({
         ...prevState,
         responsavel: userData.nome,
         cidade: userData.cidade.nome,
@@ -162,10 +183,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     const fetchData = async () => {
       try {
         setIsLoading(true);
-        
+
         // Buscar dados do usuário
         await fetchUserData();
-        
+
         // Buscar espécies
         const especiesData = await getEspecies();
         console.log('especiesData:', especiesData);
@@ -305,7 +326,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
       return; // Não permitir alterações nesses campos
     }
-    
+
     // Caso especial para o campo de idade
     if (name === 'idade') {
       // Verifica se o valor digitado é apenas numérico
@@ -382,8 +403,29 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     return JSON.stringify(obj);
   };
 
+  const getSelectedRacaId = () => {
+    // Se a raça não foi selecionada, retorna null
+    if (!formData.raca) return null;
+
+    // Procura a raça que corresponde ao nome selecionado
+    const racaEncontrada = racasFiltradas.find((raca) => getDescricao(raca) === formData.raca);
+
+    return racaEncontrada ? racaEncontrada.id : null;
+  };
+
+  // Função para obter o ID do sexo baseado na descrição
+  const getSexoIdFromDescription = (sexoDescricao: string) => {
+    // Se o sexo não foi selecionado, retorna null
+    if (!sexoDescricao) return null;
+
+    // Procura o sexo que corresponde à descrição selecionada
+    const sexoEncontrado = sexoOpcoes.find((sexo) => getDescricao(sexo) === sexoDescricao);
+
+    return sexoEncontrado ? sexoEncontrado.id : null;
+  };
+
   // Função para lidar com o envio do formulário
-  const handleSubmit = () => {
+  const handleSubmit = async () => {
     // Validação dos campos obrigatórios
     let isValid = true;
 
@@ -431,33 +473,84 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       return;
     }
 
-    // Envia os dados do formulário para a função onSubmit passada como prop
-    onSubmit(formData);
+    try {
+      // Obter o ID do usuário do AsyncStorage
+      const userId = await AsyncStorage.getItem('@App:userId');
 
-    // Reseta o formulário, mantendo os dados do usuário
-    setFormData({
-      especie: '',
-      nome: '',
-      quantidade: '',
-      raca: '',
-      idadeCategoria: '',
-      idade: '',
-      responsavel: userData?.nome || '',
-      estado: userData?.estado.nome || '',
-      cidade: userData?.cidade.nome || '',
-      sexo: '',
-      possuiDoenca: '',
-      doencaDescricao: '',
-      motivoDoacao: '',
-      foto: null,
-    });
+      if (!userId) {
+        Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
+        return;
+      }
 
-    // Limpa os erros
-    setEspecieErro('');
-    setFaixaEtariaErro('');
-    setSexoErro('');
-    setIdadeErro('');
-    setRacaErro('');
+      // Preparar os dados para o formato que a API espera
+      const petPayload: PetPayload = {
+        nome: formData.nome,
+        especie_id: formData.especie.id,
+        raca_id: getSelectedRacaId(), 
+        idade: parseInt(formData.idade, 10) || 0, // Converte para número
+        faixa_etaria_id: formData.idadeCategoria.id,
+        usuario_id: parseInt(userId, 10),
+        estado_id: userData?.estado.id || 0,
+        cidade_id: userData?.cidade.id || 0,
+        sexo_id: getSexoIdFromDescription(formData.sexo),
+        motivoDoacao: formData.motivoDoacao,
+        status_id: 1,
+        quantidade: parseInt(formData.quantidade, 10) || 0, // Converte para número
+        doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
+        foto: formData.foto
+          ? {
+              uri: formData.foto,
+              type: 'image/jpeg',
+              name: `pet_${Date.now()}.jpg`,
+            }
+          : null,
+      };
+
+      // Exibir loading
+      setIsLoading(true);
+
+      // Enviar para a API
+      const response = await postPet(petPayload);
+
+      if (response) {
+        Alert.alert('Sucesso', 'Pet cadastrado com sucesso!');
+
+        // Reseta o formulário, mantendo os dados do usuário
+        setFormData({
+          especie: '',
+          nome: '',
+          quantidade: '',
+          raca: '',
+          idadeCategoria: '',
+          idade: '',
+          responsavel: userData?.nome || '',
+          estado: userData?.estado.nome || '',
+          cidade: userData?.cidade.nome || '',
+          sexo: '',
+          possuiDoenca: '',
+          doencaDescricao: '',
+          motivoDoacao: '',
+          foto: null,
+        });
+
+        // Limpa os erros
+        setEspecieErro('');
+        setFaixaEtariaErro('');
+        setSexoErro('');
+        setIdadeErro('');
+        setRacaErro('');
+
+        // Fechar o modal
+        onClose();
+      } else {
+        Alert.alert('Erro', 'Não foi possível cadastrar o pet. Tente novamente.');
+      }
+    } catch (error) {
+      console.error('Erro ao submeter formulário:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   // Função para tratar o fechamento e navegação
@@ -518,6 +611,36 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     } else {
       const idadeMax = formData.idadeCategoria.idade_max !== undefined ? formData.idadeCategoria.idade_max : '∞';
       return `${idadeMin} - ${idadeMax} ${formData.idadeCategoria.unidade || 'anos'}`;
+    }
+  };
+
+  // Função para selecionar uma imagem da galeria
+  const pickImage = async () => {
+    try {
+      // Solicitar permissão para acessar a galeria
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'Precisamos de permissão para acessar suas fotos.');
+        return;
+      }
+
+      // Versão simplificada que funciona nas diferentes versões do expo-image-picker
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      // Se não cancelou a seleção
+      if (!result.canceled) {
+        // Atualizar o estado com a URI da imagem selecionada
+        handleChange('foto', result.assets[0].uri);
+        console.log('Imagem selecionada:', result.assets[0].uri);
+      }
+    } catch (error) {
+      console.error('Erro ao selecionar imagem:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
 
@@ -635,7 +758,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               }}
               hasEspecie={!!formData.especie}
             />
-            
+
             {/* Idade/Faixa Etária */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
@@ -815,16 +938,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity
-                style={styles.photoUploadButton}
-                onPress={() =>
-                  Alert.alert('Upload de Foto', 'Funcionalidade de upload de foto será implementada aqui.')
-                }
-              >
-                <View style={styles.photoPlaceholder}>
-                  <Text style={styles.uploadText}>Selecionar foto</Text>
-                </View>
+              <TouchableOpacity style={styles.photoUploadButton} onPress={pickImage}>
+                {formData.foto ? (
+                  <Image source={{ uri: formData.foto }} style={styles.photoPreview} />
+                ) : (
+                  <View style={styles.photoPlaceholder}>
+                    <Text style={styles.uploadText}>Selecionar foto</Text>
+                  </View>
+                )}
               </TouchableOpacity>
+              <Text style={styles.infoText}>Clique para selecionar uma foto da galeria</Text>
             </View>
 
             {/* Botão Salvar */}
@@ -1103,14 +1226,20 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-  
+
   // Add this for the loading text
   loadingText: {
     fontSize: 16,
     marginTop: 10,
     color: '#333',
   },
-  
+  photoPreview: {
+    width: 120,
+    height: 120,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+  },
   // Add this for readonly inputs
   readonlyInput: {
     backgroundColor: '#f0f0f0',
