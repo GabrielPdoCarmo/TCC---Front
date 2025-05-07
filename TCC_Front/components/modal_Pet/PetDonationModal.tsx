@@ -13,7 +13,6 @@ import {
 } from 'react-native';
 import { useRouter } from 'expo-router';
 import {
-  getDoencasDeficiencias,
   getEspecies,
   getRacasPorEspecie,
   getFaixaEtaria,
@@ -118,7 +117,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
   const [sexoErro, setSexoErro] = useState<string>('');
   const [idadeErro, setIdadeErro] = useState<string>(''); // Estado para erro de idade
   const [racaErro, setRacaErro] = useState<string>(''); // Estado para erro de raça
-
+  const [nomeErro, setNomeErro] = useState<string>('');
+  const [quantidadeErro, setQuantidadeErro] = useState<string>('');
+  const [possuiDoencaErro, setPossuiDoencaErro] = useState<string>('');
+  const [doencaDescricaoErro, setDoencaDescricaoErro] = useState<string>('');
+  const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
+  const [fotoErro, setFotoErro] = useState<string>('');
   // Estado inicial do formulário - corrigido
   const [formData, setFormData] = useState<FormData>({
     nome: '',
@@ -429,24 +433,77 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     // Validação dos campos obrigatórios
     let isValid = true;
 
+    // Validações existentes
     if (!formData.especie) {
       setEspecieErro('Por favor, selecione uma espécie');
       isValid = false;
+    } else {
+      setEspecieErro('');
     }
 
     if (!formData.idadeCategoria) {
       setFaixaEtariaErro('Por favor, selecione uma faixa etária');
       isValid = false;
+    } else {
+      setFaixaEtariaErro('');
     }
 
     if (!formData.sexo) {
       setSexoErro('Por favor, selecione o sexo');
       isValid = false;
+    } else {
+      setSexoErro('');
     }
 
     if (!formData.raca) {
       setRacaErro('Por favor, selecione uma raça');
       isValid = false;
+    } else {
+      setRacaErro('');
+    }
+
+    // Novas validações
+    if (!formData.nome) {
+      setNomeErro('Por favor, informe o nome');
+      isValid = false;
+    } else {
+      setNomeErro('');
+    }
+
+    if (!formData.quantidade) {
+      setQuantidadeErro('Por favor, informe a quantidade');
+      isValid = false;
+    } else {
+      setQuantidadeErro('');
+    }
+
+    if (!formData.possuiDoenca) {
+      setPossuiDoencaErro('Por favor, informe se possui doença/deficiência');
+      isValid = false;
+    } else {
+      setPossuiDoencaErro('');
+    }
+
+    // Validar descrição da doença apenas se possuiDoenca for "Sim"
+    if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
+      setDoencaDescricaoErro('Por favor, descreva a doença/deficiência');
+      isValid = false;
+    } else {
+      setDoencaDescricaoErro('');
+    }
+
+    if (!formData.motivoDoacao) {
+      setMotivoDoacaoErro('Por favor, informe o motivo da doação');
+      isValid = false;
+    } else {
+      setMotivoDoacaoErro('');
+    }
+
+    if (!formData.foto) {
+      setFotoErro('Por favor, selecione uma foto');
+      isValid = false;
+    } else {
+      setFotoErro('');
     }
 
     // Validação da idade se estiver preenchida
@@ -465,10 +522,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
 
         setIdadeErro(mensagemErro);
         isValid = false;
+      } else {
+        setIdadeErro('');
       }
     }
 
-    if (!formData.nome || !formData.quantidade || !isValid) {
+    if (!isValid) {
       Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios corretamente.');
       return;
     }
@@ -486,7 +545,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       const petPayload: PetPayload = {
         nome: formData.nome,
         especie_id: formData.especie.id,
-        raca_id: getSelectedRacaId(), 
+        raca_id: getSelectedRacaId(),
         idade: parseInt(formData.idade, 10) || 0, // Converte para número
         faixa_etaria_id: formData.idadeCategoria.id,
         usuario_id: parseInt(userId, 10),
@@ -539,6 +598,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
         setSexoErro('');
         setIdadeErro('');
         setRacaErro('');
+        setNomeErro('');
+        setQuantidadeErro('');
+        setPossuiDoencaErro('');
+        setDoencaDescricaoErro('');
+        setMotivoDoacaoErro('');
+        setFotoErro('');
 
         // Fechar o modal
         onClose();
@@ -680,7 +745,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               {especies.length === 0 ? (
                 <Text style={styles.infoText}>Carregando espécies...</Text>
               ) : (
-                <View style={[styles.checkboxContainer, especieErro ? styles.errorBorder : {}]}>
+                <View style={[styles.checkboxContainer]}>
                   {especies.map((item, index) => (
                     <TouchableOpacity
                       key={index}
@@ -714,6 +779,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 value={formData.nome}
                 onChangeText={(value) => handleChange('nome', value)}
               />
+              {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
             </View>
 
             {/* Quantidade */}
@@ -728,6 +794,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 value={formData.quantidade}
                 onChangeText={(value) => handleChange('quantidade', value)}
               />
+              {quantidadeErro ? <Text style={styles.errorText}>{quantidadeErro}</Text> : null}
             </View>
 
             {/* Raça */}
@@ -862,7 +929,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               {sexoOpcoes.length === 0 ? (
                 <Text style={styles.infoText}>Carregando opções de sexo...</Text>
               ) : (
-                <View style={[styles.radioRow, sexoErro ? styles.errorBorder : {}]}>
+                <View style={[styles.radioRow]}>
                   {sexoOpcoes.map((item, index) => (
                     <TouchableOpacity
                       key={index}
@@ -889,7 +956,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               <Text style={styles.label}>
                 Possui Doença/Deficiência <Text style={styles.required}>*</Text>
               </Text>
-              <View style={styles.radioRow}>
+              <View style={[styles.radioRow]}>
                 <TouchableOpacity style={styles.checkboxWrapper} onPress={() => handleChange('possuiDoenca', 'Sim')}>
                   <View style={styles.checkboxCustom}>
                     {formData.possuiDoenca === 'Sim' && <View style={styles.checkboxInner} />}
@@ -903,6 +970,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                   <Text style={styles.checkboxLabel}>Não</Text>
                 </TouchableOpacity>
               </View>
+              {possuiDoencaErro ? <Text style={styles.errorText}>{possuiDoencaErro}</Text> : null}
             </View>
 
             {/* Descrição Doença - Mostrar apenas se possuiDoenca for "Sim" */}
@@ -915,6 +983,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                   value={formData.doencaDescricao}
                   onChangeText={(value) => handleChange('doencaDescricao', value)}
                 />
+                {doencaDescricaoErro ? <Text style={styles.errorText}>{doencaDescricaoErro}</Text> : null}
               </View>
             )}
 
@@ -931,6 +1000,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 value={formData.motivoDoacao}
                 onChangeText={(value) => handleChange('motivoDoacao', value)}
               />
+              {motivoDoacaoErro ? <Text style={styles.errorText}>{motivoDoacaoErro}</Text> : null}
             </View>
 
             {/* Foto */}
@@ -947,6 +1017,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                   </View>
                 )}
               </TouchableOpacity>
+              {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
               <Text style={styles.infoText}>Clique para selecionar uma foto da galeria</Text>
             </View>
 
@@ -1154,7 +1225,6 @@ const styles = StyleSheet.create({
   errorText: {
     color: 'red',
     fontSize: 12,
-    marginTop: 5,
   },
   errorBorder: {
     borderWidth: 1,

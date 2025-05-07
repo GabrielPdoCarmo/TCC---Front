@@ -1,22 +1,39 @@
-import { router } from 'expo-router';
-import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, ImageBackground, SafeAreaView, Alert, FlatList, ActivityIndicator } from 'react-native';
+import { router, useFocusEffect } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  TouchableOpacity,
+  ImageBackground,
+  SafeAreaView,
+  Alert,
+  FlatList,
+  ActivityIndicator,
+} from 'react-native';
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
-import { getPetsByUsuarioId, getUsuarioById } from '@/services/api';
+import { getPetsByUsuarioId, getUsuarioById, getRacaById, getFaixaEtariaById } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import PetCard from '@/components/modal_Pet/PetCard'; 
 
-// Define the Pet type
+// Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;
   nome: string;
   raca_id: number;
+  raca_nome?: string; 
   idade: string;
   usuario_id: number;
+  usuario_nome?: string; 
   imagem?: string;
-  // Add any other fields your pet object has
+  faixa_etaria_id: number;
+  faixa_etaria_unidade?: string; 
+  status_id: number;
+  status_nome?: string;
 }
 
-// Define the User type
+// Define a interface Usuario
 interface Usuario {
   id: number;
   nome: string;
@@ -28,10 +45,22 @@ interface Usuario {
     id: number;
     nome: string;
   };
-  // Add any other fields your user object has
 }
 
-function PetDonationScreen() {
+// Define a interface Raca
+interface Raca {
+  id: number;
+  nome: string;
+}
+
+// Define a interface FaixaEtaria
+interface FaixaEtaria {
+  id: number;
+  nome: string;
+  unidade: string;
+}
+
+export default function PetDonationScreen() {
   // Estado para controlar a visibilidade do modal
   const [modalVisible, setModalVisible] = useState(false);
   // Estado para armazenar a lista de pets
@@ -43,32 +72,78 @@ function PetDonationScreen() {
   // Estado para controlar erros
   const [error, setError] = useState('');
 
-  // Carregar a lista de pets do usuário quando o componente montar
-  useEffect(() => {
-    fetchUserPets();
-  }, []);
-
-  // Função para buscar os pets do usuário logado
+  // Função para buscar os pets do usuário logado com dados de faixa etária
   const fetchUserPets = async () => {
     try {
       setLoading(true);
-      
+      setError('');
+
       // Obter o ID do usuário do AsyncStorage
-      const userId = await AsyncStorage.getItem('usuario_id');
-      
+      const userId = await AsyncStorage.getItem('@App:userId');
+
       if (!userId) {
         setError('Usuário não encontrado. Por favor, faça login novamente.');
         setLoading(false);
         return;
       }
-      
+
+      // Converter o ID para número
+      const userIdNumber = parseInt(userId, 10);
+      console.log('Buscando pets para o usuário ID:', userIdNumber);
+
       // Obter informações do usuário
-      const userData = await getUsuarioById(Number(userId));
+      const userData = await getUsuarioById(userIdNumber);
       setCurrentUser(userData);
-      
+      console.log('Dados do usuário carregados:', userData);
+
       // Obter os pets do usuário
-      const userPets = await getPetsByUsuarioId(Number(userId));
-      setPets(userPets);
+      const userPets = await getPetsByUsuarioId(userIdNumber);
+      console.log('Pets do usuário carregados:', userPets);
+
+      // Enriquecer os dados dos pets com nomes de raças, responsáveis e faixa etária
+      const enrichedPets = await Promise.all(
+        userPets.map(async (pet: Pet) => {
+          try {
+            // Obter informações da raça
+            const racaData = await getRacaById(pet.raca_id);
+            
+            // Obter informações da faixa etária
+            const faixaEtariaData = await getFaixaEtariaById(pet.faixa_etaria_id);
+            
+            // Obter informações do usuário responsável (se diferente do usuário atual)
+            let usuarioNome = userData?.nome || 'Usuário não identificado';
+
+            if (pet.usuario_id !== userIdNumber) {
+              const petUsuario = await getUsuarioById(pet.usuario_id);
+              
+              if (petUsuario) {
+                usuarioNome = petUsuario.nome;
+              }
+            }
+
+            // Criar objeto pet enriquecido com os nomes e informações da faixa etária
+            return {
+              ...pet,
+              raca_nome: racaData?.nome || `Raça não encontrada (ID: ${pet.raca_id})`,
+              usuario_nome: usuarioNome,
+              faixa_etaria_unidade: faixaEtariaData?.unidade || 'anos',
+            };
+          } catch (error) {
+            console.error(`Erro ao enriquecer dados do pet ${pet.nome}:`, error);
+
+            // Em caso de erro, retornar o pet com informações de fallback
+            return {
+              ...pet,
+              raca_nome: `Raça não disponível (ID: ${pet.raca_id})`,
+              usuario_nome: `Usuário não disponível (ID: ${pet.usuario_id})`,
+              faixa_etaria_unidade: 'anos',
+            };
+          }
+        })
+      );
+
+      console.log('Pets enriquecidos:', enrichedPets);
+      setPets(enrichedPets);
     } catch (error) {
       console.error('Erro ao buscar pets:', error);
       setError('Ocorreu um erro ao carregar seus pets. Por favor, tente novamente.');
@@ -77,72 +152,119 @@ function PetDonationScreen() {
     }
   };
 
+  // Carregar a lista de pets quando o componente montar
+  useEffect(() => {
+    fetchUserPets();
+  }, []);
+
+  // Usar useFocusEffect para recarregar os dados quando a tela receber foco
+  useFocusEffect(
+    useCallback(() => {
+      console.log('Tela recebeu foco - atualizando dados');
+      fetchUserPets();
+      return () => {
+        // Cleanup function (opcional)
+        console.log('Tela perdeu foco');
+      };
+    }, [])
+  );
+
   // Função para abrir o modal
   const handleOpenModal = () => {
     setModalVisible(true);
   };
 
-  // Função para fechar o modal
+  // Função para fechar o modal e atualizar a lista de pets
   const handleCloseModal = () => {
     setModalVisible(false);
+    // Recarrega a lista de pets após fechar o modal
+    fetchUserPets();
   };
 
   // Função para processar os dados do formulário
   const handleSubmitForm = async (formData: any) => {
     console.log('Dados do pet para doação:', formData);
-    
+
     // Aqui você pode adicionar a lógica para salvar os dados,
     // como enviar para uma API, salvar no banco de dados local, etc.
-    
-    Alert.alert(
-      "Sucesso!",
-      "Os dados do pet foram salvos com sucesso.",
-      [{ 
-        text: "OK",
+
+    Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
+      {
+        text: 'OK',
         onPress: () => {
           handleCloseModal();
-          // Recarregar a lista de pets após adicionar um novo
-          fetchUserPets();
-        }
-      }]
-    );
+          // Não é necessário chamar fetchUserPets aqui, pois handleCloseModal já faz isso
+        },
+      },
+    ]);
   };
 
-  // Renderizar um item da lista de pets
+  // Função para enviar pet para adoção
+  const handleAdoptPet = (petId: number) => {
+    Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Confirmar',
+        onPress: () => {
+          // Implementar lógica para disponibilizar o pet para adoção
+          Alert.alert('Sucesso', 'Pet disponibilizado para ser adotado com sucesso!');
+          // Atualizar a lista após a operação
+          fetchUserPets();
+        },
+      },
+    ]);
+  };
+
+  // Função para editar um pet
+  const handleEditPet = (petId: number) => {
+    // Implementar lógica para editar o pet
+    console.log(`Editar pet com ID: ${petId}`);
+    // Poderia abrir o modal preenchido com os dados do pet
+    
+    // Após editar, atualizar a lista
+    // fetchUserPets(); // Descomente quando implementar a lógica de edição
+  };
+
+  // Função para deletar um pet
+  const handleDeletePet = (petId: number) => {
+    Alert.alert('Excluir Pet', 'Tem certeza que deseja excluir este pet?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
+      },
+      {
+        text: 'Excluir',
+        style: 'destructive',
+        onPress: () => {
+          // Implementar lógica para excluir o pet
+          console.log(`Excluir pet com ID: ${petId}`);
+          // Após excluir, atualizar a lista
+          fetchUserPets();
+        },
+      },
+    ]);
+  };
+
+  // Função para favoritar um pet
+  const handleFavoritePet = (petId: number) => {
+    // Implementar lógica para favoritar/desfavoritar
+    console.log(`Favoritar/desfavoritar pet com ID: ${petId}`);
+    // Após favoritar, atualizar a lista
+    // fetchUserPets(); // Descomente quando implementar a lógica de favoritar
+  };
+
+  // Renderizar um item da lista de pets usando o componente PetCard
   const renderPetItem = ({ item }: { item: Pet }) => (
-    <View style={styles.petCard}>
-      <View style={styles.petImageContainer}>
-        {item.imagem ? (
-          <Image source={{ uri: item.imagem }} style={styles.petImage} />
-        ) : (
-          <View style={[styles.petImage, styles.defaultPetImage]}>
-            <Text style={styles.defaultPetImageText}>{item.nome ? item.nome.charAt(0).toUpperCase() : 'P'}</Text>
-          </View>
-        )}
-        <TouchableOpacity style={styles.favoriteButton}>
-          <Image source={require('../../assets/images/Icone/star-icon.png')} style={styles.starIcon} />
-        </TouchableOpacity>
-      </View>
-      <View style={styles.petInfo}>
-        <Text style={styles.petName}>Nome: {item.nome}</Text>
-        <Text style={styles.petRace}>Raça ID: {item.raca_id}</Text>
-        <Text style={styles.petAge}>Idade: {item.idade}</Text>
-        <Text style={styles.petOwner}>Responsável ID: {item.usuario_id}</Text>
-      </View>
-      <View style={styles.petActions}>
-        <TouchableOpacity style={styles.adoptButton}>
-          <Text style={styles.adoptButtonText}>Enviar a Adoção</Text>
-        </TouchableOpacity>
-        <View style={styles.editDeleteButtons}>
-          <TouchableOpacity style={styles.editButton}>
-            <Text style={styles.buttonText}>Editar</Text>
-          </TouchableOpacity>
-          <TouchableOpacity style={styles.deleteButton}>
-            <Text style={styles.buttonText}>Deletar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </View>
+    <PetCard
+      pet={item}
+      onAdopt={() => handleAdoptPet(item.id)}
+      onEdit={() => handleEditPet(item.id)}
+      onDelete={() => handleDeletePet(item.id)}
+      onFavorite={() => handleFavoritePet(item.id)}
+    />
   );
 
   return (
@@ -178,7 +300,6 @@ function PetDonationScreen() {
             </View>
           ) : pets.length === 0 ? (
             <View style={styles.emptyContainer}>
-              
               <Text style={styles.emptyText}>Você ainda não cadastrou pets para doação</Text>
               <TouchableOpacity style={styles.addPetButton} onPress={handleOpenModal}>
                 <Text style={styles.addPetButtonText}>Adicionar Pet</Text>
@@ -191,6 +312,8 @@ function PetDonationScreen() {
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.petList}
               showsVerticalScrollIndicator={false}
+              onRefresh={fetchUserPets}
+              refreshing={loading}
             />
           )}
 
@@ -219,11 +342,7 @@ function PetDonationScreen() {
         </View>
 
         {/* Modal de Doação de Pet */}
-        <PetDonationModal 
-          visible={modalVisible} 
-          onClose={handleCloseModal} 
-          onSubmit={handleSubmitForm} 
-        />
+        <PetDonationModal visible={modalVisible} onClose={handleCloseModal} onSubmit={handleSubmitForm} />
       </ImageBackground>
     </SafeAreaView>
   );
@@ -269,21 +388,34 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+  refreshButton: {
+    backgroundColor: '#4682B4',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 8,
+    alignSelf: 'center',
+    marginBottom: 10,
+  },
+  refreshButtonText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
+  },
   addButton: {
     position: 'absolute',
-    top: 80,
+    bottom: 20,
     right: 20,
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    width: 80,
-    height: 40,
+    backgroundColor: '#4682B4',
+    borderRadius: 30,
+    width: 60,
+    height: 60,
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
   },
   addIcon: {
-    width: 20,
-    height: 20,
+    width: 24,
+    height: 24,
+    tintColor: '#FFFFFF',
   },
   bottomNavigation: {
     flexDirection: 'row',
@@ -322,7 +454,7 @@ const styles = StyleSheet.create({
   loadingText: {
     marginTop: 10,
     fontSize: 16,
-    color: '#4682B4',
+    color: '#FFFFFF',
   },
   errorContainer: {
     flex: 1,
@@ -353,12 +485,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     paddingHorizontal: 20,
   },
-  emptyImage: {
-    width: 150,
-    height: 150,
-    marginBottom: 20,
-    opacity: 0.7,
-  },
   emptyText: {
     fontSize: 18,
     color: '#555',
@@ -380,108 +506,4 @@ const styles = StyleSheet.create({
     paddingTop: 10,
     paddingBottom: 80, // Espaço para o botão flutuante
   },
-  petCard: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 15,
-    marginBottom: 15,
-    padding: 15,
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 3,
-  },
-  petImageContainer: {
-    position: 'relative',
-    marginBottom: 10,
-  },
-  petImage: {
-    width: '100%',
-    height: 180,
-    borderRadius: 10,
-  },
-  defaultPetImage: {
-    backgroundColor: '#E0E0E0',
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  defaultPetImageText: {
-    fontSize: 60,
-    fontWeight: 'bold',
-    color: '#4682B4',
-  },
-  favoriteButton: {
-    position: 'absolute',
-    top: 10,
-    right: 10,
-    backgroundColor: 'rgba(255, 255, 255, 0.7)',
-    borderRadius: 20,
-    padding: 8,
-  },
-  starIcon: {
-    width: 20,
-    height: 20,
-  },
-  petInfo: {
-    marginBottom: 10,
-  },
-  petName: {
-    fontSize: 16,
-    fontWeight: 'bold',
-    marginBottom: 5,
-  },
-  petRace: {
-    fontSize: 14,
-    marginBottom: 3,
-  },
-  petAge: {
-    fontSize: 14,
-    marginBottom: 3,
-  },
-  petOwner: {
-    fontSize: 14,
-  },
-  petActions: {
-    marginTop: 10,
-  },
-  adoptButton: {
-    backgroundColor: '#4682B4',
-    borderRadius: 10,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  adoptButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  editDeleteButtons: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-  },
-  editButton: {
-    backgroundColor: '#FFD700',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    flex: 1,
-    marginRight: 10,
-    alignItems: 'center',
-  },
-  deleteButton: {
-    backgroundColor: '#FF6B6B',
-    borderRadius: 10,
-    paddingVertical: 8,
-    paddingHorizontal: 15,
-    flex: 1,
-    alignItems: 'center',
-  },
-  buttonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
 });
-
-export default PetDonationScreen;

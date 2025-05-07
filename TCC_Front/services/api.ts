@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://10.10.15.90:3000/api`,
+  baseURL: `http://192.168.110.225:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);
@@ -241,10 +241,48 @@ export const getUsuarios = async () => {
     return [];
   }
 };
-
+export const getRacaById = async (id: number) => {
+  try {
+    const response = await api.get(`/racas/${id}`);
+    
+    return {
+      id: response.data.id,
+      nome: response.data.nome
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar raça com ID ${id}:`, error);
+    throw error;
+  }
+};
+export const getFaixaEtariaById = async (id: number) => {
+  try {
+    const response = await api.get(`/faixa-etaria/${id}`);
+    
+    return {
+      id: response.data.id,
+      unidade: response.data.unidade
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar faixa etária com ID ${id}:`, error);
+    throw error;
+  }
+};
+export const getstatusById = async (id: number) => {
+  try {
+    const response = await api.get(`/status/${id}`);
+    
+    return {
+      id: response.data.id,
+      nome: response.data.nome
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar faixa etária com ID ${id}:`, error);
+    throw error;
+  }
+};
 export const getPetsByUsuarioId = async (usuario_id: number) => {
   try {
-    const response = await api.get(`/pets/${usuario_id}`);
+    const response = await api.get(`/pets/usuario/${usuario_id}`);
     return response.data;
   } catch (error) {
     console.error('Erro ao carregar os pets do usuário', error);
@@ -389,7 +427,7 @@ export const getRacasPorEspecie = async (especie_Id: number): Promise<Raca[]> =>
     }
 
     const especieId = especie.id;
-    const response = await api.get(`/racas/${especieId}`);
+    const response = await api.get(`/racas/especie/${especieId}`);
     const racas: Raca[] = response.data.map((raca: any) => ({
       id: raca.id,
       nome: raca.nome,
