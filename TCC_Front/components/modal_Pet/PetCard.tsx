@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
 
 // Interface PetCardProps atualizada
@@ -16,14 +16,27 @@ interface PetCardProps {
     faixa_etaria_unidade?: string; // Unidade da faixa etária
     status_id: number;
     status_nome?: string; // Nome do status
+    favorito?: boolean; // Adicionado estado inicial de favorito
   };
   onAdopt?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  onFavorite?: () => void;
+  onFavorite?: (id: number) => void;
 }
 
 const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) => {
+  // Estado local para controlar a exibição do ícone de favorito
+  const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
+
+  // Função para alternar o estado do favorito
+  const handleToggleFavorite = () => {
+    setIsFavorite(!isFavorite);
+    // Chamar a função passada via props, se existir
+    if (onFavorite) {
+      onFavorite(pet.id);
+    }
+  };
+
   return (
     <View style={styles.container}>
       {/* Parte esquerda - Imagem do pet */}
@@ -60,9 +73,16 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
           </Text>
         </View>
 
-        {/* Botão de favorito */}
-        <TouchableOpacity style={styles.favoriteButton} onPress={onFavorite}>
-          <Image source={require('../../assets/images/Icone/star-icon.png')} style={styles.starIcon} />
+        {/* Botão de favorito com alternância de ícone */}
+        <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
+          <Image 
+            source={
+              isFavorite 
+                ? require('../../assets/images/Icone/star-icon-open.png') 
+                : require('../../assets/images/Icone/star-icon.png')
+            } 
+            style={styles.starIcon} 
+          />
         </TouchableOpacity>
 
         {/* Botões de ação */}
@@ -101,7 +121,7 @@ const styles = StyleSheet.create({
     borderColor: '#E0E0E0',
   },
   imageContainer: {
-    width: '40%',
+    width: '50%',
     marginRight: 15,
   },
   infoContainer: {
@@ -136,13 +156,13 @@ const styles = StyleSheet.create({
   },
   favoriteButton: {
     position: 'absolute',
-    top: 0,
-    right: 0,
+    top: -10,
+    right: -10,
     padding: 5,
   },
   starIcon: {
-    width: 24,
-    height: 24,
+    width: 30,
+    height: 30,
     tintColor: '#FFD700',
   },
   actionContainer: {
@@ -162,7 +182,7 @@ const styles = StyleSheet.create({
   },
   editDeleteContainer: {
     flexDirection: 'row',
-    justifyContent: 'center',
+    justifyContent: 'flex-end',
     alignItems: 'center',
   },
   editButton: {

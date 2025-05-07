@@ -12,8 +12,14 @@ import {
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Link, router } from 'expo-router';
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importação do AsyncStorage
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import { login } from '../../services/api';
+
+// Interface para tipagem de erros da API
+interface ApiError {
+  error?: string;
+  message?: string;
+}
 
 export default function App() {
   const [email, setEmail] = useState('');
@@ -22,9 +28,7 @@ export default function App() {
   const [emailErro, setEmailErro] = useState('');
   const [senhaErro, setSenhaErro] = useState('');
   const [loading, setLoading] = useState(false);
-  interface ApiError {
-    error: string;
-  }
+
   // Limpar erros conforme o campo é alterado
   useEffect(() => {
     if (email) setEmailErro('');
@@ -34,25 +38,57 @@ export default function App() {
     if (senha) setSenhaErro('');
   }, [senha]);
 
+  // Função para tratar mensagens de erro da API e retornar mensagens amigáveis
+  const getErrorMessage = (error: unknown): string => {
+    // Converter o erro para o tipo ApiError
+    const apiError = error as ApiError;
+    
+    // Verificar se é um erro com informações técnicas para filtrar
+    if (apiError?.message?.includes("Email e senha são obrigatórios")) {
+      return "Por favor, preencha todos os campos de login.";
+    }
+    
+    if (apiError?.error?.includes("Erro ao fazer login")) {
+      return "Não foi possível fazer login. Verifique sua conexão.";
+    }
+    
+    // Verificar se contém strings de depuração como NOBRIDGE ou ERROR
+    if (
+      JSON.stringify(error).includes("NOBRIDGE") || 
+      JSON.stringify(error).includes("ERROR")
+    ) {
+      return "Não foi possível completar sua solicitação. Tente novamente mais tarde.";
+    }
+    
+    // Mensagem genérica para outros erros
+    return apiError?.error || apiError?.message || "Ocorreu um erro inesperado. Tente novamente.";
+  };
+
   const handleLogin = async () => {
     setEmailErro('');
     setSenhaErro('');
 
     // Validações
+    let temErros = false;
+
     if (!email) {
       setEmailErro('O e-mail é obrigatório');
-      return;
+      temErros = true;
     } else if (!/\S+@\S+\.\S+/.test(email)) {
       setEmailErro('E-mail inválido');
-      return;
+      temErros = true;
     }
 
     if (!senha) {
       setSenhaErro('A senha é obrigatória');
-      return;
+      temErros = true;
     } else if (senha.length < 8) {
       setSenhaErro('A senha deve ter pelo menos 8 caracteres');
-      return;
+      temErros = true;
+    }
+
+    if (temErros) {
+      return; // Não prossegue se houver erros de validação
     }
 
     // Iniciar o processo de login
@@ -69,11 +105,13 @@ export default function App() {
       const userId = await AsyncStorage.getItem('@App:userId');
       const userJson = await AsyncStorage.getItem('@App:user');
 
-      console.log('Dados salvos no AsyncStorage:', { userId, userJson });
+      // Apenas para depuração - remover ou usar um sistema de logging mais sofisticado
+      if (__DEV__) {
+        console.log('Dados salvos no AsyncStorage:', { userId, userJson });
+      }
 
       if (!userId || !userJson) {
-        console.error('Falha ao recuperar dados do usuário do AsyncStorage');
-        throw { error: 'Falha ao finalizar login. Por favor, tente novamente.' };
+        throw { error: 'Falha ao finalizar login' };
       }
 
       // Login bem-sucedido, exibe mensagem de boas-vindas
@@ -88,20 +126,22 @@ export default function App() {
         ],
         { cancelable: false }
       );
-      // Adicione esta interface no topo do arquivo, após as importações
-
-      // E então modifique o bloco catch para:
     } catch (error: unknown) {
-      console.error('Erro completo:', error);
-
-      // Cast para o tipo ApiError se possível
-      const apiError = error as ApiError;
-
-      Alert.alert('Erro', apiError.error || 'Falha ao fazer login');
+      // Ao invés de exibir o erro técnico, exibimos uma mensagem amigável
+      if (__DEV__) {
+        // Em modo de desenvolvimento, registramos o erro completo para depuração
+        console.error('Erro original:', error);
+      }
+      
+      // Obter mensagem amigável para o usuário
+      const userFriendlyMessage = getErrorMessage(error);
+      
+      Alert.alert('Erro ao fazer login', userFriendlyMessage);
     } finally {
       setLoading(false);
     }
   };
+
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
       <SafeAreaView style={styles.container}>

@@ -325,10 +325,53 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
   };
 
   // Função para atualizar o estado do formulário
+  // Função para atualizar o estado do formulário
   const handleChange = (name: keyof FormData, value: string | any) => {
     // Impedir alterações nos campos do usuário (responsável, cidade, estado)
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
       return; // Não permitir alterações nesses campos
+    }
+
+    // Limpar mensagens de erro quando o campo for preenchido
+    if (value) {
+      // Limpar erros específicos para cada campo quando ele é preenchido
+      switch (name) {
+        case 'nome':
+          setNomeErro('');
+          break;
+        case 'especie':
+          setEspecieErro('');
+          break;
+        case 'raca':
+          setRacaErro('');
+          break;
+        case 'idade':
+          setIdadeErro('');
+          break;
+        case 'idadeCategoria':
+          setFaixaEtariaErro('');
+          break;
+        case 'sexo':
+          setSexoErro('');
+          break;
+        case 'quantidade':
+          setQuantidadeErro('');
+          break;
+        case 'possuiDoenca':
+          setPossuiDoencaErro('');
+          break;
+        case 'doencaDescricao':
+          setDoencaDescricaoErro('');
+          break;
+        case 'motivoDoacao':
+          setMotivoDoacaoErro('');
+          break;
+        case 'foto':
+          setFotoErro('');
+          break;
+        default:
+          break;
+      }
     }
 
     // Caso especial para o campo de idade
@@ -337,6 +380,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       if (value && !/^\d*$/.test(value)) {
         return; // Não atualiza o estado se não for numérico
       }
+
+      // Limpa o erro de idade quando o usuário começa a digitar
+      setIdadeErro('');
 
       // Valida a idade de acordo com a faixa etária selecionada
       if (formData.idadeCategoria && value) {
@@ -389,6 +435,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     // Se a faixa etária foi alterada, limpa o campo de idade
     if (name === 'idadeCategoria') {
       setFormData((prev) => ({ ...prev, idade: '' }));
+      // Limpa qualquer erro existente ao mudar a faixa etária
       setIdadeErro('');
     }
   };
@@ -429,194 +476,200 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
   };
 
   // Função para lidar com o envio do formulário
-  const handleSubmit = async () => {
-    // Validação dos campos obrigatórios
-    let isValid = true;
+  // Função para lidar com o envio do formulário
+const handleSubmit = async () => {
+  // Validação dos campos obrigatórios
+  let isValid = true;
 
-    // Validações existentes
-    if (!formData.especie) {
-      setEspecieErro('Por favor, selecione uma espécie');
-      isValid = false;
-    } else {
-      setEspecieErro('');
-    }
+  // Validações existentes
+  if (!formData.especie) {
+    setEspecieErro('Por favor, selecione uma espécie');
+    isValid = false;
+  } else {
+    setEspecieErro('');
+  }
 
-    if (!formData.idadeCategoria) {
-      setFaixaEtariaErro('Por favor, selecione uma faixa etária');
-      isValid = false;
-    } else {
-      setFaixaEtariaErro('');
-    }
+  if (formData.especie && !formData.idadeCategoria) {
+    setFaixaEtariaErro('Por favor, selecione uma faixa etária');
+    isValid = false;
+  } else {
+    setFaixaEtariaErro('');
+  }
 
-    if (!formData.sexo) {
-      setSexoErro('Por favor, selecione o sexo');
-      isValid = false;
-    } else {
-      setSexoErro('');
-    }
-
-    if (!formData.raca) {
-      setRacaErro('Por favor, selecione uma raça');
-      isValid = false;
-    } else {
-      setRacaErro('');
-    }
-
-    // Novas validações
-    if (!formData.nome) {
-      setNomeErro('Por favor, informe o nome');
-      isValid = false;
-    } else {
-      setNomeErro('');
-    }
-
-    if (!formData.quantidade) {
-      setQuantidadeErro('Por favor, informe a quantidade');
-      isValid = false;
-    } else {
-      setQuantidadeErro('');
-    }
-
-    if (!formData.possuiDoenca) {
-      setPossuiDoencaErro('Por favor, informe se possui doença/deficiência');
-      isValid = false;
-    } else {
-      setPossuiDoencaErro('');
-    }
-
-    // Validar descrição da doença apenas se possuiDoenca for "Sim"
-    if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
-      setDoencaDescricaoErro('Por favor, descreva a doença/deficiência');
-      isValid = false;
-    } else {
-      setDoencaDescricaoErro('');
-    }
-
-    if (!formData.motivoDoacao) {
-      setMotivoDoacaoErro('Por favor, informe o motivo da doação');
-      isValid = false;
-    } else {
-      setMotivoDoacaoErro('');
-    }
-
-    if (!formData.foto) {
-      setFotoErro('Por favor, selecione uma foto');
-      isValid = false;
-    } else {
-      setFotoErro('');
-    }
-
+  // Nova validação: verificar se idade está vazia quando uma faixa etária foi selecionada
+  if (formData.idadeCategoria && !formData.idade) {
+    setIdadeErro('Por favor, informe a idade');
+    isValid = false;
+  } else if (formData.idade && formData.idadeCategoria) {
     // Validação da idade se estiver preenchida
-    if (formData.idade && formData.idadeCategoria) {
-      const idadeValida = validarIdade(formData.idade, formData.idadeCategoria);
-      if (!idadeValida) {
-        const idadeMin = formData.idadeCategoria.idade_min || 0;
+    const idadeValida = validarIdade(formData.idade, formData.idadeCategoria);
+    if (!idadeValida) {
+      const idadeMin = formData.idadeCategoria.idade_min || 0;
 
-        // Tratamento especial para o caso de idade_max ser null (idoso)
-        let mensagemErro;
-        if (formData.idadeCategoria.idade_max === null) {
-          mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
-        } else {
-          mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
-        }
-
-        setIdadeErro(mensagemErro);
-        isValid = false;
+      // Tratamento especial para o caso de idade_max ser null (idoso)
+      let mensagemErro;
+      if (formData.idadeCategoria.idade_max === null) {
+        mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
       } else {
-        setIdadeErro('');
+        mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
       }
-    }
 
-    if (!isValid) {
-      Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios corretamente.');
+      setIdadeErro(mensagemErro);
+      isValid = false;
+    } else {
+      setIdadeErro('');
+    }
+  }
+
+  if (!formData.sexo) {
+    setSexoErro('Por favor, selecione o sexo');
+    isValid = false;
+  } else {
+    setSexoErro('');
+  }
+
+  if (!formData.raca) {
+    setRacaErro('Por favor, selecione uma raça');
+    isValid = false;
+  } else {
+    setRacaErro('');
+  }
+
+  // Novas validações
+  if (!formData.nome) {
+    setNomeErro('Por favor, informe o nome');
+    isValid = false;
+  } else {
+    setNomeErro('');
+  }
+
+  if (!formData.quantidade) {
+    setQuantidadeErro('Por favor, informe a quantidade');
+    isValid = false;
+  } else {
+    setQuantidadeErro('');
+  }
+
+  if (!formData.possuiDoenca) {
+    setPossuiDoencaErro('Por favor, informe se possui doença/deficiência');
+    isValid = false;
+  } else {
+    setPossuiDoencaErro('');
+  }
+
+  // Validar descrição da doença apenas se possuiDoenca for "Sim"
+  if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
+    setDoencaDescricaoErro('Por favor, descreva a doença/deficiência');
+    isValid = false;
+  } else {
+    setDoencaDescricaoErro('');
+  }
+
+  if (!formData.motivoDoacao) {
+    setMotivoDoacaoErro('Por favor, informe o motivo da doação');
+    isValid = false;
+  } else {
+    setMotivoDoacaoErro('');
+  }
+
+  if (!formData.foto) {
+    setFotoErro('Por favor, selecione uma foto');
+    isValid = false;
+  } else {
+    setFotoErro('');
+  }
+
+  if (!isValid) {
+    Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios corretamente.');
+    return;
+  }
+
+  try {
+    // Resto do código permanece igual...
+    // Obter o ID do usuário do AsyncStorage
+    const userId = await AsyncStorage.getItem('@App:userId');
+
+    if (!userId) {
+      Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
       return;
     }
 
-    try {
-      // Obter o ID do usuário do AsyncStorage
-      const userId = await AsyncStorage.getItem('@App:userId');
+    // Preparar os dados para o formato que a API espera
+    const petPayload: PetPayload = {
+      nome: formData.nome,
+      especie_id: formData.especie.id,
+      raca_id: getSelectedRacaId(),
+      idade: parseInt(formData.idade, 10) || 0, // Converte para número
+      faixa_etaria_id: formData.idadeCategoria.id,
+      usuario_id: parseInt(userId, 10),
+      estado_id: userData?.estado.id || 0,
+      cidade_id: userData?.cidade.id || 0,
+      sexo_id: getSexoIdFromDescription(formData.sexo),
+      motivoDoacao: formData.motivoDoacao,
+      status_id: 1,
+      quantidade: parseInt(formData.quantidade, 10) || 0, // Converte para número
+      doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
+      foto: formData.foto
+        ? {
+            uri: formData.foto,
+            type: 'image/jpeg',
+            name: `pet_${Date.now()}.jpg`,
+          }
+        : null,
+    };
 
-      if (!userId) {
-        Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
-        return;
-      }
+    // Exibir loading
+    setIsLoading(true);
 
-      // Preparar os dados para o formato que a API espera
-      const petPayload: PetPayload = {
-        nome: formData.nome,
-        especie_id: formData.especie.id,
-        raca_id: getSelectedRacaId(),
-        idade: parseInt(formData.idade, 10) || 0, // Converte para número
-        faixa_etaria_id: formData.idadeCategoria.id,
-        usuario_id: parseInt(userId, 10),
-        estado_id: userData?.estado.id || 0,
-        cidade_id: userData?.cidade.id || 0,
-        sexo_id: getSexoIdFromDescription(formData.sexo),
-        motivoDoacao: formData.motivoDoacao,
-        status_id: 1,
-        quantidade: parseInt(formData.quantidade, 10) || 0, // Converte para número
-        doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
-        foto: formData.foto
-          ? {
-              uri: formData.foto,
-              type: 'image/jpeg',
-              name: `pet_${Date.now()}.jpg`,
-            }
-          : null,
-      };
+    // Enviar para a API
+    const response = await postPet(petPayload);
 
-      // Exibir loading
-      setIsLoading(true);
+    if (response) {
+      Alert.alert('Sucesso', 'Pet cadastrado com sucesso!');
 
-      // Enviar para a API
-      const response = await postPet(petPayload);
+      // Reseta o formulário, mantendo os dados do usuário
+      setFormData({
+        especie: '',
+        nome: '',
+        quantidade: '',
+        raca: '',
+        idadeCategoria: '',
+        idade: '',
+        responsavel: userData?.nome || '',
+        estado: userData?.estado.nome || '',
+        cidade: userData?.cidade.nome || '',
+        sexo: '',
+        possuiDoenca: '',
+        doencaDescricao: '',
+        motivoDoacao: '',
+        foto: null,
+      });
 
-      if (response) {
-        Alert.alert('Sucesso', 'Pet cadastrado com sucesso!');
+      // Limpa os erros
+      setEspecieErro('');
+      setFaixaEtariaErro('');
+      setSexoErro('');
+      setIdadeErro('');
+      setRacaErro('');
+      setNomeErro('');
+      setQuantidadeErro('');
+      setPossuiDoencaErro('');
+      setDoencaDescricaoErro('');
+      setMotivoDoacaoErro('');
+      setFotoErro('');
 
-        // Reseta o formulário, mantendo os dados do usuário
-        setFormData({
-          especie: '',
-          nome: '',
-          quantidade: '',
-          raca: '',
-          idadeCategoria: '',
-          idade: '',
-          responsavel: userData?.nome || '',
-          estado: userData?.estado.nome || '',
-          cidade: userData?.cidade.nome || '',
-          sexo: '',
-          possuiDoenca: '',
-          doencaDescricao: '',
-          motivoDoacao: '',
-          foto: null,
-        });
-
-        // Limpa os erros
-        setEspecieErro('');
-        setFaixaEtariaErro('');
-        setSexoErro('');
-        setIdadeErro('');
-        setRacaErro('');
-        setNomeErro('');
-        setQuantidadeErro('');
-        setPossuiDoencaErro('');
-        setDoencaDescricaoErro('');
-        setMotivoDoacaoErro('');
-        setFotoErro('');
-
-        // Fechar o modal
-        onClose();
-      } else {
-        Alert.alert('Erro', 'Não foi possível cadastrar o pet. Tente novamente.');
-      }
-    } catch (error) {
-      console.error('Erro ao submeter formulário:', error);
-      Alert.alert('Erro', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
-    } finally {
-      setIsLoading(false);
+      // Fechar o modal
+      onClose();
+    } else {
+      Alert.alert('Erro', 'Não foi possível cadastrar o pet. Tente novamente.');
     }
-  };
+  } catch (error) {
+    console.error('Erro ao submeter formulário:', error);
+    Alert.alert('Erro', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
+  } finally {
+    setIsLoading(false);
+  }
+};
 
   // Função para tratar o fechamento e navegação
   const handleCloseAndNavigate = () => {
@@ -774,7 +827,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 Nome <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, nomeErro ? styles.errorBorder : {}]}
                 placeholder="Nome"
                 value={formData.nome}
                 onChangeText={(value) => handleChange('nome', value)}
@@ -788,7 +841,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 Quantidade <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.input}
+                style={[styles.input, quantidadeErro ? styles.errorBorder : {}]}
                 placeholder="Quantidade"
                 keyboardType="numeric"
                 value={formData.quantidade}
@@ -836,7 +889,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
               ) : faixasEtariasFiltradas.length === 0 ? (
                 <Text style={styles.infoText}>Carregando faixas etárias para esta espécie...</Text>
               ) : (
-                <View style={[styles.checkboxContainer, faixaEtariaErro ? styles.errorBorder : {}]}>
+                <View style={[styles.checkboxContainer]}>
                   {faixasEtariasFiltradas.map((item, index) => (
                     <TouchableOpacity
                       key={index}
@@ -993,7 +1046,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
                 Motivo de estar em Doação <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={styles.textArea}
+                style={[styles.textArea, motivoDoacaoErro ? styles.errorBorder : null]}
                 placeholder="Motivo de estar em Doação"
                 multiline
                 numberOfLines={4}

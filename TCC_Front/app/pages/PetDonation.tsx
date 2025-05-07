@@ -13,22 +13,22 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
-import { getPetsByUsuarioId, getUsuarioById, getRacaById, getFaixaEtariaById } from '@/services/api';
+import { getPetsByUsuarioId, getUsuarioById, getRacaById, getFaixaEtariaById,getstatusById } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import PetCard from '@/components/modal_Pet/PetCard'; 
+import PetCard from '@/components/modal_Pet/PetCard';
 
 // Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;
   nome: string;
   raca_id: number;
-  raca_nome?: string; 
+  raca_nome?: string;
   idade: string;
   usuario_id: number;
-  usuario_nome?: string; 
+  usuario_nome?: string;
   imagem?: string;
   faixa_etaria_id: number;
-  faixa_etaria_unidade?: string; 
+  faixa_etaria_unidade?: string;
   status_id: number;
   status_nome?: string;
 }
@@ -106,16 +106,18 @@ export default function PetDonationScreen() {
           try {
             // Obter informações da raça
             const racaData = await getRacaById(pet.raca_id);
-            
+
             // Obter informações da faixa etária
             const faixaEtariaData = await getFaixaEtariaById(pet.faixa_etaria_id);
-            
+
+            // Obter informações do status
+            const statusData = await getstatusById(pet.status_id);
             // Obter informações do usuário responsável (se diferente do usuário atual)
             let usuarioNome = userData?.nome || 'Usuário não identificado';
 
             if (pet.usuario_id !== userIdNumber) {
               const petUsuario = await getUsuarioById(pet.usuario_id);
-              
+
               if (petUsuario) {
                 usuarioNome = petUsuario.nome;
               }
@@ -126,7 +128,8 @@ export default function PetDonationScreen() {
               ...pet,
               raca_nome: racaData?.nome || `Raça não encontrada (ID: ${pet.raca_id})`,
               usuario_nome: usuarioNome,
-              faixa_etaria_unidade: faixaEtariaData?.unidade || 'anos',
+              faixa_etaria_unidade: faixaEtariaData?.unidade,
+              status_nome: statusData.nome,
             };
           } catch (error) {
             console.error(`Erro ao enriquecer dados do pet ${pet.nome}:`, error);
@@ -136,7 +139,6 @@ export default function PetDonationScreen() {
               ...pet,
               raca_nome: `Raça não disponível (ID: ${pet.raca_id})`,
               usuario_nome: `Usuário não disponível (ID: ${pet.usuario_id})`,
-              faixa_etaria_unidade: 'anos',
             };
           }
         })
@@ -223,7 +225,7 @@ export default function PetDonationScreen() {
     // Implementar lógica para editar o pet
     console.log(`Editar pet com ID: ${petId}`);
     // Poderia abrir o modal preenchido com os dados do pet
-    
+
     // Após editar, atualizar a lista
     // fetchUserPets(); // Descomente quando implementar a lógica de edição
   };
@@ -296,13 +298,6 @@ export default function PetDonationScreen() {
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
                 <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-              </TouchableOpacity>
-            </View>
-          ) : pets.length === 0 ? (
-            <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Você ainda não cadastrou pets para doação</Text>
-              <TouchableOpacity style={styles.addPetButton} onPress={handleOpenModal}>
-                <Text style={styles.addPetButtonText}>Adicionar Pet</Text>
               </TouchableOpacity>
             </View>
           ) : (
@@ -487,9 +482,10 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 18,
-    color: '#555',
+    color: '#FFFFFF',
     textAlign: 'center',
     marginBottom: 20,
+    justifyContent: 'center',
   },
   addPetButton: {
     backgroundColor: '#4682B4',
