@@ -19,32 +19,37 @@ import {
   getUsuarioById,
   postPet,
   getSexoPet,
+  getDoencasPorPetId,
+  updatePet, // Add updatePet import
 } from '../../services/api';
-import RacasSelectionModal from './RacasSelectionModal'; // Importando o novo componente
-import AsyncStorage from '@react-native-async-storage/async-storage'; // Importando AsyncStorage
+import RacasSelectionModal from './RacasSelectionModal';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
 
-// Interfaces
+// Updated PetDonationModalProps to include pet and isEditMode
 interface PetDonationModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (formData: FormData) => void;
+  pet?: any; // Pet object for editing mode
+  isEditMode?: boolean; // Flag to determine if in edit mode
 }
 
-// Interface para dados de API
+// Interface for API data
 interface Raca {
   id: string | number;
   nome: string;
   // Add any other properties that exist in your race object
 }
 
-// Interface para o payload enviado à API
+// Interface for payload sent to API
 interface PetPayload {
   nome: string;
   especie_id: number;
   raca_id: number;
   estado_id: number;
   cidade_id: number;
+  rg_Pet: string | null;
   idade: number;
   faixa_etaria_id: number;
   usuario_id: number;
@@ -56,16 +61,17 @@ interface PetPayload {
   foto: any;
 }
 
-// Interface para o formulário que corresponde à estrutura real usada
+// Interface for the form that matches the actual structure used
 interface FormData {
   nome: string;
-  especie: any; // Objeto espécie completo da API
+  especie: any; // Complete species object from API
   raca: string;
   idade: string;
-  idadeCategoria: any; // Objeto faixa etária completo da API
+  idadeCategoria: any; // Complete age range object from API
   responsavel: string;
   estado: string;
   cidade: string;
+  rgPet: string | null;
   sexo: string;
   possuiDoenca: string;
   doencaDescricao: string;
@@ -81,7 +87,7 @@ interface RacasResponse {
   [key: string]: any; // For other possible structures
 }
 
-// Interface para dados do usuário
+// Interface for user data
 interface UserData {
   id: number;
   nome: string;
@@ -95,44 +101,52 @@ interface UserData {
   };
 }
 
-const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, onSubmit }) => {
+const PetDonationModal: React.FC<PetDonationModalProps> = ({ 
+  visible, 
+  onClose, 
+  onSubmit, 
+  pet = null, // Default to null if not provided
+  isEditMode = false // Default to false if not provided
+}) => {
   const router = useRouter();
 
-  // Estados para armazenar dados das APIs
+  // States to store API data
   const [especies, setEspecies] = useState<any[]>([]);
   const [faixasEtarias, setFaixasEtarias] = useState<any[]>([]);
   const [faixasEtariasFiltradas, setFaixasEtariasFiltradas] = useState<any[]>([]);
-  const [sexoOpcoes, setSexoOpcoes] = useState<any[]>([]); // Estado para opções de sexo
-  const [racas, setRacas] = useState<any[]>([]); // Estado para todas as raças
-  const [racasFiltradas, setRacasFiltradas] = useState<any[]>([]); // Estado para raças filtradas
-  const [showRacasModal, setShowRacasModal] = useState<boolean>(false); // Estado para controlar a visibilidade do modal de raças
+  const [sexoOpcoes, setSexoOpcoes] = useState<any[]>([]); 
+  const [racas, setRacas] = useState<any[]>([]); 
+  const [racasFiltradas, setRacasFiltradas] = useState<any[]>([]); 
+  const [showRacasModal, setShowRacasModal] = useState<boolean>(false); 
 
-  // Estado para armazenar dados do usuário logado
+  // State to store logged user data
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
 
-  // Estados para erros de validação
+  // States for validation errors
   const [especieErro, setEspecieErro] = useState<string>('');
   const [faixaEtariaErro, setFaixaEtariaErro] = useState<string>('');
   const [sexoErro, setSexoErro] = useState<string>('');
-  const [idadeErro, setIdadeErro] = useState<string>(''); // Estado para erro de idade
-  const [racaErro, setRacaErro] = useState<string>(''); // Estado para erro de raça
+  const [idadeErro, setIdadeErro] = useState<string>('');
+  const [racaErro, setRacaErro] = useState<string>('');
   const [nomeErro, setNomeErro] = useState<string>('');
   const [quantidadeErro, setQuantidadeErro] = useState<string>('');
   const [possuiDoencaErro, setPossuiDoencaErro] = useState<string>('');
   const [doencaDescricaoErro, setDoencaDescricaoErro] = useState<string>('');
   const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
   const [fotoErro, setFotoErro] = useState<string>('');
-  // Estado inicial do formulário - corrigido
+  
+  // Initial form state - corrected
   const [formData, setFormData] = useState<FormData>({
     nome: '',
-    especie: '', // Corrigido: valor inicial vazio em vez de vírgula pendente
+    especie: '',
     raca: '',
     idade: '',
     idadeCategoria: '',
     responsavel: '',
     estado: '',
     cidade: '',
+    rgPet: '',
     sexo: '',
     possuiDoenca: '',
     doencaDescricao: '',
@@ -141,30 +155,30 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     foto: null,
   });
 
-  // Função para buscar dados do usuário logado
+  // Function to fetch logged user data
   const fetchUserData = async () => {
     try {
-      // Usar a mesma chave '@App:userId' que foi usada para armazenar
+      // Use the same '@App:userId' key that was used to store
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.error('ID do usuário não encontrado no AsyncStorage');
-        Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
+        console.error('User ID not found in AsyncStorage');
+        Alert.alert('Error', 'Could not identify logged user.');
         return;
       }
 
       const userIdNumber = parseInt(userId, 10);
 
-      // Resto do código permanece igual...
+      // Rest of the code remains the same...
       const userData = await getUsuarioById(userIdNumber);
 
       if (!userData) {
-        console.error('Dados do usuário não encontrados');
-        Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
+        console.error('User data not found');
+        Alert.alert('Error', 'Could not load user data.');
         return;
       }
 
-      console.log('Dados do usuário carregados:', userData);
+      console.log('User data loaded:', userData);
 
       setUserData(userData);
 
@@ -175,49 +189,139 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
         estado: userData.estado.nome,
       }));
     } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
-      Alert.alert('Erro', 'Falha ao carregar dados do usuário. Por favor, tente novamente.');
+      console.error('Error fetching user data:', error);
+      Alert.alert('Error', 'Failed to load user data. Please try again.');
     } finally {
       setIsLoading(false);
     }
   };
 
-  // Buscar dados das APIs quando o componente é montado
+  // Load pet data if in edit mode
+// Modifique o useEffect para carregamento dos dados do pet no modo de edição
+// Modifique o useEffect para carregamento dos dados do pet no modo de edição
+useEffect(() => {
+  if (isEditMode && pet) {
+    const setPetDataToForm = async () => {
+      try {
+        setIsLoading(true);
+        
+        // Encontrar a espécie do pet diretamente pelo ID da espécie
+        const especieData = especies.find(e => e.id === pet.especie_id);
+        
+        // Se não temos a espécie diretamente, tentamos encontrar pela raça
+        if (!especieData && pet.raca_id) {
+          const raca = racas.find(r => r.id === pet.raca_id);
+          if (raca) {
+            const especiePorRaca = especies.find(e => e.id === raca.especie_id);
+            if (especiePorRaca) {
+              // Encontramos a espécie pela raça
+              await loadRacasByEspecie(especiePorRaca.id);
+            }
+          }
+        } else if (especieData) {
+          // Se encontramos a espécie diretamente, carregamos as raças
+          await loadRacasByEspecie(especieData.id);
+        }
+        
+        // Encontrar a faixa etária correta
+        const faixaEtaria = faixasEtarias.find(f => f.id === pet.faixa_etaria_id);
+        
+        // Encontrar o sexo do pet
+        const sexoData = sexoOpcoes.find(s => s.id === pet.sexo_id);
+        
+        console.log('Espécie encontrada:', especieData);
+        console.log('Faixa etária encontrada:', faixaEtaria);
+        console.log('Sexo encontrado:', sexoData);
+        
+        // Atualizar o formulário com os dados do pet
+        setFormData({
+          nome: pet.nome || '',
+          especie: especieData || '',
+          raca: pet.raca_nome || '',
+          idade: pet.idade ? pet.idade.toString() : '',
+          idadeCategoria: faixaEtaria || '',
+          responsavel: userData?.nome || '',
+          estado: userData?.estado?.nome || '',
+          cidade: userData?.cidade?.nome || '',
+          rgPet: pet.rg_Pet || '',
+          // FIX HERE: Use both nome and descricao properties for sexo field
+          sexo: sexoData ? (sexoData.nome || sexoData.descricao) : '',
+          possuiDoenca: pet.doencas && pet.doencas.length > 0 ? 'Sim' : 'Não',
+          doencaDescricao: pet.doencas && pet.doencas.length > 0 ? pet.doencas[0] : '',
+          motivoDoacao: pet.motivoDoacao || '',
+          quantidade: pet.quantidade ? pet.quantidade.toString() : '1',
+          foto: pet.foto || null,
+        });
+        
+        // Se tivermos a espécie, filtramos as faixas etárias
+        if (especieData) {
+          const faixasFiltradas = faixasEtarias.filter(faixa => 
+            faixa.especie_id === especieData.id
+          );
+          setFaixasEtariasFiltradas(faixasFiltradas);
+        }
+        
+      } catch (error) {
+        console.error('Erro ao carregar dados do pet para edição:', error);
+        Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
+      } finally {
+        setIsLoading(false);
+      }
+    };
+    
+    // Só tentamos preencher o formulário quando temos todos os dados necessários carregados
+    if (especies.length > 0 && faixasEtarias.length > 0 && sexoOpcoes.length > 0) {
+      setPetDataToForm();
+    }
+  }
+}, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
+
+
+
+
+// Adicione esta função para depurar os valores do formulário quando eles mudam
+useEffect(() => {
+  if (isEditMode) {
+    console.log('Valores atuais do formulário:', formData);
+  }
+}, [formData]);
+
+  // Fetch data from APIs when component mounts
   useEffect(() => {
     const fetchData = async () => {
       try {
         setIsLoading(true);
 
-        // Buscar dados do usuário
+        // Fetch user data
         await fetchUserData();
 
-        // Buscar espécies
+        // Fetch species
         const especiesData = await getEspecies();
         console.log('especiesData:', especiesData);
 
-        // Importante: Verificar a estrutura dos dados retornados
+        // Important: Check the structure of returned data
         if (Array.isArray(especiesData)) {
           setEspecies(especiesData);
         } else if (especiesData && typeof especiesData === 'object') {
-          // Se não for um array mas for um objeto, pode ser que esteja em uma propriedade
-          // Por exemplo: { data: [...] }
+          // If not an array but an object, may be in a property
+          // For example: { data: [...] }
           const dataArray = especiesData.data || especiesData.results || Object.values(especiesData);
           if (Array.isArray(dataArray)) {
             setEspecies(dataArray);
           } else {
-            console.error('Formato de resposta de espécies não é um array:', especiesData);
+            console.error('Species response format is not an array:', especiesData);
             setEspecies([]);
           }
         } else {
-          console.error('Formato de resposta de espécies desconhecido:', especiesData);
+          console.error('Unknown species response format:', especiesData);
           setEspecies([]);
         }
 
-        // Buscar faixas etárias
+        // Get age ranges
         const faixasEtariasData = await getFaixaEtaria();
         console.log('faixasEtariasData:', faixasEtariasData);
 
-        // Mesmo tratamento para faixas etárias
+        // Same treatment for age ranges
         if (Array.isArray(faixasEtariasData)) {
           setFaixasEtarias(faixasEtariasData);
         } else if (faixasEtariasData && typeof faixasEtariasData === 'object') {
@@ -225,22 +329,22 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
           if (Array.isArray(dataArray)) {
             setFaixasEtarias(dataArray);
           } else {
-            console.error('Formato de resposta de faixas etárias não é um array:', faixasEtariasData);
+            console.error('Age range response format is not an array:', faixasEtariasData);
             setFaixasEtarias([]);
           }
         } else {
-          console.error('Formato de resposta de faixas etárias desconhecido:', faixasEtariasData);
+          console.error('Unknown age range response format:', faixasEtariasData);
           setFaixasEtarias([]);
         }
 
-        // Inicialmente não teremos faixas filtradas até que o usuário selecione uma espécie
+        // Initially we won't have filtered ranges until user selects a species
         setFaixasEtariasFiltradas([]);
 
-        // Buscar opções de sexo do pet
+        // Get pet sex options
         const sexoPetData = await getSexoPet();
         console.log('sexoPetData:', sexoPetData);
 
-        // Mesmo tratamento para opções de sexo
+        // Same treatment for sex options
         if (Array.isArray(sexoPetData)) {
           setSexoOpcoes(sexoPetData);
         } else if (sexoPetData && typeof sexoPetData === 'object') {
@@ -248,16 +352,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
           if (Array.isArray(dataArray)) {
             setSexoOpcoes(dataArray);
           } else {
-            console.error('Formato de resposta de sexo não é um array:', sexoPetData);
+            console.error('Sex response format is not an array:', sexoPetData);
             setSexoOpcoes([]);
           }
         } else {
-          console.error('Formato de resposta de sexo desconhecido:', sexoPetData);
+          console.error('Unknown sex response format:', sexoPetData);
           setSexoOpcoes([]);
         }
       } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
-        Alert.alert('Erro', 'Falha ao carregar dados. Por favor, tente novamente.');
+        console.error('Error loading initial data:', error);
+        Alert.alert('Error', 'Failed to load data. Please try again.');
       } finally {
         setIsLoading(false);
       }
@@ -266,28 +370,28 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     fetchData();
   }, []);
 
-  // Debug useEffect para verificar valores após carregamento
+  // Debug useEffect to check values after loading
   useEffect(() => {
-    console.log('Espécies carregadas:', especies);
-    console.log('Faixas etárias carregadas:', faixasEtarias);
-    console.log('Opções de sexo carregadas:', sexoOpcoes);
-    console.log('Dados do usuário carregados:', userData);
+    console.log('Species loaded:', especies);
+    console.log('Age ranges loaded:', faixasEtarias);
+    console.log('Sex options loaded:', sexoOpcoes);
+    console.log('User data loaded:', userData);
   }, [especies, faixasEtarias, sexoOpcoes, userData]);
 
-  // Função para carregar raças baseadas na espécie selecionada
+  // Function to load races based on selected species
   const loadRacasByEspecie = async (especieId: number) => {
     try {
-      console.log('Carregando raças para espécie ID:', especieId);
+      console.log('Loading races for species ID:', especieId);
 
-      // Resetar estado de raça no formulário
+      // Reset race state in form
       setFormData((prev) => ({ ...prev, raca: '' }));
       setRacasFiltradas([]);
 
-      // Buscar raças por espécie - add proper typing here
-      const racasData = await getRacasPorEspecie(especieId); // Convert to string here if needed
+      // Get races by species
+      const racasData = await getRacasPorEspecie(especieId);
       console.log('racasData:', racasData);
 
-      // Processamento dos dados de raças with proper type handling
+      // Process race data with proper type handling
       if (Array.isArray(racasData)) {
         setRacasFiltradas(racasData as Raca[]);
       } else if (racasData && typeof racasData === 'object') {
@@ -298,20 +402,20 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
         if (Array.isArray(dataArray)) {
           setRacasFiltradas(dataArray as Raca[]);
         } else {
-          console.error('Formato de resposta de raças não é um array:', racasData);
+          console.error('Race response format is not an array:', racasData);
           setRacasFiltradas([]);
         }
       } else {
-        console.error('Formato de resposta de raças desconhecido:', racasData);
+        console.error('Unknown race response format:', racasData);
         setRacasFiltradas([]);
       }
     } catch (error) {
-      console.error('Erro ao carregar raças para esta espécie:', error);
-      Alert.alert('Erro', 'Falha ao carregar raças para esta espécie. Por favor, tente novamente.');
+      console.error('Error loading races for this species:', error);
+      Alert.alert('Error', 'Failed to load races for this species. Please try again.');
     }
   };
 
-  // Função para validar a idade com base na faixa etária selecionada
+  // Function to validate age based on selected age range
   const validarIdade = (idade: string, faixaEtaria: any) => {
     if (!idade || !faixaEtaria) return true;
 
@@ -324,17 +428,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
     return idadeNum >= idadeMin && idadeNum <= idadeMax;
   };
 
-  // Função para atualizar o estado do formulário
-  // Função para atualizar o estado do formulário
+  // Function to update form state
   const handleChange = (name: keyof FormData, value: string | any) => {
-    // Impedir alterações nos campos do usuário (responsável, cidade, estado)
+    // Prevent changes to user fields (responsible, city, state)
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
-      return; // Não permitir alterações nesses campos
+      return; // Don't allow changes to these fields
     }
 
-    // Limpar mensagens de erro quando o campo for preenchido
+    // Clear error messages when field is filled
     if (value) {
-      // Limpar erros específicos para cada campo quando ele é preenchido
+      // Clear specific errors for each field when it's filled
       switch (name) {
         case 'nome':
           setNomeErro('');
@@ -374,28 +477,28 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       }
     }
 
-    // Caso especial para o campo de idade
+    // Special case for age field
     if (name === 'idade') {
-      // Verifica se o valor digitado é apenas numérico
+      // Check if value is only numeric
       if (value && !/^\d*$/.test(value)) {
-        return; // Não atualiza o estado se não for numérico
+        return; // Don't update state if not numeric
       }
 
-      // Limpa o erro de idade quando o usuário começa a digitar
+      // Clear age error when user starts typing
       setIdadeErro('');
 
-      // Valida a idade de acordo com a faixa etária selecionada
+      // Validate age according to selected age range
       if (formData.idadeCategoria && value) {
         const idadeValida = validarIdade(value, formData.idadeCategoria);
         if (!idadeValida) {
           const idadeMin = formData.idadeCategoria.idade_min || 0;
 
-          // Tratamento especial para o caso de idade_max ser null (idoso)
+          // Special treatment for case where idade_max is null (elderly)
           let mensagemErro;
           if (formData.idadeCategoria.idade_max === null) {
-            mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
+            mensagemErro = `Age must be ${idadeMin} or more`;
           } else {
-            mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
+            mensagemErro = `Age must be between ${idadeMin} and ${formData.idadeCategoria.idade_max}`;
           }
 
           setIdadeErro(mensagemErro);
@@ -410,289 +513,305 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({ visible, onClose, o
       [name]: value,
     }));
 
-    // Se a espécie foi alterada, filtra as faixas etárias correspondentes e carrega as raças
+    // If species was changed, filter corresponding age ranges and load races
     if (name === 'especie' && value) {
-      console.log('Espécie selecionada:', value);
+      console.log('Selected species:', value);
 
-      // Filtra faixas etárias pela especie_id
+      // Filter age ranges by especie_id
       const faixasFiltradas = faixasEtarias.filter((faixa) => {
-        console.log(`Comparando: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
+        console.log(`Comparing: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
         return faixa.especie_id === value.id;
       });
 
-      console.log('Faixas filtradas:', faixasFiltradas);
+      console.log('Filtered ranges:', faixasFiltradas);
       setFaixasEtariasFiltradas(faixasFiltradas);
 
-      // Carrega as raças para esta espécie
+      // Load races for this species
       loadRacasByEspecie(Number(value.id));
 
-      // Reseta a seleção de faixa etária e idade
+      // Reset age range and age selection
       setFormData((prev) => ({ ...prev, idadeCategoria: '', idade: '', raca: '' }));
       setIdadeErro('');
       setRacaErro('');
     }
 
-    // Se a faixa etária foi alterada, limpa o campo de idade
+    // If age range was changed, clear age field
     if (name === 'idadeCategoria') {
       setFormData((prev) => ({ ...prev, idade: '' }));
-      // Limpa qualquer erro existente ao mudar a faixa etária
+      // Clear any existing error when changing age range
       setIdadeErro('');
     }
   };
 
-  // Função para verificar se o objeto tem a propriedade descricao
+  // Function to check if object has description property
   const getDescricao = (obj: any) => {
     if (!obj) return '';
 
-    // Tenta diferentes propriedades comuns para descrição
+    // Try different common properties for description
     if (obj.descricao) return obj.descricao;
     if (obj.description) return obj.description;
     if (obj.nome) return obj.nome;
     if (obj.name) return obj.name;
 
-    // Se nenhuma propriedade esperada for encontrada, retorna uma representação do objeto
+    // If no expected property is found, return object representation
     return JSON.stringify(obj);
   };
 
   const getSelectedRacaId = () => {
-    // Se a raça não foi selecionada, retorna null
+    // If race not selected, return null
     if (!formData.raca) return null;
 
-    // Procura a raça que corresponde ao nome selecionado
+    // Find race that matches selected name
     const racaEncontrada = racasFiltradas.find((raca) => getDescricao(raca) === formData.raca);
 
     return racaEncontrada ? racaEncontrada.id : null;
   };
 
-  // Função para obter o ID do sexo baseado na descrição
+  // Function to get sex ID based on description
   const getSexoIdFromDescription = (sexoDescricao: string) => {
-    // Se o sexo não foi selecionado, retorna null
+    // If sex not selected, return null
     if (!sexoDescricao) return null;
 
-    // Procura o sexo que corresponde à descrição selecionada
+    // Find sex that matches selected description
     const sexoEncontrado = sexoOpcoes.find((sexo) => getDescricao(sexo) === sexoDescricao);
 
     return sexoEncontrado ? sexoEncontrado.id : null;
   };
 
-  // Função para lidar com o envio do formulário
-  // Função para lidar com o envio do formulário
-const handleSubmit = async () => {
-  // Validação dos campos obrigatórios
-  let isValid = true;
+  // Function to handle form submission
+  const handleSubmit = async () => {
+    // Validate required fields
+    let isValid = true;
 
-  // Validações existentes
-  if (!formData.especie) {
-    setEspecieErro('Por favor, selecione uma espécie');
-    isValid = false;
-  } else {
-    setEspecieErro('');
-  }
-
-  if (formData.especie && !formData.idadeCategoria) {
-    setFaixaEtariaErro('Por favor, selecione uma faixa etária');
-    isValid = false;
-  } else {
-    setFaixaEtariaErro('');
-  }
-
-  // Nova validação: verificar se idade está vazia quando uma faixa etária foi selecionada
-  if (formData.idadeCategoria && !formData.idade) {
-    setIdadeErro('Por favor, informe a idade');
-    isValid = false;
-  } else if (formData.idade && formData.idadeCategoria) {
-    // Validação da idade se estiver preenchida
-    const idadeValida = validarIdade(formData.idade, formData.idadeCategoria);
-    if (!idadeValida) {
-      const idadeMin = formData.idadeCategoria.idade_min || 0;
-
-      // Tratamento especial para o caso de idade_max ser null (idoso)
-      let mensagemErro;
-      if (formData.idadeCategoria.idade_max === null) {
-        mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
-      } else {
-        mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
-      }
-
-      setIdadeErro(mensagemErro);
+    // Existing validations
+    if (!formData.especie) {
+      setEspecieErro('Please select a species');
       isValid = false;
     } else {
-      setIdadeErro('');
+      setEspecieErro('');
     }
-  }
 
-  if (!formData.sexo) {
-    setSexoErro('Por favor, selecione o sexo');
-    isValid = false;
-  } else {
-    setSexoErro('');
-  }
+    if (formData.especie && !formData.idadeCategoria) {
+      setFaixaEtariaErro('Please select an age range');
+      isValid = false;
+    } else {
+      setFaixaEtariaErro('');
+    }
 
-  if (!formData.raca) {
-    setRacaErro('Por favor, selecione uma raça');
-    isValid = false;
-  } else {
-    setRacaErro('');
-  }
+    // New validation: check if age is empty when an age range is selected
+    if (formData.idadeCategoria && !formData.idade) {
+      setIdadeErro('Please enter the age');
+      isValid = false;
+    } else if (formData.idade && formData.idadeCategoria) {
+      // Age validation if filled
+      const idadeValida = validarIdade(formData.idade, formData.idadeCategoria);
+      if (!idadeValida) {
+        const idadeMin = formData.idadeCategoria.idade_min || 0;
 
-  // Novas validações
-  if (!formData.nome) {
-    setNomeErro('Por favor, informe o nome');
-    isValid = false;
-  } else {
-    setNomeErro('');
-  }
+        // Special treatment for case where idade_max is null (elderly)
+        let mensagemErro;
+        if (formData.idadeCategoria.idade_max === null) {
+          mensagemErro = `Age must be ${idadeMin} or more`;
+        } else {
+          mensagemErro = `Age must be between ${idadeMin} and ${formData.idadeCategoria.idade_max}`;
+        }
 
-  if (!formData.quantidade) {
-    setQuantidadeErro('Por favor, informe a quantidade');
-    isValid = false;
-  } else {
-    setQuantidadeErro('');
-  }
+        setIdadeErro(mensagemErro);
+        isValid = false;
+      } else {
+        setIdadeErro('');
+      }
+    }
 
-  if (!formData.possuiDoenca) {
-    setPossuiDoencaErro('Por favor, informe se possui doença/deficiência');
-    isValid = false;
-  } else {
-    setPossuiDoencaErro('');
-  }
+    if (!formData.sexo) {
+      setSexoErro('Please select sex');
+      isValid = false;
+    } else {
+      setSexoErro('');
+    }
 
-  // Validar descrição da doença apenas se possuiDoenca for "Sim"
-  if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
-    setDoencaDescricaoErro('Por favor, descreva a doença/deficiência');
-    isValid = false;
-  } else {
-    setDoencaDescricaoErro('');
-  }
+    if (!formData.raca) {
+      setRacaErro('Please select a breed');
+      isValid = false;
+    } else {
+      setRacaErro('');
+    }
 
-  if (!formData.motivoDoacao) {
-    setMotivoDoacaoErro('Por favor, informe o motivo da doação');
-    isValid = false;
-  } else {
-    setMotivoDoacaoErro('');
-  }
+    // New validations
+    if (!formData.nome) {
+      setNomeErro('Please enter a name');
+      isValid = false;
+    } else {
+      setNomeErro('');
+    }
 
-  if (!formData.foto) {
-    setFotoErro('Por favor, selecione uma foto');
-    isValid = false;
-  } else {
-    setFotoErro('');
-  }
+    if (!formData.quantidade) {
+      setQuantidadeErro('Please enter quantity');
+      isValid = false;
+    } else {
+      setQuantidadeErro('');
+    }
 
-  if (!isValid) {
-    Alert.alert('Erro', 'Por favor, preencha todos os campos obrigatórios corretamente.');
-    return;
-  }
+    if (!formData.possuiDoenca) {
+      setPossuiDoencaErro('Please indicate if there are diseases/disabilities');
+      isValid = false;
+    } else {
+      setPossuiDoencaErro('');
+    }
 
-  try {
-    // Resto do código permanece igual...
-    // Obter o ID do usuário do AsyncStorage
-    const userId = await AsyncStorage.getItem('@App:userId');
+    // Validate disease description only if possuiDoenca is "Sim"
+    if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
+      setDoencaDescricaoErro('Please describe the disease/disability');
+      isValid = false;
+    } else {
+      setDoencaDescricaoErro('');
+    }
 
-    if (!userId) {
-      Alert.alert('Erro', 'Não foi possível identificar o usuário logado.');
+    if (!formData.motivoDoacao) {
+      setMotivoDoacaoErro('Please enter donation reason');
+      isValid = false;
+    } else {
+      setMotivoDoacaoErro('');
+    }
+
+    // Only validate photo if adding a new pet (not in edit mode) or if changing the photo
+    if (!isEditMode && !formData.foto) {
+      setFotoErro('Please select a photo');
+      isValid = false;
+    } else {
+      setFotoErro('');
+    }
+
+    if (!isValid) {
+      Alert.alert('Error', 'Please fill all required fields correctly.');
       return;
     }
 
-    // Preparar os dados para o formato que a API espera
-    const petPayload: PetPayload = {
-      nome: formData.nome,
-      especie_id: formData.especie.id,
-      raca_id: getSelectedRacaId(),
-      idade: parseInt(formData.idade, 10) || 0, // Converte para número
-      faixa_etaria_id: formData.idadeCategoria.id,
-      usuario_id: parseInt(userId, 10),
-      estado_id: userData?.estado.id || 0,
-      cidade_id: userData?.cidade.id || 0,
-      sexo_id: getSexoIdFromDescription(formData.sexo),
-      motivoDoacao: formData.motivoDoacao,
-      status_id: 1,
-      quantidade: parseInt(formData.quantidade, 10) || 0, // Converte para número
-      doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
-      foto: formData.foto
-        ? {
-            uri: formData.foto,
-            type: 'image/jpeg',
-            name: `pet_${Date.now()}.jpg`,
-          }
-        : null,
-    };
+    try {
+      // Get user ID from AsyncStorage
+      const userId = await AsyncStorage.getItem('@App:userId');
 
-    // Exibir loading
-    setIsLoading(true);
+      if (!userId) {
+        Alert.alert('Error', 'Could not identify logged user.');
+        return;
+      }
 
-    // Enviar para a API
-    const response = await postPet(petPayload);
+      // Prepare data in format expected by API
+      const petPayload: PetPayload = {
+        nome: formData.nome,
+        especie_id: formData.especie.id,
+        raca_id: getSelectedRacaId(),
+        idade: parseInt(formData.idade, 10) || 0, // Convert to number
+        faixa_etaria_id: formData.idadeCategoria.id,
+        usuario_id: parseInt(userId, 10),
+        estado_id: userData?.estado.id || 0,
+        cidade_id: userData?.cidade.id || 0,
+        rg_Pet: formData.rgPet || null,
+        sexo_id: getSexoIdFromDescription(formData.sexo),
+        motivoDoacao: formData.motivoDoacao,
+        status_id: 1,
+        quantidade: parseInt(formData.quantidade, 10) || 0, // Convert to number
+        doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
+        foto: formData.foto
+          ? {
+              uri: formData.foto,
+              type: 'image/jpeg',
+              name: `pet_${Date.now()}.jpg`,
+            }
+          : null,
+      };
 
-    if (response) {
-      Alert.alert('Sucesso', 'Pet cadastrado com sucesso!');
+      // Show loading
+      setIsLoading(true);
 
-      // Reseta o formulário, mantendo os dados do usuário
-      setFormData({
-        especie: '',
-        nome: '',
-        quantidade: '',
-        raca: '',
-        idadeCategoria: '',
-        idade: '',
-        responsavel: userData?.nome || '',
-        estado: userData?.estado.nome || '',
-        cidade: userData?.cidade.nome || '',
-        sexo: '',
-        possuiDoenca: '',
-        doencaDescricao: '',
-        motivoDoacao: '',
-        foto: null,
-      });
+      // Send to API - handle update or create based on isEditMode
+      let response;
+      if (isEditMode && pet) {
+        response = await updatePet({
+          id: pet.id,
+          ...petPayload
+        });
+        if (response) {
+          Alert.alert('Success', 'Pet updated successfully!');
+        }
+      } else {
+        response = await postPet(petPayload);
+        if (response) {
+          Alert.alert('Success', 'Pet registered successfully!');
+        }
+      }
 
-      // Limpa os erros
-      setEspecieErro('');
-      setFaixaEtariaErro('');
-      setSexoErro('');
-      setIdadeErro('');
-      setRacaErro('');
-      setNomeErro('');
-      setQuantidadeErro('');
-      setPossuiDoencaErro('');
-      setDoencaDescricaoErro('');
-      setMotivoDoacaoErro('');
-      setFotoErro('');
+      if (response) {
+        // Pass form data to parent through onSubmit
+        onSubmit(formData);
 
-      // Fechar o modal
-      onClose();
-    } else {
-      Alert.alert('Erro', 'Não foi possível cadastrar o pet. Tente novamente.');
+        // Reset form, keeping user data
+        setFormData({
+          especie: '',
+          nome: '',
+          quantidade: '',
+          raca: '',
+          idadeCategoria: '',
+          idade: '',
+          responsavel: userData?.nome || '',
+          estado: userData?.estado.nome || '',
+          cidade: userData?.cidade.nome || '',
+          rgPet: '',
+          sexo: '',
+          possuiDoenca: '',
+          doencaDescricao: '',
+          motivoDoacao: '',
+          foto: null,
+        });
+
+        // Clear errors
+        setEspecieErro('');
+        setFaixaEtariaErro('');
+        setSexoErro('');
+        setIdadeErro('');
+        setRacaErro('');
+        setNomeErro('');
+        setQuantidadeErro('');
+        setPossuiDoencaErro('');
+        setDoencaDescricaoErro('');
+        setMotivoDoacaoErro('');
+        setFotoErro('');
+
+        // Close modal
+        onClose();
+      } else {
+        Alert.alert('Error', 'Could not register pet. Please try again.');
+      }
+    } catch (error) {
+      console.error('Error submitting form:', error);
+      Alert.alert('Error', 'An error occurred while processing your request. Please try again.');
+    } finally {
+      setIsLoading(false);
     }
-  } catch (error) {
-    console.error('Erro ao submeter formulário:', error);
-    Alert.alert('Erro', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
-  } finally {
-    setIsLoading(false);
-  }
-};
-
-  // Função para tratar o fechamento e navegação
-  const handleCloseAndNavigate = () => {
-    onClose(); // Fecha o modal
-    router.push('/pages/PetDonation'); // Navega para a tela PetDonation
   };
 
-  // Função para abrir o modal de seleção de raça
+  // Function to handle closing and navigation
+  const handleCloseAndNavigate = () => {
+    onClose(); // Close modal
+    router.push('/pages/PetDonation'); // Navigate to PetDonation screen
+  };
+
+  // Function to open breed selection modal
   const openRacasModal = () => {
     if (!formData.especie) {
-      setRacaErro('Por favor, selecione uma espécie primeiro');
+      setRacaErro('Please select a species first');
       return;
     }
 
     if (racasFiltradas.length === 0) {
-      Alert.alert('Aviso', 'Não há raças disponíveis para esta espécie.');
+      Alert.alert('Warning', 'No breeds available for this species.');
       return;
     }
 
     setShowRacasModal(true);
   };
 
-  // Função para selecionar uma raça e fechar o modal
+  // Function to select a breed and close modal
   const selectRaca = (raca: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -702,20 +821,21 @@ const handleSubmit = async () => {
     setShowRacasModal(false);
   };
 
-  // Função para obter dica de idade para a faixa etária selecionada
+  // Function to get age hint for selected age range
   const getIdadePlaceholder = () => {
-    if (!formData.idadeCategoria) return 'Idade específica (opcional)';
+    if (!formData.idadeCategoria) return 'Specific age (optional)';
 
     const idadeMin = formData.idadeCategoria.idade_min !== undefined ? formData.idadeCategoria.idade_min : '';
 
-    // Tratamento especial para caso de idosos (idade_max é null)
+    // Special treatment for elderly case (idade_max is null)
     if (formData.idadeCategoria.idade_max === null) {
-      return `Idade específica (${idadeMin} ou mais)`;
+      return `Specific age (${idadeMin} or more)`;
     } else {
       const idadeMax = formData.idadeCategoria.idade_max !== undefined ? formData.idadeCategoria.idade_max : '∞';
-      return `Idade específica (Entre ${idadeMin} e ${idadeMax})`;
+      return `Specific age (Between ${idadeMin} and ${idadeMax})`;
     }
   };
+
 
   // Função para formatar a exibição dos limites de idade
   const getIdadeLimites = () => {
@@ -761,7 +881,38 @@ const handleSubmit = async () => {
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
+  const formatRG = (text: string): string => {
+    // Remove todos os caracteres não numéricos
+    const digits = text.replace(/\D/g, '');
 
+    // Limita a 9 dígitos (padrão RG)
+    const limitedDigits = digits.slice(0, 9);
+
+    // Aplica a formatação 00.000.000-0
+    let formatted = '';
+
+    if (limitedDigits.length > 0) {
+      // Primeiros 2 dígitos
+      formatted = limitedDigits.slice(0, 2);
+
+      // Adiciona um ponto após os primeiros 2 dígitos
+      if (limitedDigits.length > 2) {
+        formatted += '.' + limitedDigits.slice(2, 5);
+
+        // Adiciona outro ponto após o 5º dígito
+        if (limitedDigits.length > 5) {
+          formatted += '.' + limitedDigits.slice(5, 8);
+
+          // Adiciona hífen e o último dígito
+          if (limitedDigits.length > 8) {
+            formatted += '-' + limitedDigits.slice(8, 9);
+          }
+        }
+      }
+    }
+
+    return formatted;
+  };
   // Exibir loading enquanto os dados são carregados
   if (isLoading) {
     return (
@@ -973,6 +1124,22 @@ const handleSubmit = async () => {
                 editable={false} // Torna o campo não editável
               />
               <Text style={styles.infoText}>Campo preenchido automaticamente com sua cidade</Text>
+            </View>
+            {/* Rg do Pet  */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>RG do Pet</Text>
+              <TextInput
+                style={styles.input}
+                placeholder="RG do Pet (00.000.000-0)"
+                keyboardType="numeric"
+                value={formData.rgPet || ''}
+                onChangeText={(value) => {
+                  // Formata o valor antes de atualizar o estado
+                  const formattedValue = formatRG(value);
+                  handleChange('rgPet', formattedValue);
+                }}
+              />
+              <Text style={styles.infoText}>Informe o RG do pet se disponível</Text>
             </View>
             {/* Sexo */}
             <View style={styles.fieldContainer}>

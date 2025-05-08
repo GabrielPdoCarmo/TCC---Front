@@ -111,6 +111,7 @@ interface PetPayload {
   faixa_etaria_id: number;
   usuario_id: number;
   sexo_id: number;
+  rg_Pet: string | null; // RG do pet, pode ser nulo
   motivoDoacao: string;
   status_id: number;
   quantidade: number;
@@ -129,6 +130,7 @@ export const postPet = async (petData: PetPayload) => {
     formData.append('faixa_etaria_id', String(petData.faixa_etaria_id));
     formData.append('usuario_id', String(petData.usuario_id));
     formData.append('sexo_id', String(petData.sexo_id));
+    formData.append('rg_Pet', petData.rg_Pet || ''); // Envia string vazia se rg_Pet for nulo
     formData.append('motivoDoacao', petData.motivoDoacao);
     formData.append('status_id', String(petData.status_id));
     formData.append('quantidade', String(petData.quantidade));
@@ -153,7 +155,62 @@ export const postPet = async (petData: PetPayload) => {
     return null;
   }
 };
+interface PetUpdatePayload {
+  id: number;
+  nome?: string;
+  especie_id?: number;
+  raca_id?: number;
+  idade?: number;
+  faixa_etaria_id?: number;
+  sexo_id?: number;
+  rg_Pet?: string | null;
+  motivoDoacao?: string;
+  status_id?: number;
+  quantidade?: number;
+  doencas?: string[]; // nomes das doenças ou ids
+  foto?: any; // Arquivo de imagem
+}
+export const updatePet = async (petData: PetUpdatePayload) => {
+  try {
+    const { id, ...petInfo } = petData;
+    const formData = new FormData();
+    
+    // Adicionar campos ao FormData apenas se existirem
+    if (petInfo.nome) formData.append('nome', petInfo.nome);
+    if (petInfo.especie_id) formData.append('especie_id', String(petInfo.especie_id));
+    if (petInfo.raca_id) formData.append('raca_id', String(petInfo.raca_id));
+    if (petInfo.idade !== undefined) formData.append('idade', String(petInfo.idade));
+    if (petInfo.faixa_etaria_id) formData.append('faixa_etaria_id', String(petInfo.faixa_etaria_id));
+    if (petInfo.sexo_id) formData.append('sexo_id', String(petInfo.sexo_id));
+    if (petInfo.rg_Pet !== undefined) formData.append('rg_Pet', petInfo.rg_Pet || '');
+    if (petInfo.motivoDoacao) formData.append('motivoDoacao', petInfo.motivoDoacao);
+    if (petInfo.status_id) formData.append('status_id', String(petInfo.status_id));
+    if (petInfo.quantidade !== undefined) formData.append('quantidade', String(petInfo.quantidade));
 
+    // Adicionar doenças se existirem
+    if (petInfo.doencas && Array.isArray(petInfo.doencas)) {
+      petInfo.doencas.forEach((doenca, index) => {
+        formData.append(`doencas[${index}]`, doenca);
+      });
+    }
+
+    // Adicionar foto se existir
+    if (petInfo.foto) {
+      formData.append('foto', petInfo.foto);
+    }
+
+    const response = await api.put(`/pets/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar o pet', error);
+    throw error;
+  }
+};
 // Chamada para obter os estados
 export const getEstados = async () => {
   try {
@@ -170,6 +227,22 @@ export const getEstados = async () => {
     return [];
   }
 };
+export const getDoencasPorPetId = async (petId: number) => {
+  try {
+    const response = await api.get(`/pets-doencas/${petId}`);
+    return response.data.map((item: any) => {
+      return {
+        id: item.doenca?.id,      // ou item.DoencasDeficiencia.id se não usou alias
+        nome: item.doenca?.nome,  // ou item.DoencasDeficiencia.nome
+        possui: item.possui,
+      };
+    });
+  } catch (error) {
+    console.error('Erro ao carregar doenças/deficiências do pet', error);
+    return [];
+  }
+};
+
 export const getCidades_Estado = async (id: number, estado_id: number) => {
   try {
     // Faz a requisição para obter as cidades de um estado com base no id e estado_id

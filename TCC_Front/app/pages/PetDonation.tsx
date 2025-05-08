@@ -13,7 +13,14 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
-import { getPetsByUsuarioId, getUsuarioById, getRacaById, getFaixaEtariaById,getstatusById } from '@/services/api';
+import {
+  getPetsByUsuarioId,
+  getUsuarioById,
+  getRacaById,
+  getFaixaEtariaById,
+  getstatusById,
+  updatePet,
+} from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
 
@@ -26,11 +33,12 @@ interface Pet {
   idade: string;
   usuario_id: number;
   usuario_nome?: string;
-  imagem?: string;
+  foto?: string;
   faixa_etaria_id: number;
   faixa_etaria_unidade?: string;
   status_id: number;
   status_nome?: string;
+  sexo_id?: number;
 }
 
 // Define a interface Usuario
@@ -71,58 +79,63 @@ export default function PetDonationScreen() {
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   // Estado para controlar erros
   const [error, setError] = useState('');
+  // Estado para armazenar o pet sendo editado
+  const [currentPet, setCurrentPet] = useState<Pet | null>(null);
+  // Estado para controlar se o modal está no modo de edição
+  const [isEditMode, setIsEditMode] = useState(false);
 
   // Função para buscar os pets do usuário logado com dados de faixa etária
   const fetchUserPets = async () => {
     try {
       setLoading(true);
       setError('');
-
+  
       // Obter o ID do usuário do AsyncStorage
       const userId = await AsyncStorage.getItem('@App:userId');
-
+  
       if (!userId) {
         setError('Usuário não encontrado. Por favor, faça login novamente.');
         setLoading(false);
         return;
       }
-
+  
       // Converter o ID para número
       const userIdNumber = parseInt(userId, 10);
       console.log('Buscando pets para o usuário ID:', userIdNumber);
-
+  
       // Obter informações do usuário
       const userData = await getUsuarioById(userIdNumber);
       setCurrentUser(userData);
       console.log('Dados do usuário carregados:', userData);
-
+  
       // Obter os pets do usuário
       const userPets = await getPetsByUsuarioId(userIdNumber);
       console.log('Pets do usuário carregados:', userPets);
-
+  
       // Enriquecer os dados dos pets com nomes de raças, responsáveis e faixa etária
       const enrichedPets = await Promise.all(
         userPets.map(async (pet: Pet) => {
           try {
             // Obter informações da raça
             const racaData = await getRacaById(pet.raca_id);
-
+  
             // Obter informações da faixa etária
             const faixaEtariaData = await getFaixaEtariaById(pet.faixa_etaria_id);
-
+  
             // Obter informações do status
             const statusData = await getstatusById(pet.status_id);
+            
             // Obter informações do usuário responsável (se diferente do usuário atual)
             let usuarioNome = userData?.nome || 'Usuário não identificado';
-
+  
             if (pet.usuario_id !== userIdNumber) {
               const petUsuario = await getUsuarioById(pet.usuario_id);
-
+  
               if (petUsuario) {
                 usuarioNome = petUsuario.nome;
               }
             }
-
+  
             // Criar objeto pet enriquecido com os nomes e informações da faixa etária
             return {
               ...pet,
@@ -130,20 +143,23 @@ export default function PetDonationScreen() {
               usuario_nome: usuarioNome,
               faixa_etaria_unidade: faixaEtariaData?.unidade,
               status_nome: statusData.nome,
+              // Garantir que sexo e foto estejam incluídos
+              foto: pet.foto
             };
           } catch (error) {
             console.error(`Erro ao enriquecer dados do pet ${pet.nome}:`, error);
-
+  
             // Em caso de erro, retornar o pet com informações de fallback
             return {
               ...pet,
               raca_nome: `Raça não disponível (ID: ${pet.raca_id})`,
               usuario_nome: `Usuário não disponível (ID: ${pet.usuario_id})`,
+              foto: pet.foto || ''
             };
           }
         })
       );
-
+  
       console.log('Pets enriquecidos:', enrichedPets);
       setPets(enrichedPets);
     } catch (error) {
@@ -171,34 +187,50 @@ export default function PetDonationScreen() {
     }, [])
   );
 
-  // Função para abrir o modal
+  // Função para abrir o modal no modo de adição
   const handleOpenModal = () => {
+    setCurrentPet(null);
+    setIsEditMode(false);
     setModalVisible(true);
   };
 
   // Função para fechar o modal e atualizar a lista de pets
   const handleCloseModal = () => {
     setModalVisible(false);
+    setCurrentPet(null);
+    setIsEditMode(false);
     // Recarrega a lista de pets após fechar o modal
     fetchUserPets();
   };
 
   // Função para processar os dados do formulário
   const handleSubmitForm = async (formData: any) => {
-    console.log('Dados do pet para doação:', formData);
-
-    // Aqui você pode adicionar a lógica para salvar os dados,
-    // como enviar para uma API, salvar no banco de dados local, etc.
-
-    Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
-      {
-        text: 'OK',
-        onPress: () => {
-          handleCloseModal();
-          // Não é necessário chamar fetchUserPets aqui, pois handleCloseModal já faz isso
-        },
-      },
-    ]);
+    try {
+      if (isEditMode && currentPet) {
+        console.log('Atualizando dados do pet:', formData);
+        // Atualizar o pet existente usando updatePet
+        await updatePet({...formData, id: currentPet.id});
+        Alert.alert('Sucesso!', 'Os dados do pet foram atualizados com sucesso.', [
+          {
+            text: 'OK',
+            onPress: handleCloseModal,
+          },
+        ]);
+      } else {
+        console.log('Cadastrando novo pet:', formData);
+        // Lógica para salvar um novo pet
+        // Por exemplo: await createPet(formData);
+        Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
+          {
+            text: 'OK',
+            onPress: handleCloseModal,
+          },
+        ]);
+      }
+    } catch (error) {
+      console.error('Erro ao salvar/atualizar pet:', error);
+      Alert.alert('Erro', 'Ocorreu um erro ao salvar os dados do pet. Por favor, tente novamente.');
+    }
   };
 
   // Função para enviar pet para adoção
@@ -222,14 +254,32 @@ export default function PetDonationScreen() {
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
-    // Implementar lógica para editar o pet
-    console.log(`Editar pet com ID: ${petId}`);
-    // Poderia abrir o modal preenchido com os dados do pet
+    // Encontrar o pet pelo ID
+    const petToEdit = pets.find(pet => pet.id === petId);
+    
+    if (petToEdit) {
+      console.log(`Editando pet com ID: ${petId}`, petToEdit);
+      
+      // Verificar se há dados de sexo e foto
 
-    // Após editar, atualizar a lista
-    // fetchUserPets(); // Descomente quando implementar a lógica de edição
+      console.log('Foto do pet:', petToEdit.foto );
+      console.log('Sexo do pet:', petToEdit.sexo_id);
+      
+      // Definir o pet atual para edição com todos os dados necessários
+      setCurrentPet({
+        ...petToEdit,
+        // Garantir que estes campos existam para o modal
+        foto: petToEdit.foto
+      });
+      
+      // Ativar o modo de edição
+      setIsEditMode(true);
+      // Abrir o modal
+      setModalVisible(true);
+    } else {
+      Alert.alert('Erro', 'Pet não encontrado para edição.');
+    }
   };
-
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
     Alert.alert('Excluir Pet', 'Tem certeza que deseja excluir este pet?', [
@@ -337,7 +387,13 @@ export default function PetDonationScreen() {
         </View>
 
         {/* Modal de Doação de Pet */}
-        <PetDonationModal visible={modalVisible} onClose={handleCloseModal} onSubmit={handleSubmitForm} />
+        <PetDonationModal 
+          visible={modalVisible} 
+          onClose={handleCloseModal} 
+          onSubmit={handleSubmitForm} 
+          pet={currentPet}
+          isEditMode={isEditMode}
+        />
       </ImageBackground>
     </SafeAreaView>
   );
