@@ -20,6 +20,7 @@ import {
   getFaixaEtariaById,
   getstatusById,
   updatePet,
+  getDoencasPorPetId
 } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
