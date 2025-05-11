@@ -20,6 +20,7 @@ import {
   postPet,
   getSexoPet,
   getDoencasPorPetId,
+  getDoencaPorId,
   updatePet, // Add updatePet import
 } from '../../services/api';
 import RacasSelectionModal from './RacasSelectionModal';
@@ -101,10 +102,10 @@ interface UserData {
   };
 }
 
-const PetDonationModal: React.FC<PetDonationModalProps> = ({ 
-  visible, 
-  onClose, 
-  onSubmit, 
+const PetDonationModal: React.FC<PetDonationModalProps> = ({
+  visible,
+  onClose,
+  onSubmit,
   pet = null, // Default to null if not provided
   isEditMode = false // Default to false if not provided
 }) => {
@@ -114,10 +115,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [especies, setEspecies] = useState<any[]>([]);
   const [faixasEtarias, setFaixasEtarias] = useState<any[]>([]);
   const [faixasEtariasFiltradas, setFaixasEtariasFiltradas] = useState<any[]>([]);
-  const [sexoOpcoes, setSexoOpcoes] = useState<any[]>([]); 
-  const [racas, setRacas] = useState<any[]>([]); 
-  const [racasFiltradas, setRacasFiltradas] = useState<any[]>([]); 
-  const [showRacasModal, setShowRacasModal] = useState<boolean>(false); 
+  const [sexoOpcoes, setSexoOpcoes] = useState<any[]>([]);
+  const [racas, setRacas] = useState<any[]>([]);
+  const [racasFiltradas, setRacasFiltradas] = useState<any[]>([]);
+  const [showRacasModal, setShowRacasModal] = useState<boolean>(false);
 
   // State to store logged user data
   const [userData, setUserData] = useState<UserData | null>(null);
@@ -135,7 +136,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [doencaDescricaoErro, setDoencaDescricaoErro] = useState<string>('');
   const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
   const [fotoErro, setFotoErro] = useState<string>('');
-  
+
   // Initial form state - corrected
   const [formData, setFormData] = useState<FormData>({
     nome: '',
@@ -197,94 +198,140 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   };
 
   // Load pet data if in edit mode
-// Modifique o useEffect para carregamento dos dados do pet no modo de edição
-// Modifique o useEffect para carregamento dos dados do pet no modo de edição
-useEffect(() => {
-  if (isEditMode && pet) {
-    const setPetDataToForm = async () => {
-      try {
-        setIsLoading(true);
-        
-        // Encontrar a espécie do pet diretamente pelo ID da espécie
-        const especieData = especies.find(e => e.id === pet.especie_id);
-        
-        // Se não temos a espécie diretamente, tentamos encontrar pela raça
-        if (!especieData && pet.raca_id) {
-          const raca = racas.find(r => r.id === pet.raca_id);
-          if (raca) {
-            const especiePorRaca = especies.find(e => e.id === raca.especie_id);
-            if (especiePorRaca) {
-              // Encontramos a espécie pela raça
-              await loadRacasByEspecie(especiePorRaca.id);
+  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
+  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
+  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
+  useEffect(() => {
+    if (isEditMode && pet) {
+      const setPetDataToForm = async () => {
+        try {
+          setIsLoading(true);
+
+          // Encontrar a espécie do pet diretamente pelo ID da espécie
+          const especieData = especies.find(e => e.id === pet.especie_id);
+
+          // Se não temos a espécie diretamente, tentamos encontrar pela raça
+          if (!especieData && pet.raca_id) {
+            const raca = racas.find(r => r.id === pet.raca_id);
+            if (raca) {
+              const especiePorRaca = especies.find(e => e.id === raca.especie_id);
+              if (especiePorRaca) {
+                // Encontramos a espécie pela raça
+                await loadRacasByEspecie(especiePorRaca.id);
+              }
             }
+          } else if (especieData) {
+            // Se encontramos a espécie diretamente, carregamos as raças
+            await loadRacasByEspecie(especieData.id);
           }
-        } else if (especieData) {
-          // Se encontramos a espécie diretamente, carregamos as raças
-          await loadRacasByEspecie(especieData.id);
+
+          // Encontrar a faixa etária correta
+          const faixaEtaria = faixasEtarias.find(f => f.id === pet.faixa_etaria_id);
+
+          // Encontrar o sexo do pet
+          const sexoData = sexoOpcoes.find(s => s.id === pet.sexo_id);
+
+          console.log('Espécie encontrada:', especieData);
+          console.log('Faixa etária encontrada:', faixaEtaria);
+          console.log('Sexo encontrado:', sexoData);
+
+          // Buscar doenças do pet da API
+          let possuiDoenca = 'Não';
+          let doencaDescricao = '';
+
+          try {
+            // Buscar as doenças do pet usando a API getDoencasPorPetId
+            const doencasResponse = await getDoencasPorPetId(pet.id);
+            console.log('Possui Doença:', doencasResponse);
+
+            // Modificação no trecho onde verifica as doenças:
+            if (doencasResponse && Array.isArray(doencasResponse) && doencasResponse.length > 0) {
+              possuiDoenca = 'Sim';
+
+              // Use a chave correta para o ID da doença
+              const doencaId = doencasResponse[0].doencaDeficiencia_id;
+
+              if (doencaId) {
+                try {
+                  console.log('Tentando buscar doença com ID:', doencaId);
+                  const doencaDetalhes = await getDoencaPorId(doencaId);
+                  console.log('Detalhes da doença:', doencaDetalhes);
+
+                  // Se a API retornou detalhes válidos da doença
+                  if (doencaDetalhes && (doencaDetalhes.nome || doencaDetalhes.descricao)) {
+                    doencaDescricao = doencaDetalhes.nome || doencaDetalhes.descricao;
+                  } else {
+                    // Verifique se já temos o nome da doença na resposta original
+                    doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
+                  }
+                } catch (doencaDetalhesError) {
+                  console.error('Erro ao buscar detalhes da doença:', doencaDetalhesError);
+                  // Em caso de erro, usar o nome da doença da lista inicial se disponível
+                  doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
+                }
+              } else {
+                console.log('Doença sem ID válido, usando dados disponíveis');
+                // Se não houver ID válido, veja se temos o nome diretamente na resposta
+                doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
+              }
+            }
+          } catch (doencasError) {
+            console.error('Erro ao buscar doenças do pet:', doencasError);
+            Alert.alert('Erro', 'Falha ao carregar doenças do pet.');
+          }
+
+          console.log('Status doença final:', { possuiDoenca, doencaDescricao });
+
+          // Atualizar o formulário com os dados do pet
+          setFormData({
+            nome: pet.nome || '',
+            especie: especieData || '',
+            raca: pet.raca_nome || '',
+            idade: pet.idade ? pet.idade.toString() : '',
+            idadeCategoria: faixaEtaria || '',
+            responsavel: userData?.nome || '',
+            estado: userData?.estado?.nome || '',
+            cidade: userData?.cidade?.nome || '',
+            rgPet: pet.rg_Pet || '',
+            sexo: sexoData ? (sexoData.nome || sexoData.descricao) : '',
+            possuiDoenca: possuiDoenca,
+            doencaDescricao: doencaDescricao,
+            motivoDoacao: pet.motivoDoacao || '',
+            quantidade: pet.quantidade ? pet.quantidade.toString() : '1',
+            foto: pet.foto || null,
+          });
+
+          // Se tivermos a espécie, filtramos as faixas etárias
+          if (especieData) {
+            const faixasFiltradas = faixasEtarias.filter(faixa =>
+              faixa.especie_id === especieData.id
+            );
+            setFaixasEtariasFiltradas(faixasFiltradas);
+          }
+
+        } catch (error) {
+          console.error('Erro ao carregar dados do pet para edição:', error);
+          Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
+        } finally {
+          setIsLoading(false);
         }
-        
-        // Encontrar a faixa etária correta
-        const faixaEtaria = faixasEtarias.find(f => f.id === pet.faixa_etaria_id);
-        
-        // Encontrar o sexo do pet
-        const sexoData = sexoOpcoes.find(s => s.id === pet.sexo_id);
-        
-        console.log('Espécie encontrada:', especieData);
-        console.log('Faixa etária encontrada:', faixaEtaria);
-        console.log('Sexo encontrado:', sexoData);
-        
-        // Atualizar o formulário com os dados do pet
-        setFormData({
-          nome: pet.nome || '',
-          especie: especieData || '',
-          raca: pet.raca_nome || '',
-          idade: pet.idade ? pet.idade.toString() : '',
-          idadeCategoria: faixaEtaria || '',
-          responsavel: userData?.nome || '',
-          estado: userData?.estado?.nome || '',
-          cidade: userData?.cidade?.nome || '',
-          rgPet: pet.rg_Pet || '',
-          // FIX HERE: Use both nome and descricao properties for sexo field
-          sexo: sexoData ? (sexoData.nome || sexoData.descricao) : '',
-          possuiDoenca: pet.doencas && pet.doencas.length > 0 ? 'Sim' : 'Não',
-          doencaDescricao: pet.doencas && pet.doencas.length > 0 ? pet.doencas[0] : '',
-          motivoDoacao: pet.motivoDoacao || '',
-          quantidade: pet.quantidade ? pet.quantidade.toString() : '1',
-          foto: pet.foto || null,
-        });
-        
-        // Se tivermos a espécie, filtramos as faixas etárias
-        if (especieData) {
-          const faixasFiltradas = faixasEtarias.filter(faixa => 
-            faixa.especie_id === especieData.id
-          );
-          setFaixasEtariasFiltradas(faixasFiltradas);
-        }
-        
-      } catch (error) {
-        console.error('Erro ao carregar dados do pet para edição:', error);
-        Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
-      } finally {
-        setIsLoading(false);
+      };
+
+      // Só tentamos preencher o formulário quando temos todos os dados necessários carregados
+      if (especies.length > 0 && faixasEtarias.length > 0 && sexoOpcoes.length > 0) {
+        setPetDataToForm();
       }
-    };
-    
-    // Só tentamos preencher o formulário quando temos todos os dados necessários carregados
-    if (especies.length > 0 && faixasEtarias.length > 0 && sexoOpcoes.length > 0) {
-      setPetDataToForm();
     }
-  }
-}, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
+  }, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
 
 
 
-
-// Adicione esta função para depurar os valores do formulário quando eles mudam
-useEffect(() => {
-  if (isEditMode) {
-    console.log('Valores atuais do formulário:', formData);
-  }
-}, [formData]);
+  // Adicione esta função para depurar os valores do formulário quando eles mudam
+  useEffect(() => {
+    if (isEditMode) {
+      console.log('Valores atuais do formulário:', formData);
+    }
+  }, [formData]);
 
   // Fetch data from APIs when component mounts
   useEffect(() => {
@@ -714,10 +761,10 @@ useEffect(() => {
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
         foto: formData.foto
           ? {
-              uri: formData.foto,
-              type: 'image/jpeg',
-              name: `pet_${Date.now()}.jpg`,
-            }
+            uri: formData.foto,
+            type: 'image/jpeg',
+            name: `pet_${Date.now()}.jpg`,
+          }
           : null,
       };
 

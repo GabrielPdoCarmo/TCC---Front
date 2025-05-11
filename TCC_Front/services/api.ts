@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://10.10.21.166:3000/api`,
+  baseURL: `http://192.168.1.12:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);
@@ -227,13 +227,26 @@ export const getEstados = async () => {
     return [];
   }
 };
+// Função para obter todas as doenças/deficiências ordenadas alfabeticamente
+export const getDoencaPorId = async (id: number) => {
+  try {
+    const response = await api.get(`/doencasdeficiencias/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao carregar a doença/deficiência com ID ${id}`, error);
+    return null;
+  }
+};
+
 export const getDoencasPorPetId = async (petId: number) => {
   try {
-    const response = await api.get(`/pets-doencas/${petId}`);
+    const response = await api.get(`/pets-doencas/pets/${petId}`);
+    console.log('Resposta da API:', response.data); // Para debug
+    
     return response.data.map((item: any) => {
       return {
-        id: item.doenca?.id,      // ou item.DoencasDeficiencia.id se não usou alias
-        nome: item.doenca?.nome,  // ou item.DoencasDeficiencia.nome
+        pet_id: petId,
+        doencaDeficiencia_id: item.doencaDeficiencia_id, // Ajustado para o nome correto da propriedade
         possui: item.possui,
       };
     });
@@ -454,21 +467,6 @@ export const getStatus = async () => {
   const response = await api.get('/status');
   return response.data;
 };
-
-// Chamada para obter doenças e deficiências
-export const getDoencasDeficiencias = async () => {
-  try {
-    const response = await api.get('/doencas-deficiencias');
-    return response.data.map((item: { id: number; nome: string }) => ({
-      id: item.id,
-      nome: item.nome,
-    }));
-  } catch (error) {
-    console.error('Erro ao carregar doenças/deficiências', error);
-    return [];
-  }
-};
-
 // Chamada para obter espécies
 export const getEspecies = async () => {
   try {
