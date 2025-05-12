@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
 // Interface PetCardProps atualizada
 interface PetCardProps {
@@ -28,6 +28,9 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
+  // Verifica se o pet está disponível para adoção (status_id === 2)
+  const isAvailableForAdoption = pet.status_id === 2;
+
   // Função para alternar o estado do favorito
   const handleToggleFavorite = () => {
     setIsFavorite(!isFavorite);
@@ -35,6 +38,22 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
     if (onFavorite) {
       onFavorite(pet.id);
     }
+  };
+
+  // Função para exibir alerta quando tentar editar um pet disponível para adoção
+  const handleEditDisabled = () => {
+    Alert.alert(
+      'Operação não permitida',
+      'Este pet está disponível para adoção e não pode ser editado.'
+    );
+  };
+
+  // Função para exibir alerta quando tentar disponibilizar para adoção novamente
+  const handleAdoptDisabled = () => {
+    Alert.alert(
+      'Operação não permitida',
+      'Este pet já está disponível para adoção.'
+    );
   };
 
   return (
@@ -68,8 +87,14 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
           <Text style={styles.label}>
             Responsável: <Text style={styles.value}>{pet.usuario_nome}</Text>
           </Text>
-          <Text style={styles.label}>
-            Status: <Text style={styles.value}>{pet.status_nome}</Text>
+          <Text style={[
+            styles.label, 
+            isAvailableForAdoption ? styles.statusAdoption : null
+          ]}>
+            Status: <Text style={[
+              styles.value, 
+              isAvailableForAdoption ? styles.statusAdoptionText : null
+            ]}>{pet.status_nome}</Text>
           </Text>
         </View>
 
@@ -87,13 +112,33 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
 
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
-          <TouchableOpacity style={styles.adoptButton} onPress={onAdopt}>
-            <Text style={styles.adoptButtonText}>Enviar aos Pets</Text>
+          <TouchableOpacity 
+            style={[
+              styles.adoptButton,
+              isAvailableForAdoption ? styles.disabledButton : null
+            ]} 
+            onPress={isAvailableForAdoption ? handleAdoptDisabled : onAdopt}
+            disabled={isAvailableForAdoption}
+          >
+            <Text style={[
+              styles.adoptButtonText,
+              isAvailableForAdoption ? styles.disabledText : null
+            ]}>Enviar aos Pets</Text>
           </TouchableOpacity>
 
           <View style={styles.editDeleteContainer}>
-            <TouchableOpacity style={styles.editButton} onPress={onEdit}>
-              <Text style={styles.buttonText}>Editar</Text>
+            <TouchableOpacity 
+              style={[
+                styles.editButton,
+                isAvailableForAdoption ? styles.disabledButton : null
+              ]} 
+              onPress={isAvailableForAdoption ? handleEditDisabled : onEdit}
+              disabled={isAvailableForAdoption}
+            >
+              <Text style={[
+                styles.buttonText,
+                isAvailableForAdoption ? styles.disabledText : null
+              ]}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
               <Text style={styles.buttonText}>Deletar</Text>
@@ -207,6 +252,20 @@ const styles = StyleSheet.create({
     fontSize: 12,
     fontWeight: 'bold',
   },
+  // Estilos adicionados para dispositivos desabilitados
+  disabledButton: {
+    backgroundColor: '#E0E0E0',
+  },
+  disabledText: {
+    color: '#A0A0A0',
+  },
+  // Estilo para destacar status de adoção
+  statusAdoption: {
+    fontWeight: 'bold',
+  },
+  statusAdoptionText: {
+    color: '#4CAF50',
+  }
 });
 
 export default PetCard;

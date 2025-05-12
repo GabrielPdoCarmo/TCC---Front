@@ -228,6 +228,16 @@ export const getEstados = async () => {
   }
 };
 
+export const updateStatus = async (id:number) => {
+  try {
+    const response = await api.put(`/pets/status/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar o status do pet', error);
+    throw error;
+  }
+};
+
 export const deletePet = async (id: number) => {
   try {
     const response = await api.delete(`/pets/${id}`);

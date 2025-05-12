@@ -21,6 +21,7 @@ import {
   getstatusById,
   updatePet,
   deletePet,
+  updateStatus
 } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
@@ -235,23 +236,46 @@ export default function PetDonationScreen() {
   };
 
   // Função para enviar pet para adoção
-  const handleAdoptPet = (petId: number) => {
-    Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
-      {
-        text: 'Cancelar',
-        style: 'cancel',
-      },
-      {
-        text: 'Confirmar',
-        onPress: () => {
-          // Implementar lógica para disponibilizar o pet para adoção
-          Alert.alert('Sucesso', 'Pet disponibilizado para ser adotado com sucesso!');
-          // Atualizar a lista após a operação
+  // Modificação da função handleAdoptPet para usar updateStatus e desativar botões
+const handleAdoptPet = (petId: number) => {
+  Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
+    {
+      text: 'Cancelar',
+      style: 'cancel',
+    },
+    {
+      text: 'Confirmar',
+      onPress: async () => {
+        try {
+          // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
+          await updateStatus(petId); // Assumindo que 2 é o ID para "Disponível para adoção"
+          
+          // Atualizando o pet na lista local para refletir a mudança de status
+          const updatedPets = pets.map(pet => {
+            if (pet.id === petId) {
+              return {
+                ...pet,
+                status_id: 2,
+                status_nome: "Disponível para adoção"
+              };
+            }
+            return pet;
+          });
+          
+          setPets(updatedPets);
+          
+          Alert.alert('Sucesso', 'Pet disponibilizado para adoção com sucesso!');
+          
+          // Recarregar a lista de pets para exibir as atualizações
           fetchUserPets();
-        },
+        } catch (error) {
+          console.error('Erro ao disponibilizar pet para adoção:', error);
+          Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
+        }
       },
-    ]);
-  };
+    },
+  ]);
+};
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
