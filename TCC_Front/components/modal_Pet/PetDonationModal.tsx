@@ -107,7 +107,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   onClose,
   onSubmit,
   pet = null, // Default to null if not provided
-  isEditMode = false // Default to false if not provided
+  isEditMode = false, // Default to false if not provided
 }) => {
   const router = useRouter();
 
@@ -163,8 +163,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.error('User ID not found in AsyncStorage');
-        Alert.alert('Error', 'Could not identify logged user.');
+        console.error('ID do usuário não encontrado no AsyncStorage');
+        Alert.alert('Error', 'Não foi possível identificar o usuário conectado.');
         return;
       }
 
@@ -174,12 +174,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userData = await getUsuarioById(userIdNumber);
 
       if (!userData) {
-        console.error('User data not found');
-        Alert.alert('Error', 'Could not load user data.');
+        console.error('Dados do usuário não encontrados');
+        Alert.alert('Error', 'Não foi possível carregar os dados do usuário.');
         return;
       }
 
-      console.log('User data loaded:', userData);
+      console.log('Dados do usuário carregados:', userData);
 
       setUserData(userData);
 
@@ -190,8 +190,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         estado: userData.estado.nome,
       }));
     } catch (error) {
-      console.error('Error fetching user data:', error);
-      Alert.alert('Error', 'Failed to load user data. Please try again.');
+      console.error('Erro ao buscar dados do usuário:', error);
+      Alert.alert('Error', 'Falha ao carregar os dados do usuário. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -208,13 +208,13 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           setIsLoading(true);
 
           // Encontrar a espécie do pet diretamente pelo ID da espécie
-          const especieData = especies.find(e => e.id === pet.especie_id);
+          const especieData = especies.find((e) => e.id === pet.especie_id);
 
           // Se não temos a espécie diretamente, tentamos encontrar pela raça
           if (!especieData && pet.raca_id) {
-            const raca = racas.find(r => r.id === pet.raca_id);
+            const raca = racas.find((r) => r.id === pet.raca_id);
             if (raca) {
-              const especiePorRaca = especies.find(e => e.id === raca.especie_id);
+              const especiePorRaca = especies.find((e) => e.id === raca.especie_id);
               if (especiePorRaca) {
                 // Encontramos a espécie pela raça
                 await loadRacasByEspecie(especiePorRaca.id);
@@ -226,10 +226,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           }
 
           // Encontrar a faixa etária correta
-          const faixaEtaria = faixasEtarias.find(f => f.id === pet.faixa_etaria_id);
+          const faixaEtaria = faixasEtarias.find((f) => f.id === pet.faixa_etaria_id);
 
           // Encontrar o sexo do pet
-          const sexoData = sexoOpcoes.find(s => s.id === pet.sexo_id);
+          const sexoData = sexoOpcoes.find((s) => s.id === pet.sexo_id);
 
           console.log('Espécie encontrada:', especieData);
           console.log('Faixa etária encontrada:', faixaEtaria);
@@ -293,7 +293,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             estado: userData?.estado?.nome || '',
             cidade: userData?.cidade?.nome || '',
             rgPet: pet.rg_Pet || '',
-            sexo: sexoData ? (sexoData.nome || sexoData.descricao) : '',
+            sexo: sexoData ? sexoData.nome || sexoData.descricao : '',
             possuiDoenca: possuiDoenca,
             doencaDescricao: doencaDescricao,
             motivoDoacao: pet.motivoDoacao || '',
@@ -303,12 +303,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
           // Se tivermos a espécie, filtramos as faixas etárias
           if (especieData) {
-            const faixasFiltradas = faixasEtarias.filter(faixa =>
-              faixa.especie_id === especieData.id
-            );
+            const faixasFiltradas = faixasEtarias.filter((faixa) => faixa.especie_id === especieData.id);
             setFaixasEtariasFiltradas(faixasFiltradas);
           }
-
         } catch (error) {
           console.error('Erro ao carregar dados do pet para edição:', error);
           Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
@@ -323,8 +320,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
     }
   }, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
-
-
 
   // Adicione esta função para depurar os valores do formulário quando eles mudam
   useEffect(() => {
@@ -356,11 +351,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setEspecies(dataArray);
           } else {
-            console.error('Species response format is not an array:', especiesData);
+            console.error('O formato de resposta da espécie não é uma matriz:', especiesData);
             setEspecies([]);
           }
         } else {
-          console.error('Unknown species response format:', especiesData);
+          console.error('Formato de resposta para espécies desconhecidas:', especiesData);
           setEspecies([]);
         }
 
@@ -376,11 +371,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setFaixasEtarias(dataArray);
           } else {
-            console.error('Age range response format is not an array:', faixasEtariasData);
+            console.error('O formato de resposta da faixa etária não é uma matriz:', faixasEtariasData);
             setFaixasEtarias([]);
           }
         } else {
-          console.error('Unknown age range response format:', faixasEtariasData);
+          console.error('Formato de resposta de faixa etária desconhecida:', faixasEtariasData);
           setFaixasEtarias([]);
         }
 
@@ -399,16 +394,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setSexoOpcoes(dataArray);
           } else {
-            console.error('Sex response format is not an array:', sexoPetData);
+            console.error('O formato de resposta sexual não é uma matriz:', sexoPetData);
             setSexoOpcoes([]);
           }
         } else {
-          console.error('Unknown sex response format:', sexoPetData);
+          console.error('Formato de resposta de sexo desconhecido:', sexoPetData);
           setSexoOpcoes([]);
         }
       } catch (error) {
-        console.error('Error loading initial data:', error);
-        Alert.alert('Error', 'Failed to load data. Please try again.');
+        console.error('Erro ao carregar dados iniciais:', error);
+        Alert.alert('Error', 'Falha ao carregar os dados. Tente novamente.');
       } finally {
         setIsLoading(false);
       }
@@ -419,16 +414,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
   // Debug useEffect to check values after loading
   useEffect(() => {
-    console.log('Species loaded:', especies);
-    console.log('Age ranges loaded:', faixasEtarias);
-    console.log('Sex options loaded:', sexoOpcoes);
-    console.log('User data loaded:', userData);
+    console.log('Espécies carregadas:', especies);
+    console.log('Faixas etárias carregadas', faixasEtarias);
+    console.log('Opções de sexo carregadas:', sexoOpcoes);
+    console.log('Dados do usuário carregados:', userData);
   }, [especies, faixasEtarias, sexoOpcoes, userData]);
 
   // Function to load races based on selected species
   const loadRacasByEspecie = async (especieId: number) => {
     try {
-      console.log('Loading races for species ID:', especieId);
+      console.log('Carregando raças para ID de espécies:', especieId);
 
       // Reset race state in form
       setFormData((prev) => ({ ...prev, raca: '' }));
@@ -449,16 +444,16 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         if (Array.isArray(dataArray)) {
           setRacasFiltradas(dataArray as Raca[]);
         } else {
-          console.error('Race response format is not an array:', racasData);
+          console.error('O formato de resposta de raça não é uma matriz:', racasData);
           setRacasFiltradas([]);
         }
       } else {
-        console.error('Unknown race response format:', racasData);
+        console.error('Formato de resposta de raça desconhecido:', racasData);
         setRacasFiltradas([]);
       }
     } catch (error) {
-      console.error('Error loading races for this species:', error);
-      Alert.alert('Error', 'Failed to load races for this species. Please try again.');
+      console.error('Erro ao carregar raças para esta espécie:', error);
+      Alert.alert('Error', 'Falha ao carregar raças para esta espécie. Tente novamente.');
     }
   };
 
@@ -479,7 +474,29 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const handleChange = (name: keyof FormData, value: string | any) => {
     // Prevent changes to user fields (responsible, city, state)
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
-      return; // Don't allow changes to these fields
+      return; // Não permite alterações nesses campos
+    }
+
+    // Adiciona validações de limite de caracteres
+    if (name === 'nome') {
+      if (value.length > 50) {
+        // Trunca para 300 caracteres
+        value = value.slice(0, 50);
+      }
+    }
+
+    if (name === 'motivoDoacao') {
+      if (value.length > 300) {
+        // Trunca para 300 caracteres
+        value = value.slice(0, 300);
+      }
+    }
+
+    if (name === 'doencaDescricao') {
+      if (value.length > 300) {
+        // Trunca para 300 caracteres
+        value = value.slice(0, 300);
+      }
     }
 
     // Clear error messages when field is filled
@@ -543,9 +560,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           // Special treatment for case where idade_max is null (elderly)
           let mensagemErro;
           if (formData.idadeCategoria.idade_max === null) {
-            mensagemErro = `Age must be ${idadeMin} or more`;
+            mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
           } else {
-            mensagemErro = `Age must be between ${idadeMin} and ${formData.idadeCategoria.idade_max}`;
+            mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
           }
 
           setIdadeErro(mensagemErro);
@@ -562,15 +579,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // If species was changed, filter corresponding age ranges and load races
     if (name === 'especie' && value) {
-      console.log('Selected species:', value);
+      console.log('Espécies selecionadas:', value);
 
       // Filter age ranges by especie_id
       const faixasFiltradas = faixasEtarias.filter((faixa) => {
-        console.log(`Comparing: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
+        console.log(`Comparação: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
         return faixa.especie_id === value.id;
       });
 
-      console.log('Filtered ranges:', faixasFiltradas);
+      console.log('Feixas filtradas:', faixasFiltradas);
       setFaixasEtariasFiltradas(faixasFiltradas);
 
       // Load races for this species
@@ -632,14 +649,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // Existing validations
     if (!formData.especie) {
-      setEspecieErro('Please select a species');
+      setEspecieErro('Selecione uma espécie');
       isValid = false;
     } else {
       setEspecieErro('');
     }
 
     if (formData.especie && !formData.idadeCategoria) {
-      setFaixaEtariaErro('Please select an age range');
+      setFaixaEtariaErro('Selecione uma faixa etária');
       isValid = false;
     } else {
       setFaixaEtariaErro('');
@@ -647,7 +664,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // New validation: check if age is empty when an age range is selected
     if (formData.idadeCategoria && !formData.idade) {
-      setIdadeErro('Please enter the age');
+      setIdadeErro('Por favor insira a idade');
       isValid = false;
     } else if (formData.idade && formData.idadeCategoria) {
       // Age validation if filled
@@ -658,9 +675,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         // Special treatment for case where idade_max is null (elderly)
         let mensagemErro;
         if (formData.idadeCategoria.idade_max === null) {
-          mensagemErro = `Age must be ${idadeMin} or more`;
+          mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
         } else {
-          mensagemErro = `Age must be between ${idadeMin} and ${formData.idadeCategoria.idade_max}`;
+          mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
         }
 
         setIdadeErro(mensagemErro);
@@ -671,14 +688,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
 
     if (!formData.sexo) {
-      setSexoErro('Please select sex');
+      setSexoErro('Por favor selecione o sexo');
       isValid = false;
     } else {
       setSexoErro('');
     }
 
     if (!formData.raca) {
-      setRacaErro('Please select a breed');
+      setRacaErro('Selecione uma raça');
       isValid = false;
     } else {
       setRacaErro('');
@@ -686,21 +703,21 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // New validations
     if (!formData.nome) {
-      setNomeErro('Please enter a name');
+      setNomeErro('Por favor insira um nome');
       isValid = false;
     } else {
       setNomeErro('');
     }
 
     if (!formData.quantidade) {
-      setQuantidadeErro('Please enter quantity');
+      setQuantidadeErro('Por favor insira a quantidade');
       isValid = false;
     } else {
       setQuantidadeErro('');
     }
 
     if (!formData.possuiDoenca) {
-      setPossuiDoencaErro('Please indicate if there are diseases/disabilities');
+      setPossuiDoencaErro('Por favor, indique se há doenças/deficiências');
       isValid = false;
     } else {
       setPossuiDoencaErro('');
@@ -708,14 +725,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // Validate disease description only if possuiDoenca is "Sim"
     if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
-      setDoencaDescricaoErro('Please describe the disease/disability');
+      setDoencaDescricaoErro('Por favor descreva a doença/deficiência');
       isValid = false;
     } else {
       setDoencaDescricaoErro('');
     }
 
     if (!formData.motivoDoacao) {
-      setMotivoDoacaoErro('Please enter donation reason');
+      setMotivoDoacaoErro('Por favor insira o motivo da doação');
       isValid = false;
     } else {
       setMotivoDoacaoErro('');
@@ -723,14 +740,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     // Only validate photo if adding a new pet (not in edit mode) or if changing the photo
     if (!isEditMode && !formData.foto) {
-      setFotoErro('Please select a photo');
+      setFotoErro('Selecione uma foto');
       isValid = false;
     } else {
       setFotoErro('');
     }
 
     if (!isValid) {
-      Alert.alert('Error', 'Please fill all required fields correctly.');
+      Alert.alert('Error', 'Por favor, preencha todos os campos obrigatórios corretamente.');
       return;
     }
 
@@ -739,7 +756,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        Alert.alert('Error', 'Could not identify logged user.');
+        Alert.alert('Error', 'Não foi possível identificar o usuário conectado.');
         return;
       }
 
@@ -761,10 +778,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
         foto: formData.foto
           ? {
-            uri: formData.foto,
-            type: 'image/jpeg',
-            name: `pet_${Date.now()}.jpg`,
-          }
+              uri: formData.foto,
+              type: 'image/jpeg',
+              name: `pet_${Date.now()}.jpg`,
+            }
           : null,
       };
 
@@ -776,15 +793,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       if (isEditMode && pet) {
         response = await updatePet({
           id: pet.id,
-          ...petPayload
+          ...petPayload,
         });
         if (response) {
-          Alert.alert('Success', 'Pet updated successfully!');
+          Alert.alert('Success', 'Pet atualizado com sucesso!');
         }
       } else {
         response = await postPet(petPayload);
         if (response) {
-          Alert.alert('Success', 'Pet registered successfully!');
+          Alert.alert('Success', 'Pet cadastrado com sucesso!');
         }
       }
 
@@ -827,11 +844,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         // Close modal
         onClose();
       } else {
-        Alert.alert('Error', 'Could not register pet. Please try again.');
+        Alert.alert('Error', 'Não foi possível registrar o pet. Tente novamente.');
       }
     } catch (error) {
-      console.error('Error submitting form:', error);
-      Alert.alert('Error', 'An error occurred while processing your request. Please try again.');
+      console.error('Erro ao enviar o formulário:', error);
+      Alert.alert('Error', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
     } finally {
       setIsLoading(false);
     }
@@ -846,12 +863,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // Function to open breed selection modal
   const openRacasModal = () => {
     if (!formData.especie) {
-      setRacaErro('Please select a species first');
+      setRacaErro('Selecione uma espécie primeiro');
       return;
     }
 
     if (racasFiltradas.length === 0) {
-      Alert.alert('Warning', 'No breeds available for this species.');
+      Alert.alert('Warning', 'Nenhuma raça disponível para esta espécie.');
       return;
     }
 
@@ -870,19 +887,18 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
   // Function to get age hint for selected age range
   const getIdadePlaceholder = () => {
-    if (!formData.idadeCategoria) return 'Specific age (optional)';
+    if (!formData.idadeCategoria) return 'Idade específica (opcional)';
 
     const idadeMin = formData.idadeCategoria.idade_min !== undefined ? formData.idadeCategoria.idade_min : '';
 
     // Special treatment for elderly case (idade_max is null)
     if (formData.idadeCategoria.idade_max === null) {
-      return `Specific age (${idadeMin} or more)`;
+      return `Idade específica (${idadeMin} ou mais)`;
     } else {
       const idadeMax = formData.idadeCategoria.idade_max !== undefined ? formData.idadeCategoria.idade_max : '∞';
-      return `Specific age (Between ${idadeMin} and ${idadeMax})`;
+      return `Idade específica (Entre ${idadeMin} e ${idadeMax})`;
     }
   };
-
 
   // Função para formatar a exibição dos limites de idade
   const getIdadeLimites = () => {
@@ -1029,6 +1045,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 placeholder="Nome"
                 value={formData.nome}
                 onChangeText={(value) => handleChange('nome', value)}
+                maxLength={50} // Limitar a 50 caracteres
               />
               {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
             </View>
@@ -1248,6 +1265,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                   style={styles.input}
                   placeholder="Doença/Deficiência"
                   value={formData.doencaDescricao}
+                  maxLength={300} // Limitar a 300 caracteres
                   onChangeText={(value) => handleChange('doencaDescricao', value)}
                 />
                 {doencaDescricaoErro ? <Text style={styles.errorText}>{doencaDescricaoErro}</Text> : null}
@@ -1264,6 +1282,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 placeholder="Motivo de estar em Doação"
                 multiline
                 numberOfLines={4}
+                maxLength={300}
                 value={formData.motivoDoacao}
                 onChangeText={(value) => handleChange('motivoDoacao', value)}
               />

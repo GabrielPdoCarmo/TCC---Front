@@ -227,6 +227,17 @@ export const getEstados = async () => {
     return [];
   }
 };
+
+export const deletePet = async (id: number) => {
+  try {
+    const response = await api.delete(`/pets/${id}`);
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao deletar o pet', error);
+    throw error;
+  }
+};
+
 // Função para obter todas as doenças/deficiências ordenadas alfabeticamente
 export const getDoencaPorId = async (id: number) => {
   try {
