@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -136,43 +136,43 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
   // Initial form state - corrected
   const [formData, setFormData] = useState<FormData>(() => {
-   if (isEditMode && pet) {
+    if (isEditMode && pet) {
+      return {
+        nome: pet.nome || '',
+        especie: '',  // Será preenchido no useEffect
+        raca: pet.raca_nome || '',
+        idade: pet.idade ? pet.idade.toString() : '',
+        idadeCategoria: '',  // Será preenchido no useEffect
+        responsavel: '',  // Será preenchido com dados do usuário
+        estado: '',
+        cidade: '',
+        rgPet: pet.rg_Pet || '',
+        sexo: '',  // Será preenchido no useEffect
+        possuiDoenca: '',
+        doencaDescricao: '',
+        motivoDoacao: pet.motivoDoacao || '',
+        foto: pet.foto || null,
+      };
+    }
+
+    // Caso contrário, retorne o estado inicial padrão
     return {
-      nome: pet.nome || '',
-      especie: '',  // Será preenchido no useEffect
-      raca: pet.raca_nome || '',
-      idade: pet.idade ? pet.idade.toString() : '',
-      idadeCategoria: '',  // Será preenchido no useEffect
-      responsavel: '',  // Será preenchido com dados do usuário
+      nome: '',
+      especie: '',
+      raca: '',
+      idade: '',
+      idadeCategoria: '',
+      responsavel: '',
       estado: '',
       cidade: '',
-      rgPet: pet.rg_Pet || '',
-      sexo: '',  // Será preenchido no useEffect
+      rgPet: '',
+      sexo: '',
       possuiDoenca: '',
       doencaDescricao: '',
-      motivoDoacao: pet.motivoDoacao || '',
-      foto: pet.foto || null,
+      motivoDoacao: '',
+      foto: null,
     };
-  }
-  
-  // Caso contrário, retorne o estado inicial padrão
-  return {
-    nome: '',
-    especie: '',
-    raca: '',
-    idade: '',
-    idadeCategoria: '',
-    responsavel: '',
-    estado: '',
-    cidade: '',
-    rgPet: '',
-    sexo: '',
-    possuiDoenca: '',
-    doencaDescricao: '',
-    motivoDoacao: '',
-    foto: null,
-  };
-});
+  });
 
   // Function to fetch logged user data
   const fetchUserData = async () => {
@@ -314,7 +314,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             responsavel: userData?.nome || '',
             estado: userData?.estado?.nome || '',
             cidade: userData?.cidade?.nome || '',
-             rgPet: pet.rg_Pet ? formatRG(pet.rg_Pet) : '',
+            rgPet: pet.rg_Pet ? formatRG(pet.rg_Pet) : '',
             sexo: sexoData ? sexoData.nome || sexoData.descricao : '',
             possuiDoenca: possuiDoenca,
             doencaDescricao: doencaDescricao,
@@ -493,36 +493,76 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
   // Function to update form state
   const handleChange = (name: keyof FormData, value: string | any) => {
-    // Prevent changes to user fields (responsible, city, state)
+    // Impedir alterações em campos do usuário (responsável, cidade, estado)
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
       return; // Não permite alterações nesses campos
     }
 
-    // Adiciona validações de limite de caracteres
+    // Caso especial para o campo de idade - otimiza a performance de digitação
+    if (name === 'idade') {
+      // Verificar se o valor é apenas numérico (fazer esta verificação primeiro)
+      if (value && !/^\d*$/.test(value)) {
+        return; // Não atualiza o estado se não for numérico
+      }
+
+      // Atualiza o estado primeiro para melhor experiência de digitação
+      setFormData((prevState) => ({
+        ...prevState,
+        [name]: value,
+      }));
+
+      // Se o usuário digitou um valor e temos uma faixa etária selecionada
+      // podemos validar imediatamente, mas de forma otimizada
+      if (value && formData.idadeCategoria) {
+        // Verificamos se o número está dentro da faixa permitida
+        const idadeNum = parseInt(value, 10);
+        const idadeMin = formData.idadeCategoria.idade_min || 0;
+        const idadeMax = formData.idadeCategoria.idade_max || Infinity;
+
+        // Validação simplificada e otimizada
+        if ((idadeMax !== null && idadeNum > idadeMax) || idadeNum < idadeMin) {
+          // Fora da faixa permitida
+          let mensagemErro;
+          if (formData.idadeCategoria.idade_max === null) {
+            mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
+          } else {
+            mensagemErro = `A idade deve estar entre ${idadeMin} e ${idadeMax}`;
+          }
+          setIdadeErro(mensagemErro);
+        } else {
+          // Dentro da faixa permitida
+          setIdadeErro('');
+        }
+      } else {
+        // Se não tiver valor ou faixa etária, limpa o erro
+        setIdadeErro('');
+      }
+
+      // Não continua processando outros campos
+      return;
+    }
+
+    // Trata limites de outros campos
     if (name === 'nome') {
       if (value.length > 50) {
-        // Trunca para 300 caracteres
         value = value.slice(0, 50);
       }
     }
 
     if (name === 'motivoDoacao') {
       if (value.length > 300) {
-        // Trunca para 300 caracteres
         value = value.slice(0, 300);
       }
     }
 
     if (name === 'doencaDescricao') {
       if (value.length > 300) {
-        // Trunca para 300 caracteres
         value = value.slice(0, 300);
       }
     }
 
-    // Clear error messages when field is filled
+    // Limpa mensagens de erro quando o campo é preenchido
     if (value) {
-      // Clear specific errors for each field when it's filled
       switch (name) {
         case 'nome':
           setNomeErro('');
@@ -532,9 +572,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           break;
         case 'raca':
           setRacaErro('');
-          break;
-        case 'idade':
-          setIdadeErro('');
           break;
         case 'idadeCategoria':
           setFaixaEtariaErro('');
@@ -559,69 +596,58 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
     }
 
-    // Special case for age field
-    if (name === 'idade') {
-      // Check if value is only numeric
-      if (value && !/^\d*$/.test(value)) {
-        return; // Don't update state if not numeric
-      }
-
-      // Clear age error when user starts typing
-      setIdadeErro('');
-
-      // Validate age according to selected age range
-      if (formData.idadeCategoria && value) {
-        const idadeValida = validarIdade(value, formData.idadeCategoria);
-        if (!idadeValida) {
-          const idadeMin = formData.idadeCategoria.idade_min || 0;
-
-          // Special treatment for case where idade_max is null (elderly)
-          let mensagemErro;
-          if (formData.idadeCategoria.idade_max === null) {
-            mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
-          } else {
-            mensagemErro = `A idade deve estar entre ${idadeMin} e ${formData.idadeCategoria.idade_max}`;
-          }
-
-          setIdadeErro(mensagemErro);
-        } else {
-          setIdadeErro('');
-        }
-      }
-    }
-
     setFormData((prevState) => ({
       ...prevState,
       [name]: value,
     }));
 
-    // If species was changed, filter corresponding age ranges and load races
+    // Se a espécie foi alterada, filtra as faixas etárias correspondentes e carrega as raças
     if (name === 'especie' && value) {
       console.log('Espécies selecionadas:', value);
 
-      // Filter age ranges by especie_id
+      // Filtra faixas etárias por especie_id
       const faixasFiltradas = faixasEtarias.filter((faixa) => {
         console.log(`Comparação: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
         return faixa.especie_id === value.id;
       });
 
-      console.log('Feixas filtradas:', faixasFiltradas);
+      console.log('Faixas filtradas:', faixasFiltradas);
       setFaixasEtariasFiltradas(faixasFiltradas);
 
-      // Load races for this species
+      // Carrega raças para esta espécie
       loadRacasByEspecie(Number(value.id));
 
-      // Reset age range and age selection
+      // Reseta seleção de faixa etária e idade
       setFormData((prev) => ({ ...prev, idadeCategoria: '', idade: '', raca: '' }));
       setIdadeErro('');
       setRacaErro('');
     }
 
-    // If age range was changed, clear age field
+    // Se a faixa etária foi alterada, limpa o campo de idade
     if (name === 'idadeCategoria') {
       setFormData((prev) => ({ ...prev, idade: '' }));
-      // Clear any existing error when changing age range
+      // Limpa qualquer erro existente ao mudar a faixa etária
       setIdadeErro('');
+    }
+  };
+
+  const validateIdade = () => {
+    if (formData.idadeCategoria && formData.idade) {
+      const idadeNum = parseInt(formData.idade, 10);
+      const idadeMin = formData.idadeCategoria.idade_min || 0;
+      const idadeMax = formData.idadeCategoria.idade_max || Infinity;
+
+      if ((idadeMax !== null && idadeNum > idadeMax) || idadeNum < idadeMin) {
+        let mensagemErro;
+        if (formData.idadeCategoria.idade_max === null) {
+          mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
+        } else {
+          mensagemErro = `A idade deve estar entre ${idadeMin} e ${idadeMax}`;
+        }
+        setIdadeErro(mensagemErro);
+      } else {
+        setIdadeErro('');
+      }
     }
   };
 
@@ -1134,6 +1160,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                     value={formData.idade}
                     keyboardType="numeric"
                     onChangeText={(value) => handleChange('idade', value)}
+                    onBlur={validateIdade} // Adicionado: validar ao perder foco
+                    maxLength={50}
                   />
                   {idadeErro ? <Text style={styles.errorText}>{idadeErro}</Text> : null}
 
