@@ -403,17 +403,24 @@ const handleAdoptPet = (petId: number) => {
 
         {/* Bottom navigation */}
         <View style={styles.bottomNavigation}>
-          <TouchableOpacity style={[styles.navItem, styles.activeNavItem]}>
-            <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
-            <Text style={[styles.navText, styles.activeNavText]}>Adoção</Text>
+          <TouchableOpacity style={styles.navItem}>
+            <View style={styles.activeCircle}>
+              <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
+            </View>
+            <Text style={styles.activeNavText}>Adoção</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
+          <TouchableOpacity 
+            style={styles.navItem} 
+            onPress={() => router.push('/pages/PetAdoptionScreen')}
+          >
             <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity 
+            style={styles.navItem}
+          >
             <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
@@ -436,6 +443,11 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#4682B4',
+  },
+   activeCircle: {
+    backgroundColor: '#E8F1F8',
+    borderRadius: 20,
+    padding: 5,
   },
   backgroundImage: {
     flex: 1,
@@ -524,8 +536,9 @@ const styles = StyleSheet.create({
     marginTop: 3,
     color: '#000',
   },
-  activeNavItem: {},
   activeNavText: {
+     fontSize: 12,
+    marginTop: 3,
     color: '#4682B4',
     fontWeight: 'bold',
   },

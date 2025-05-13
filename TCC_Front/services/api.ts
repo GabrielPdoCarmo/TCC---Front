@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://192.168.1.12:3000/api`,
+  baseURL: `http://10.10.30.245:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);
@@ -114,7 +114,6 @@ interface PetPayload {
   rg_Pet: string | null; // RG do pet, pode ser nulo
   motivoDoacao: string;
   status_id: number;
-  quantidade: number;
   doencas: string[]; // nomes das doenças
   foto?: File | null;
 }
@@ -133,7 +132,6 @@ export const postPet = async (petData: PetPayload) => {
     formData.append('rg_Pet', petData.rg_Pet || ''); // Envia string vazia se rg_Pet for nulo
     formData.append('motivoDoacao', petData.motivoDoacao);
     formData.append('status_id', String(petData.status_id));
-    formData.append('quantidade', String(petData.quantidade));
 
     petData.doencas.forEach((nome, index) => {
       formData.append(`doencas[${index}]`, nome);
@@ -166,7 +164,6 @@ interface PetUpdatePayload {
   rg_Pet?: string | null;
   motivoDoacao?: string;
   status_id?: number;
-  quantidade?: number;
   doencas?: string[]; // nomes das doenças ou ids
   foto?: any; // Arquivo de imagem
 }
@@ -185,7 +182,7 @@ export const updatePet = async (petData: PetUpdatePayload) => {
     if (petInfo.rg_Pet !== undefined) formData.append('rg_Pet', petInfo.rg_Pet || '');
     if (petInfo.motivoDoacao) formData.append('motivoDoacao', petInfo.motivoDoacao);
     if (petInfo.status_id) formData.append('status_id', String(petInfo.status_id));
-    if (petInfo.quantidade !== undefined) formData.append('quantidade', String(petInfo.quantidade));
+
 
     // Adicionar doenças se existirem
     if (petInfo.doencas && Array.isArray(petInfo.doencas)) {
