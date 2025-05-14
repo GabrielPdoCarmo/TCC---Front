@@ -12,6 +12,7 @@ import {
   ImageBackground,
   SafeAreaView,
 } from 'react-native';
+import {getPetsByStatus} from '@/services/api'; // Ajuste o caminho conforme necessário
 
 function PetAdoptionScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');

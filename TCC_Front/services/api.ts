@@ -174,7 +174,7 @@ export const updatePet = async (petData: PetUpdatePayload) => {
   try {
     const { id, ...petInfo } = petData;
     const formData = new FormData();
-    
+
     // Adicionar campos ao FormData apenas se existirem
     if (petInfo.nome) formData.append('nome', petInfo.nome);
     if (petInfo.especie_id) formData.append('especie_id', String(petInfo.especie_id));
@@ -228,7 +228,28 @@ export const getEstados = async () => {
   }
 };
 
-export const updateStatus = async (id:number) => {
+export const getPetsByStatus = async () => {
+  try {
+    const status_id = 2; // Status fixo, apenas status 2 é permitido
+    const response = await api.get('/pets/status/:status_id', {
+      params: { status_id },
+    });
+
+    return response.data
+      .map((pet: any) => {
+        return { ...pet }; // Retorna todos os dados do pet
+      })
+      .sort((a: any, b: any) => {
+        // Assumindo que os pets têm uma propriedade 'nome' para ordenação
+        return a.nome.localeCompare(b.nome); // Ordenação alfabética pela propriedade 'nome'
+      });
+  } catch (error) {
+    console.error('Erro ao carregar os pets por status:', error);
+    return [];
+  }
+};
+
+export const updateStatus = async (id: number) => {
   try {
     const response = await api.put(`/pets/status/${id}`);
     return response.data;
@@ -263,7 +284,7 @@ export const getDoencasPorPetId = async (petId: number) => {
   try {
     const response = await api.get(`/pets-doencas/pets/${petId}`);
     console.log('Resposta da API:', response.data); // Para debug
-    
+
     return response.data.map((item: any) => {
       return {
         pet_id: petId,
@@ -351,10 +372,10 @@ export const getUsuarios = async () => {
 export const getRacaById = async (id: number) => {
   try {
     const response = await api.get(`/racas/${id}`);
-    
+
     return {
       id: response.data.id,
-      nome: response.data.nome
+      nome: response.data.nome,
     };
   } catch (error) {
     console.error(`Erro ao buscar raça com ID ${id}:`, error);
@@ -364,10 +385,10 @@ export const getRacaById = async (id: number) => {
 export const getFaixaEtariaById = async (id: number) => {
   try {
     const response = await api.get(`/faixa-etaria/${id}`);
-    
+
     return {
       id: response.data.id,
-      unidade: response.data.unidade
+      unidade: response.data.unidade,
     };
   } catch (error) {
     console.error(`Erro ao buscar faixa etária com ID ${id}:`, error);
@@ -377,10 +398,10 @@ export const getFaixaEtariaById = async (id: number) => {
 export const getstatusById = async (id: number) => {
   try {
     const response = await api.get(`/status/${id}`);
-    
+
     return {
       id: response.data.id,
-      nome: response.data.nome
+      nome: response.data.nome,
     };
   } catch (error) {
     console.error(`Erro ao buscar faixa etária com ID ${id}:`, error);
@@ -418,7 +439,7 @@ export const getUsuarioById = async (id: number) => {
     // 2. Buscar informações da cidade utilizando a rota getCidades_Estado
     const cidadeResponse = await api.get(`/cidades/${cidade_id}/${estado_id}`);
     let nomeCidade = '';
-    
+
     if (cidadeResponse.data && Array.isArray(cidadeResponse.data)) {
       const cidadeInfo = cidadeResponse.data.find((c: { id: number; nome: string }) => c.id === cidade_id);
       if (cidadeInfo) {
