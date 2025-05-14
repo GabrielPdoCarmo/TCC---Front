@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import {getPetsByStatus} from '@/services/api'; // Ajuste o caminho conforme necessário
 
-function PetAdoptionScreen() {
+export default function PetAdoptionScreen() {
   const [searchQuery, setSearchQuery] = useState<string>('');
 
   return (
@@ -59,18 +59,23 @@ function PetAdoptionScreen() {
         <View style={styles.bottomNavigation}>
           <TouchableOpacity
             style={styles.navItem}
-            onPress={() => router.push('/pages/PetDonation')} // substitua 'outraTela' pelo nome da sua tela
+            onPress={() => router.push('/pages/PetDonation')}
           >
             <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Adoção</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem}>
-            <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Pets</Text>
+            <View style={styles.activeCircle}>
+              <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
+            </View>
+            <Text style={styles.activeNavText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem}>
+          <TouchableOpacity
+            style={styles.navItem}
+
+          >
             <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
@@ -84,6 +89,22 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#4682B4',
+  },
+  navText: {
+    fontSize: 12,
+    marginTop: 3,
+    color: '#000',
+  },
+  activeNavText: {
+    fontSize: 12,
+    marginTop: 3,
+    color: '#4682B4',
+    fontWeight: 'bold',
+  },
+  activeCircle: {
+    backgroundColor: '#E8F1F8',
+    borderRadius: 20,
+    padding: 5,
   },
   backgroundImage: {
     flex: 1,
@@ -128,6 +149,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     marginVertical: 10,
+    paddingHorizontal: 10,
   },
   filterButton: {
     flexDirection: 'row',
@@ -178,10 +200,4 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
   },
-  navText: {
-    fontSize: 12,
-    marginTop: 3,
-  },
 });
-
-export default PetAdoptionScreen;

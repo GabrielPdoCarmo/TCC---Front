@@ -97,19 +97,6 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
             ]}>{pet.status_nome}</Text>
           </Text>
         </View>
-
-        {/* Botão de favorito com alternância de ícone */}
-        <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
-          <Image 
-            source={
-              isFavorite 
-                ? require('../../assets/images/Icone/star-icon-open.png') 
-                : require('../../assets/images/Icone/star-icon.png')
-            } 
-            style={styles.starIcon} 
-          />
-        </TouchableOpacity>
-
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <TouchableOpacity 
