@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://10.10.30.245:3000/api`,
+  baseURL: `http://10.10.12.232:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);

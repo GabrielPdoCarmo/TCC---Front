@@ -362,9 +362,6 @@ const handleAdoptPet = (petId: number) => {
             <Text style={styles.headerTitle}>Adoção</Text>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton}>
-                <Image source={require('../../assets/images/Icone/notification-icon.png')} style={styles.headerIcon} />
-              </TouchableOpacity>
-              <TouchableOpacity style={styles.iconButton}>
                 <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
               </TouchableOpacity>
             </View>
