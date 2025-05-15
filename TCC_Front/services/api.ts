@@ -415,6 +415,29 @@ export const getPetsByUsuarioId = async (usuario_id: number) => {
   }
 };
 
+export const getPetById = async (id: number) => {
+  try {
+    const response = await api.get(`/pets/${id}`);
+    return response.data;
+    } catch (error) {
+    console.error('Erro ao carregar os pets pelo id', error);
+    return [];
+  }
+};
+
+export const getSexoPetById = async (id: number) => {
+  try {
+    const response = await api.get(`/sexoPet/${id}`);
+    return {
+      id: response.data.id,
+      descricao: response.data.descricao,
+    };
+  } catch (error) {
+    console.error(`Erro ao buscar sexo do pet com ID ${id}:`, error);
+    throw error;
+  }
+};
+
 export const getUsuarioById = async (id: number) => {
   try {
     // 1. Buscar o usuário
