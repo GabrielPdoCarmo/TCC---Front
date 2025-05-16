@@ -17,6 +17,24 @@ import { router, useLocalSearchParams } from 'expo-router';
 import { getUsuarioById, getRacaById, getstatusById, getDoencasPorPetId, getDoencaPorId, getPetById, getSexoPetById, getFaixaEtariaById } from '@/services/api';
 import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
 
+// Interfaces para os tipos de dados
+interface Usuario {
+    id: any;
+    nome: any;
+    cidade?: { id: any; nome: string; };
+    estado?: { id: any; nome: any; };
+    cidade_nome?: string;
+    estado_nome?: string;
+}
+
+interface Doenca {
+    id: number;
+    nome: string;
+    doencaDeficiencia_id?: number;
+    doenca_nome?: string;
+    descricao?: string;
+}
+
 // Definindo a interface para o tipo Pet
 interface Pet {
     id: number;
@@ -38,7 +56,7 @@ interface Pet {
     sexo_nome?: string;
     cidade_nome?: string;
     estado_nome?: string;
-    rgPet?: string; // Adicionado o campo para o RG do Pet
+    rgPet?: string;
     doencas?: { id: number; nome: string }[];
 }
 
@@ -127,7 +145,7 @@ export default function PetDetailsScreen() {
                             // Buscar dados do usuário
                             const usuarioData = await getUsuarioById(petData.usuario_id);
                             console.log('Dados do usuário obtidos:', usuarioData);
-                            return usuarioData;
+                            return usuarioData as Usuario;
                         } catch (err) {
                             console.error(`Erro ao buscar o usuário com ID ${petData.usuario_id}:`, err);
                             return null;
@@ -174,7 +192,7 @@ export default function PetDetailsScreen() {
                 };
 
                 // Função otimizada para buscar doenças de um pet
-                const getDoencas = async () => {
+                const getDoencas = async (): Promise<Array<{ id: number; nome: string }>> => {
                     try {
                         console.log(`Buscando doenças para o pet ID ${petId}...`);
 
@@ -191,33 +209,45 @@ export default function PetDetailsScreen() {
 
                         // Passo 2: Para cada doença na resposta, buscar os detalhes corretos
                         const doencasDetalhes = await Promise.all(
-                            doencasResponse.map(async (doencaItem) => {
+                            doencasResponse.map(async (doencaItem: number | Doenca) => {
                                 try {
-                                    // Usar a chave correta para o ID da doença (conforme PetDonationModal)
-                                    const doencaId = doencaItem.doencaDeficiencia_id || doencaItem;
+                                    // Usar a chave correta para o ID da doença
+                                    const doencaId = typeof doencaItem === 'number' 
+                                        ? doencaItem 
+                                        : (doencaItem as Doenca).doencaDeficiencia_id || doencaItem;
 
                                     console.log(`Buscando detalhes da doença ID ${doencaId}`);
-                                    const doencaDetalhes = await getDoencaPorId(doencaId);
+                                    const doencaDetalhes = await getDoencaPorId(
+                                        typeof doencaId === 'number' ? doencaId : Number(doencaId)
+                                    );
 
                                     if (!doencaDetalhes) {
                                         console.warn(`Doença ID ${doencaId} não encontrada no banco de dados`);
                                         // Verificar se temos o nome da doença diretamente na resposta original
                                         return {
-                                            id: doencaId,
-                                            nome: doencaItem.doenca_nome || 'Doença não identificada'
+                                            id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
+                                            nome: typeof doencaItem === 'object' && doencaItem.doenca_nome 
+                                                ? doencaItem.doenca_nome 
+                                                : 'Doença não identificada'
                                         };
                                     }
 
                                     console.log(`Doença ID ${doencaId} encontrada: ${doencaDetalhes.nome || doencaDetalhes.descricao}`);
                                     return {
-                                        id: doencaId,
+                                        id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
                                         nome: doencaDetalhes.nome || doencaDetalhes.descricao || 'Doença não identificada'
                                     };
                                 } catch (error) {
-                                    console.error(`Erro ao buscar doença ID ${doencaItem.doencaDeficiencia_id || doencaItem}:`, error);
+                                    const doencaId = typeof doencaItem === 'number' 
+                                        ? doencaItem 
+                                        : (doencaItem as Doenca).doencaDeficiencia_id || doencaItem;
+                                    
+                                    console.error(`Erro ao buscar doença ID ${doencaId}:`, error);
                                     return {
-                                        id: doencaItem.doencaDeficiencia_id || doencaItem,
-                                        nome: doencaItem.doenca_nome || 'Doença não identificada'
+                                        id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
+                                        nome: typeof doencaItem === 'object' && doencaItem.doenca_nome 
+                                            ? doencaItem.doenca_nome 
+                                            : 'Doença não identificada'
                                     };
                                 }
                             })
@@ -254,17 +284,21 @@ export default function PetDetailsScreen() {
                 if (usuarioInfo) {
                     console.log('Informações do usuário para localização:', usuarioInfo);
 
-                    // Verificar se o usuário tem cidade_nome ou cidade (e o respectivo objeto)
+                    // Verificar se há propriedade cidade_nome diretamente no usuário
                     if (usuarioInfo.cidade_nome) {
                         cidade_nome = usuarioInfo.cidade_nome;
-                    } else if (usuarioInfo.cidade && usuarioInfo.cidade.nome) {
+                    } 
+                    // Verificar se há propriedade cidade com objeto aninhado
+                    else if (usuarioInfo.cidade && usuarioInfo.cidade.nome) {
                         cidade_nome = usuarioInfo.cidade.nome;
                     }
 
-                    // Verificar se o usuário tem estado_nome ou estado (e o respectivo objeto)
+                    // Verificar se há propriedade estado_nome diretamente no usuário
                     if (usuarioInfo.estado_nome) {
                         estado_nome = usuarioInfo.estado_nome;
-                    } else if (usuarioInfo.estado && usuarioInfo.estado.nome) {
+                    } 
+                    // Verificar se há propriedade estado com objeto aninhado
+                    else if (usuarioInfo.estado && usuarioInfo.estado.nome) {
                         estado_nome = usuarioInfo.estado.nome;
                     }
                 }
@@ -388,18 +422,22 @@ export default function PetDetailsScreen() {
                                             let estado_nome = 'Não informado';
 
                                             if (usuarioInfo) {
-                                                // Verificar se o usuário tem cidade_nome ou cidade (e o respectivo objeto)
-                                                if (usuarioInfo.cidade_nome) {
-                                                    cidade_nome = usuarioInfo.cidade_nome;
-                                                } else if (usuarioInfo.cidade && usuarioInfo.cidade.nome) {
-                                                    cidade_nome = usuarioInfo.cidade.nome;
+                                                // Verificar se há propriedade cidade_nome diretamente no usuário
+                                                if ((usuarioInfo as Usuario).cidade_nome) {
+                                                    cidade_nome = (usuarioInfo as Usuario).cidade_nome as string;
+                                                } 
+                                                // Verificar se há propriedade cidade com objeto aninhado
+                                                else if ((usuarioInfo as Usuario).cidade && (usuarioInfo as Usuario).cidade!.nome) {
+                                                    cidade_nome = (usuarioInfo as Usuario).cidade!.nome;
                                                 }
 
-                                                // Verificar se o usuário tem estado_nome ou estado (e o respectivo objeto)
-                                                if (usuarioInfo.estado_nome) {
-                                                    estado_nome = usuarioInfo.estado_nome;
-                                                } else if (usuarioInfo.estado && usuarioInfo.estado.nome) {
-                                                    estado_nome = usuarioInfo.estado.nome;
+                                                // Verificar se há propriedade estado_nome diretamente no usuário
+                                                if ((usuarioInfo as Usuario).estado_nome) {
+                                                    estado_nome = (usuarioInfo as Usuario).estado_nome as string;
+                                                } 
+                                                // Verificar se há propriedade estado com objeto aninhado
+                                                else if ((usuarioInfo as Usuario).estado && (usuarioInfo as Usuario).estado!.nome) {
+                                                    estado_nome = (usuarioInfo as Usuario).estado!.nome;
                                                 }
                                             }
 
@@ -407,10 +445,10 @@ export default function PetDetailsScreen() {
                                             const faixaEtariaUnidade = faixaEtariaInfo?.unidade || '';
 
                                             // Buscar detalhes das doenças se houver alguma
-                                            let doencas = [];
+                                            let doencas: Array<{ id: number; nome: string }> = [];
                                             if (doencasIds && Array.isArray(doencasIds) && doencasIds.length > 0) {
                                                 doencas = await Promise.all(
-                                                    doencasIds.map(async (doencaId) => {
+                                                    doencasIds.map(async (doencaId: number) => {
                                                         try {
                                                             const doenca = await getDoencaPorId(doencaId);
                                                             return {
@@ -490,17 +528,12 @@ export default function PetDetailsScreen() {
                         contentContainerStyle={styles.scrollViewContent}
                     >
                         <View style={styles.petCardContainer}>
-
-
                             <PetsDetalhesCard
                                 pet={pet}
                                 onFavoriteToggle={toggleFavorite}
                                 onAdoptPress={handleAdopt}
                                 onBackPress={handleBack}
                             />
-
-
-
                         </View>
                     </ScrollView>
                 ) : null}

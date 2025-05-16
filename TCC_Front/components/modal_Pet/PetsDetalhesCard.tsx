@@ -78,28 +78,39 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
   };
 
   // Função para formatar o RG do pet
-  const formatRgPet = (rgPet?: string) => {
-    if (!rgPet) return 'Não informado';
+  const formatRG = (text?: string): string => {
+    if (!text) return 'Não informado';
     
-    // Remove caracteres não numéricos para garantir consistência
-    const numericRg = rgPet.replace(/[^0-9]/g, '');
-    
-    // Se for um RG curto (menos de 6 dígitos), adiciona apenas o prefixo
-    if (numericRg.length < 6) {
-      return `RG-${numericRg}`;
-    }
-    
-    // Para RGs mais longos, adiciona pontuação para melhor leitura
-    // Exemplo: 12345678 -> RG-123.456.78
-    let formattedRg = '';
-    for (let i = 0; i < numericRg.length; i++) {
-      if (i > 0 && i % 3 === 0 && i < numericRg.length - 1) {
-        formattedRg += '.';
+    // Remove todos os caracteres não numéricos
+    const digits = text.replace(/\D/g, '');
+
+    // Limita a 9 dígitos (padrão RG)
+    const limitedDigits = digits.slice(0, 9);
+
+    // Aplica a formatação 00.000.000-0
+    let formatted = '';
+
+    if (limitedDigits.length > 0) {
+      // Primeiros 2 dígitos
+      formatted = limitedDigits.slice(0, 2);
+
+      // Adiciona um ponto após os primeiros 2 dígitos
+      if (limitedDigits.length > 2) {
+        formatted += '.' + limitedDigits.slice(2, 5);
+
+        // Adiciona outro ponto após o 5º dígito
+        if (limitedDigits.length > 5) {
+          formatted += '.' + limitedDigits.slice(5, 8);
+
+          // Adiciona hífen e o último dígito
+          if (limitedDigits.length > 8) {
+            formatted += '-' + limitedDigits.slice(8, 9);
+          }
+        }
       }
-      formattedRg += numericRg[i];
     }
-    
-    return formattedRg;
+
+    return formatted;
   };
 
   // Verificar se há algum motivo disponível
@@ -154,7 +165,7 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
           {/* RG do Pet com formatação adequada */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>RG do Pet:</Text>
-            <Text style={styles.infoValue}>{formatRgPet(pet.rgPet)}</Text>
+            <Text style={styles.infoValue}>{formatRG(pet.rgPet)}</Text>
           </View>
 
           <View style={styles.infoRow}>
