@@ -14,7 +14,7 @@ import {
   ActivityIndicator,
   Dimensions
 } from 'react-native';
-import { getPetsByStatus, getUsuarioById, getRacaById, getstatusById } from '@/services/api';
+import { getPetsByStatus, getUsuarioById, getRacaById, getstatusById, getFaixaEtariaById, } from '@/services/api';
 import PetsCard from '@/components/modal_Pet/PetsCard';
 
 // Definindo uma interface para o tipo Pet
@@ -107,12 +107,13 @@ export default function PetAdoptionScreen() {
     // });
   };
 
-  // Função para ver detalhes do pet
+  // Função para ver detalhes do pet - MODIFICADA
   const handleViewDetails = (petId: number) => {
-    // router.push({
-    //   pathname: '/pages/PetDetails',
-    //   params: { petId }
-    // });
+    router.push({
+      pathname: '/pages/PetDetailsScreen',
+      params: { petId }
+    });
+    console.log(`Ver detalhes do pet ID: ${petId}`);
   };
 
   // Função para favoritar um pet
