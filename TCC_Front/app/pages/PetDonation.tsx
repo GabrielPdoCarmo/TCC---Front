@@ -236,46 +236,45 @@ export default function PetDonationScreen() {
   };
 
   // Função para enviar pet para adoção
-  // Modificação da função handleAdoptPet para usar updateStatus e desativar botões
-const handleAdoptPet = (petId: number) => {
-  Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
-    {
-      text: 'Cancelar',
-      style: 'cancel',
-    },
-    {
-      text: 'Confirmar',
-      onPress: async () => {
-        try {
-          // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
-          await updateStatus(petId); // Assumindo que 2 é o ID para "Disponível para adoção"
-          
-          // Atualizando o pet na lista local para refletir a mudança de status
-          const updatedPets = pets.map(pet => {
-            if (pet.id === petId) {
-              return {
-                ...pet,
-                status_id: 2,
-                status_nome: "Disponível para adoção"
-              };
-            }
-            return pet;
-          });
-          
-          setPets(updatedPets);
-          
-          Alert.alert('Sucesso', 'Pet disponibilizado para adoção com sucesso!');
-          
-          // Recarregar a lista de pets para exibir as atualizações
-          fetchUserPets();
-        } catch (error) {
-          console.error('Erro ao disponibilizar pet para adoção:', error);
-          Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
-        }
+  const handleAdoptPet = (petId: number) => {
+    Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
+      {
+        text: 'Cancelar',
+        style: 'cancel',
       },
-    },
-  ]);
-};
+      {
+        text: 'Confirmar',
+        onPress: async () => {
+          try {
+            // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
+            await updateStatus(petId); // Assumindo que 2 é o ID para "Disponível para adoção"
+            
+            // Atualizando o pet na lista local para refletir a mudança de status
+            const updatedPets = pets.map(pet => {
+              if (pet.id === petId) {
+                return {
+                  ...pet,
+                  status_id: 2,
+                  status_nome: "Disponível para adoção"
+                };
+              }
+              return pet;
+            });
+            
+            setPets(updatedPets);
+            
+            Alert.alert('Sucesso', 'Pet disponibilizado para adoção com sucesso!');
+            
+            // Recarregar a lista de pets para exibir as atualizações
+            fetchUserPets();
+          } catch (error) {
+            console.error('Erro ao disponibilizar pet para adoção:', error);
+            Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
+          }
+        },
+      },
+    ]);
+  };
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
@@ -286,7 +285,6 @@ const handleAdoptPet = (petId: number) => {
       console.log(`Editando pet com ID: ${petId}`, petToEdit);
 
       // Verificar se há dados de sexo e foto
-
       console.log('Foto do pet:', petToEdit.foto);
       console.log('Sexo do pet:', petToEdit.sexo_id);
 
@@ -305,6 +303,7 @@ const handleAdoptPet = (petId: number) => {
       Alert.alert('Erro', 'Pet não encontrado para edição.');
     }
   };
+  
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
     Alert.alert('Excluir Pet', 'Tem certeza que deseja excluir este pet?', [
@@ -333,6 +332,7 @@ const handleAdoptPet = (petId: number) => {
       },
     ]);
   };
+  
   // Função para favoritar um pet
   const handleFavoritePet = (petId: number) => {
     // Implementar lógica para favoritar/desfavoritar
@@ -340,6 +340,8 @@ const handleAdoptPet = (petId: number) => {
     // Após favoritar, atualizar a lista
     // fetchUserPets(); // Descomente quando implementar a lógica de favoritar
   };
+
+  // Removida a função isPetEditableByStatus, já que não vamos mais restringir a edição
 
   // Renderizar um item da lista de pets usando o componente PetCard
   const renderPetItem = ({ item }: { item: Pet }) => (
@@ -349,6 +351,7 @@ const handleAdoptPet = (petId: number) => {
       onEdit={() => handleEditPet(item.id)}
       onDelete={() => handleDeletePet(item.id)}
       onFavorite={() => handleFavoritePet(item.id)}
+      // Removido o prop disableEdit, para que o botão de edição esteja sempre habilitado
     />
   );
 

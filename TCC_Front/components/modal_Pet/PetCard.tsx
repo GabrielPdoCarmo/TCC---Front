@@ -22,14 +22,18 @@ interface PetCardProps {
   onEdit?: () => void;
   onDelete?: () => void;
   onFavorite?: (id: number) => void;
+  disableEdit?: boolean; // Esta propriedade agora será ignorada para permitir a edição sempre
 }
 
-const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) => {
+const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: PetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
   // Verifica se o pet está disponível para adoção (status_id === 2)
   const isAvailableForAdoption = pet.status_id === 2;
+  
+  // Removida a verificação de status para o botão de edição
+  // O botão de edição agora sempre estará habilitado, independente do status
 
   // Função para alternar o estado do favorito
   const handleToggleFavorite = () => {
@@ -38,14 +42,6 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
     if (onFavorite) {
       onFavorite(pet.id);
     }
-  };
-
-  // Função para exibir alerta quando tentar editar um pet disponível para adoção
-  const handleEditDisabled = () => {
-    Alert.alert(
-      'Operação não permitida',
-      'Este pet está disponível para adoção e não pode ser editado.'
-    );
   };
 
   // Função para exibir alerta quando tentar disponibilizar para adoção novamente
@@ -115,17 +111,10 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite }: PetCardProps) =
 
           <View style={styles.editDeleteContainer}>
             <TouchableOpacity 
-              style={[
-                styles.editButton,
-                isAvailableForAdoption ? styles.disabledButton : null
-              ]} 
-              onPress={isAvailableForAdoption ? handleEditDisabled : onEdit}
-              disabled={isAvailableForAdoption}
+              style={styles.editButton}
+              onPress={onEdit}
             >
-              <Text style={[
-                styles.buttonText,
-                isAvailableForAdoption ? styles.disabledText : null
-              ]}>Editar</Text>
+              <Text style={styles.buttonText}>Editar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
               <Text style={styles.buttonText}>Deletar</Text>
