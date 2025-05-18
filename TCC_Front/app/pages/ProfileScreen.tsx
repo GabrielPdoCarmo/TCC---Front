@@ -14,7 +14,10 @@ import {
   ScrollView,
   Alert
 } from 'react-native';
-import { getUsuarioById } from '@/services/api';
+import { getUsuarioById, getEstados, getCidadesPorEstado, getSexoUsuario, validarUsuario } from '@/services/api';
+import EstadoSelect from '@/components/estados/EstadoSelect';
+import CidadeSelect from '@/components/cidades/CidadeSelect';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Interface para o tipo de usuário
 interface Usuario {
@@ -24,8 +27,12 @@ interface Usuario {
   telefone: string;
   cpf_cnpj: string;
   cep: string;
-  estado: string;
-  cidade: string;
+  estado: {
+    nome: string;
+  };
+  cidade: {
+    nome: string;
+  };
   foto?: string;
   sexo_id: number;
 }
@@ -35,6 +42,12 @@ export default function ProfileScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  
+  // Estados para seleção de estado e cidade
+  const [estados, setEstados] = useState<any[]>([]);
+  const [cidades, setCidades] = useState<any[]>([]);
+  const [estadoSelecionado, setEstadoSelecionado] = useState<number | null>(null);
+  const [sexos, setSexos] = useState<any[]>([]);
   
   // Campos editáveis
   const [nome, setNome] = useState<string>('');
@@ -48,38 +61,107 @@ export default function ProfileScreen() {
   const [confirmarSenha, setConfirmarSenha] = useState<string>('');
   const [sexoId, setSexoId] = useState<number>(1); // 1: Homem, 2: Mulher, 3: Prefiro não dizer
 
-  // ID do usuário logado (em uma app real, isso viria do contexto de autenticação)
-  const usuarioId = 1; // Valor fixo para demonstração
-
   // Buscar dados do usuário quando o componente montar
   useEffect(() => {
-    const fetchUsuarioData = async () => {
-      try {
-        setLoading(true);
-        const usuarioData = await getUsuarioById(usuarioId);
-        
-        setUsuario(usuarioData);
-        
-        // Preencher os estados para edição
-        setNome(usuarioData.nome || '');
-        setEmail(usuarioData.email || '');
-        setTelefone(usuarioData.telefone || '');
-        setCpfCnpj(usuarioData.cpf_cnpj || '');
-        setCep(usuarioData.cep || '');
-        setEstado(usuarioData.estado || '');
-        setCidade(usuarioData.cidade || '');
-        setSexoId(usuarioData.sexo_id || 1);
-        
-        setLoading(false);
-      } catch (err) {
-        console.error('Erro ao buscar dados do usuário:', err);
-        setError('Não foi possível carregar os dados do perfil. Tente novamente mais tarde.');
-        setLoading(false);
-      }
-    };
-
-    fetchUsuarioData();
+    fetchUserData();
+    fetchEstados();
+    fetchSexos();
   }, []);
+  
+  // Carregar cidades quando o estado é selecionado
+  useEffect(() => {
+    if (estadoSelecionado) {
+      fetchCidades(estadoSelecionado);
+    }
+  }, [estadoSelecionado]);
+
+  // Função para buscar estados
+  const fetchEstados = async () => {
+    try {
+      const data = await getEstados();
+      setEstados(data);
+    } catch (err) {
+      console.error('Erro ao buscar estados:', err);
+    }
+  };
+
+  // Função para buscar cidades por estado
+  const fetchCidades = async (estadoId: number) => {
+    try {
+      const data = await getCidadesPorEstado(estadoId);
+      setCidades(data);
+    } catch (err) {
+      console.error('Erro ao buscar cidades:', err);
+    }
+  };
+
+  // Função para buscar sexos
+  const fetchSexos = async () => {
+    try {
+      const data = await getSexoUsuario();
+      setSexos(data);
+    } catch (err) {
+      console.error('Erro ao buscar sexos:', err);
+    }
+  };
+
+  // Função para buscar dados do usuário usando AsyncStorage
+  const fetchUserData = async () => {
+    try {
+      setLoading(true);
+      
+      // Use the same '@App:userId' key that was used to store
+      const userId = await AsyncStorage.getItem('@App:userId');
+      
+      if (!userId) {
+        console.error('ID do usuário não encontrado no AsyncStorage');
+        setError('Não foi possível identificar o usuário conectado.');
+        setLoading(false);
+        return;
+      }
+      
+      const userIdNumber = parseInt(userId, 10);
+      
+      // Buscar dados do usuário da API
+      const userData = await getUsuarioById(userIdNumber);
+      
+      if (!userData) {
+        console.error('Dados do usuário não encontrados');
+        setError('Não foi possível carregar os dados do usuário.');
+        setLoading(false);
+        return;
+      }
+      
+      console.log('Dados do usuário carregados:', userData);
+      
+      setUsuario(userData);
+      
+      // Preencher os estados para edição
+      setNome(userData.nome || '');
+      setEmail(userData.email || '');
+      setTelefone(userData.telefone || '');
+      setCpfCnpj(userData.cpf_cnpj || '');
+      setCep(userData.cep || '');
+      
+      // Definir estado e cidade
+      if (userData.estado) {
+        setEstado(userData.estado.nome || '');
+        setEstadoSelecionado(userData.estado.id || null);
+      }
+      
+      if (userData.cidade) {
+        setCidade(userData.cidade.nome || '');
+      }
+      
+      setSexoId(userData.sexo_id || 1);
+      
+    } catch (err) {
+      console.error('Erro ao buscar dados do usuário:', err);
+      setError('Não foi possível carregar os dados do perfil. Tente novamente mais tarde.');
+    } finally {
+      setLoading(false);
+    }
+  };
 
   // Função para salvar as alterações no perfil
   const handleSaveProfile = async () => {
@@ -98,19 +180,34 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
       
-      // Aqui você implementaria a chamada para atualizar os dados do usuário na API
-      // Por exemplo: await updateUsuario(usuarioId, { nome, email, ... })
+      // Criar objeto com os dados do usuário para atualização
+      const userData = {
+        id: usuario?.id,
+        nome,
+        email,
+        telefone,
+        cpf_cnpj: cpfCnpj,
+        cep,
+        estado_id: estadoSelecionado,
+        cidade_id: cidades.find(c => c.nome === cidade)?.id,
+        sexo_id: sexoId,
+        senha: senha || undefined // Só envia senha se tiver sido preenchida
+      };
       
-      // Simulando sucesso
-      setTimeout(() => {
-        setLoading(false);
+      // Validar usuário na API
+      const resultado = await validarUsuario(userData);
+      
+      if (resultado && resultado.success) {
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
-      }, 1000);
+      } else {
+        Alert.alert('Erro', resultado?.message || 'Não foi possível salvar os dados.');
+      }
       
     } catch (err) {
       console.error('Erro ao salvar dados do perfil:', err);
-      setLoading(false);
       Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente mais tarde.');
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -131,29 +228,7 @@ export default function ProfileScreen() {
               <Text style={styles.errorText}>{error}</Text>
               <TouchableOpacity
                 style={styles.retryButton}
-                onPress={() => {
-                  setLoading(true);
-                  setError(null);
-                  // Tentar buscar os dados novamente
-                  getUsuarioById(usuarioId)
-                    .then(data => {
-                      setUsuario(data);
-                      setNome(data.nome || '');
-                      setEmail(data.email || '');
-                      setTelefone(data.telefone || '');
-                      setCpfCnpj(data.cpf_cnpj || '');
-                      setCep(data.cep || '');
-                      setEstado(data.estado || '');
-                      setCidade(data.cidade || '');
-                      setSexoId(data.sexo_id || 1);
-                      setLoading(false);
-                    })
-                    .catch(err => {
-                      console.error(err);
-                      setError('Não foi possível carregar os dados do perfil. Tente novamente mais tarde.');
-                      setLoading(false);
-                    });
-                }}
+                onPress={fetchUserData}
               >
                 <Text style={styles.retryButtonText}>Tentar novamente</Text>
               </TouchableOpacity>
@@ -264,16 +339,38 @@ export default function ProfileScreen() {
                 </View>
                 
                 <Text style={styles.inputLabel}>Estado</Text>
-                <View style={styles.dropdownContainer}>
-                  <Text style={styles.dropdownText}>{estado || 'Selecione'}</Text>
-                  <Image source={require('../../assets/images/Icone/arrow-down.png')} style={styles.dropdownIcon} />
-                </View>
+                <EstadoSelect
+                  estados={estados}
+                  selectedEstado={estadoSelecionado}
+                  onEstadoChange={(estadoId) => {
+                    setEstadoSelecionado(estadoId);
+                    // Encontrar o nome do estado para exibição
+                    const estadoObj = estados.find(e => e.id === estadoId);
+                    if (estadoObj) {
+                      setEstado(estadoObj.nome);
+                    }
+                    // Limpar cidade quando mudar o estado
+                    setCidade('');
+                  }}
+                  containerStyle={styles.dropdownContainer}
+                  textStyle={styles.dropdownText}
+                />
                 
                 <Text style={styles.inputLabel}>Cidade</Text>
-                <View style={styles.dropdownContainer}>
-                  <Text style={styles.dropdownText}>{cidade || 'Selecione'}</Text>
-                  <Image source={require('../../assets/images/Icone/arrow-down.png')} style={styles.dropdownIcon} />
-                </View>
+                <CidadeSelect
+                  cidades={cidades}
+                  selectedCidade={cidades.find(c => c.nome === cidade)?.id}
+                  onCidadeChange={(cidadeId) => {
+                    // Encontrar o nome da cidade para exibição
+                    const cidadeObj = cidades.find(c => c.id === cidadeId);
+                    if (cidadeObj) {
+                      setCidade(cidadeObj.nome);
+                    }
+                  }}
+                  containerStyle={styles.dropdownContainer}
+                  textStyle={styles.dropdownText}
+                  disabled={!estadoSelecionado}
+                />
                 
                 <Text style={styles.inputLabel}>Senha</Text>
                 <View style={styles.inputContainer}>
