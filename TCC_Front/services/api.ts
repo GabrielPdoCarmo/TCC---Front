@@ -358,9 +358,7 @@ export const getCidadesPorEstadoID = async (estadoID: number): Promise<Cidade[]>
     // Converter ID para número para garantir consistência
     const estadoIdNumerico = Number(estadoID);
 
-    const estado = estadosResponse.data.find((e: { nome: string; id: number }) => 
-      Number(e.id) === estadoIdNumerico
-    );
+    const estado = estadosResponse.data.find((e: { nome: string; id: number }) => Number(e.id) === estadoIdNumerico);
 
     if (!estado) {
       console.error('Estado não encontrado:', estadoID);
@@ -403,9 +401,10 @@ interface UsuarioUpdatePayload {
   nome?: string;
   email?: string;
   cpf?: string;
+  sexo_id?: number;
   telefone?: string;
-  cidade_id?: string;
-  estado_id?: string;
+  cidade_id?: number;
+  estado_id?: number;
   cep?: string;
   foto?: any; // Arquivo de imagem
 }
@@ -420,9 +419,10 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
     if (usuarioInfo.cpf) formData.append('cpf', usuarioInfo.cpf);
     if (usuarioInfo.telefone) formData.append('telefone', usuarioInfo.telefone);
-    if (usuarioInfo.cidade_id) formData.append('cidade', usuarioInfo.cidade_id);
-    if (usuarioInfo.estado_id) formData.append('estado', usuarioInfo.estado_id);
+    if (usuarioInfo.cidade_id) formData.append('cidade', String(usuarioInfo.cidade_id));
+    if (usuarioInfo.estado_id) formData.append('estado', String(usuarioInfo.estado_id));
     if (usuarioInfo.cep) formData.append('cep', usuarioInfo.cep);
+    if (usuarioInfo.sexo_id) formData.append('sexo_id', String(usuarioInfo.sexo_id));
 
     // Adicionar foto se existir
     if (usuarioInfo.foto) {
@@ -440,7 +440,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     console.error('Erro ao atualizar o usuário', error);
     throw error;
   }
-}
+};
 export const getRacaById = async (id: number) => {
   try {
     const response = await api.get(`/racas/${id}`);

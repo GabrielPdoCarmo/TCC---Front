@@ -14,14 +14,7 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import {
-  getUsuarioById,
-  updateUsuario,
-  getEstados,
-  getCidadesPorEstadoID,
-  getSexoUsuario,
-  validarUsuario,
-} from '@/services/api';
+import { getUsuarioById, updateUsuario, getEstados, getCidadesPorEstadoID, getSexoUsuario } from '@/services/api';
 import EstadoSelect from '@/components/estados/EstadoSelect';
 import CidadeSelect from '@/components/cidades/CidadeSelect';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -560,6 +553,7 @@ export default function ProfileScreen() {
   };
 
   // Função para salvar as alterações no perfil
+  // Função corrigida para salvar as alterações no perfil
   const handleSaveProfile = async () => {
     // Limpar mensagens de erro anteriores
     setNomeErro('');
@@ -587,11 +581,12 @@ export default function ProfileScreen() {
       setEmailErro('E-mail inválido.');
       hasError = true;
     }
-    // In your handleSaveProfile function, add this validation
+
     if (!sexoId) {
       setSexoErro('O sexo é obrigatório.');
       hasError = true;
     }
+
     if (!telefone) {
       setTelefoneErro('O telefone é obrigatório.');
       hasError = true;
@@ -603,7 +598,7 @@ export default function ProfileScreen() {
     if (!cpfCnpj) {
       setCpfErro('O CPF é obrigatório.');
       hasError = true;
-    } else if (!validarCpf(cpfCnpj)) {
+    } else if (!validarCpf(stripNonNumeric(cpfCnpj))) {
       setCpfErro('CPF inválido. Informe um CPF com 11 números.');
       hasError = true;
     }
@@ -632,9 +627,9 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
 
-      // Criar objeto com os dados do usuário para atualização
-      const userData: UsuarioData = {
-        id: usuario?.id,
+      // Em vez de usar FormData, vamos criar um objeto direto
+      const dadosUsuario: UsuarioData = {
+        id: usuario!.id,
         nome,
         email,
         telefone: stripNonNumeric(telefone),
@@ -643,20 +638,48 @@ export default function ProfileScreen() {
         estado_id: estadoSelecionado,
         cidade_id: cidadeSelecionada,
         sexo_id: sexoId,
-        senha: senha || undefined,
-        foto: foto ?? null,
+        foto: null, // Inicialmente nulo
       };
 
-      // Validar usuário na API
+      // Adicionar senha apenas se foi preenchida
+      if (senha) {
+        dadosUsuario.senha = senha;
+      }
 
-      const resultado = await updateUsuario(userData);
+      // Tratar a foto adequadamente
+      if (foto) {
+        if (foto.startsWith('file://')) {
+          // Se for uma nova foto selecionada do dispositivo (URI local)
+          const filename = foto.split('/').pop();
+          const match = /\.(\w+)$/.exec(filename || '');
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+          dadosUsuario.foto = {
+            uri: foto,
+          };
+
+          console.log('Enviando foto local:', dadosUsuario.foto);
+        } else if (foto !== usuario?.foto) {
+          // Se for outra forma de foto que não é a mesma já existente
+          dadosUsuario.foto = foto;
+        }
+      }
+
+      // Adicionar logs para debug
+      console.log('Chamando API updateUsuario com dados:', JSON.stringify(dadosUsuario, null, 2));
+
+      const resultado = await updateUsuario(dadosUsuario);
+
+      console.log('Resposta da API:', resultado);
 
       if (resultado && resultado.success) {
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
         // Recarregar dados
         await fetchUserData();
       } else {
-        Alert.alert('Erro', resultado?.message || 'Não foi possível salvar os dados.');
+        const mensagemErro = resultado?.message || 'Não foi possível salvar os dados.';
+        console.error('Erro retornado pela API:', mensagemErro);
+        Alert.alert('Erro', mensagemErro);
       }
     } catch (err) {
       console.error('Erro ao salvar dados do perfil:', err);
