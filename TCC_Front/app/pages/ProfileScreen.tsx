@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import {
   getUsuarioById,
-  getUpdateUsuario,
+  updateUsuario,
   getEstados,
   getCidadesPorEstadoID,
   getSexoUsuario,
@@ -26,7 +26,7 @@ import EstadoSelect from '@/components/estados/EstadoSelect';
 import CidadeSelect from '@/components/cidades/CidadeSelect';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Feather from 'react-native-vector-icons/Feather';
-
+import * as ImagePicker from 'expo-image-picker';
 // Interface para o tipo de usuário conforme retornado pela API
 interface Usuario {
   id: number;
@@ -60,7 +60,8 @@ interface UsuarioData {
   estado_id: number | null;
   cidade_id: number | null;
   sexo_id: number;
-  senha?: string | undefined; // Modificado para aceitar undefined explicitamente
+  senha?: string | undefined;
+  foto: string | null; // Adicione a propriedade foto
 }
 
 // Interfaces para os componentes
@@ -246,7 +247,8 @@ export default function ProfileScreen() {
   const [senha, setSenha] = useState<string>('');
   const [confirmarSenha, setConfirmarSenha] = useState<string>('');
   const [sexoId, setSexoId] = useState<number>(1);
-  const [sexoErro, setSexoErro] = useState<string>('');
+  const [foto, setFoto] = useState<string | null>(null);
+  const [fotoErro, setFotoErro] = useState<string>('');
   // Campos de erro
   const [nomeErro, setNomeErro] = useState<string>('');
   const [emailErro, setEmailErro] = useState<string>('');
@@ -257,7 +259,7 @@ export default function ProfileScreen() {
   const [cidadeErro, setCidadeErro] = useState<string>('');
   const [senhaErro, setSenhaErro] = useState<string>('');
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState<string>('');
-
+  const [sexoErro, setSexoErro] = useState<string>('');
   // Estado para toggle de senha
   const [showSenha, setShowSenha] = useState<boolean>(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
@@ -396,7 +398,10 @@ export default function ProfileScreen() {
           setEstadoSelecionado(userData.estado_id);
         }
       }
-
+      // Se o usuário tiver uma foto, inicialize o estado com ela
+      if (userData.foto) {
+        setFoto(userData.foto);
+      }
       if (userData.cidade_id) {
         setCidadeSelecionada(userData.cidade_id);
       }
@@ -638,12 +643,13 @@ export default function ProfileScreen() {
         estado_id: estadoSelecionado,
         cidade_id: cidadeSelecionada,
         sexo_id: sexoId,
-        senha: senha || undefined, // Só envia senha se tiver sido preenchida
+        senha: senha || undefined,
+        foto: foto ?? null,
       };
 
       // Validar usuário na API
 
-      const resultado = await getUpdateUsuario(userData);
+      const resultado = await updateUsuario(userData);
 
       if (resultado && resultado.success) {
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
@@ -688,7 +694,35 @@ export default function ProfileScreen() {
     setCidade(selectedCidade.nome);
     setCidadeErro('');
   };
+  const pickImage = async () => {
+    try {
+      // Solicitar permissão para acessar a galeria
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
+      if (status !== 'granted') {
+        Alert.alert('Permissão negada', 'Precisamos de permissão para acessar suas fotos.');
+        return;
+      }
+
+      // Abrir a galeria de imagens
+      const result = await ImagePicker.launchImageLibraryAsync({
+        allowsEditing: true,
+        aspect: [4, 3],
+        quality: 1,
+      });
+
+      // Se não cancelou a seleção
+      if (!result.canceled) {
+        // Atualizar o estado com a URI da imagem selecionada
+        setFoto(result.assets[0].uri);
+        console.log('Imagem selecionada:', result.assets[0].uri);
+        setFotoErro(''); // Limpar qualquer erro anterior
+      }
+    } catch (error) {
+      console.error('Erro ao selecionar imagem:', error);
+      Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
+    }
+  };
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_04.png')} style={styles.backgroundImage}>
@@ -709,13 +743,18 @@ export default function ProfileScreen() {
             <View style={styles.profileContainer}>
               <Text style={styles.pageTitle}>Meus dados</Text>
 
-              {/* Área para foto do perfil */}
               <View style={styles.photoContainer}>
-                {usuario?.foto ? (
-                  <Image source={{ uri: usuario.foto }} style={styles.profilePhoto} />
-                ) : (
-                  <View style={styles.profilePhotoPlaceholder} />
-                )}
+                <TouchableOpacity style={styles.photoUploadButton} onPress={pickImage}>
+                  {foto || usuario?.foto ? (
+                    <Image source={{ uri: foto || usuario?.foto }} style={styles.profilePhoto} />
+                  ) : (
+                    <View style={styles.photoPlaceholder}>
+                      <Text style={styles.uploadText}>Selecionar foto</Text>
+                    </View>
+                  )}
+                </TouchableOpacity>
+                {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
+                <Text style={styles.infoText}>Clique para selecionar uma foto</Text>
               </View>
 
               {/* Campos do formulário */}
@@ -1016,6 +1055,33 @@ const styles = StyleSheet.create({
   },
   formContainer: {
     backgroundColor: 'transparent',
+  },
+  photoUploadButton: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    justifyContent: 'center',
+    alignItems: 'center',
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#FFFFFF',
+  },
+  photoPlaceholder: {
+    width: '100%',
+    height: '100%',
+    backgroundColor: '#E8E8E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  uploadText: {
+    color: '#888',
+    textAlign: 'center',
+  },
+  infoText: {
+    fontSize: 12,
+    color: '#666',
+    textAlign: 'center',
+    marginTop: 5,
   },
   inputLabel: {
     fontSize: 16,
