@@ -14,15 +14,13 @@ import {
   ActivityIndicator,
   Dimensions,
 } from 'react-native';
-import {
-  getPetsByStatus,
-  getUsuarioByIdComCidadeEstado,
-  getRacaById,
-  getstatusById,
-  getFaixaEtariaById,
-} from '@/services/api';
-import PetsCard from '@/components/modal_Pet/PetsCard';
 
+import PetsCard from '@/components/modal_Pet/PetsCard';
+import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
+import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getRacaById from '@/services/api/Raca/getRacaById';
+import getstatusById from '@/services/api/Status/getstatusById';
+import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 // Definindo uma interface para o tipo Pet
 interface Pet {
   id: number;

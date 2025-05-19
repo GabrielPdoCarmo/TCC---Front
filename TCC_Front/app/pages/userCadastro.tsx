@@ -11,14 +11,15 @@ import {
   ActivityIndicator,
   Alert,
 } from 'react-native';
-import { getEstados, getCidadesPorEstado, getSexoUsuario, createUsuario, validarUsuario } from '../../services/api';
 import EstadoSelect from '../../components/estados/EstadoSelect';
 import CidadeSelect from '../../components/cidades/CidadeSelect';
 import { debounce } from 'lodash';
 import { useNavigation } from '@react-navigation/native';
-
-// You'd need to import an icon library like react-native-vector-icons
-// For example purposes, let's assume we have an Eye and EyeOff icons
+import getEstados from '../../services/api/Estados/getEstados';
+import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
+import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
+import createUsuario from '@/services/api/Usuario/createUsuario';
+import validarUsuario from '@/services/api/Usuario/validarUsuario';
 import Feather from 'react-native-vector-icons/Feather';
 import { Redirect, router } from 'expo-router';
 
@@ -403,7 +404,7 @@ export default function CadastroUsuario() {
           text: 'OK',
           onPress: () => {
             // Quando o usuário apertar OK no alerta, volta para a tela de login
-            router.push('/pages/login')
+            router.push('/pages/login');
           },
         },
       ]);

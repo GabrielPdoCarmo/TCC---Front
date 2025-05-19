@@ -14,18 +14,16 @@ import {
   ScrollView,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
-import {
-  getUsuarioByIdComCidadeEstado,
-  getRacaById,
-  getstatusById,
-  getDoencasPorPetId,
-  getDoencaPorId,
-  getPetById,
-  getSexoPetById,
-  getFaixaEtariaById,
-} from '@/services/api';
-import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
 
+import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
+import { getPetById } from '@/services/api/Pets/getPetById';
+import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
+import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getRacaById from '@/services/api/Raca/getRacaById';
+import getstatusById from '@/services/api/Status/getstatusById';
+import getSexoPetById from '@/services/api/Sexo/getSexoPetById';
+import getDoencasPorPetId from '@/services/api/Doenca/getDoencasPorPetId';
+import getDoencaPorId from '@/services/api/Doenca/getDoencaPorId';
 // Interfaces para os tipos de dados
 interface Usuario {
   id: any;
@@ -380,9 +378,6 @@ export default function PetDetailsScreen() {
         resizeMode="cover"
       >
         <View style={styles.header}>
-          <TouchableOpacity onPress={handleBack} style={styles.backButton}>
-            <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.backIcon} />
-          </TouchableOpacity>
           <Text style={styles.headerTitle}>Detalhes do Pet</Text>
           <TouchableOpacity style={styles.settingsButton}>
             <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
@@ -584,6 +579,8 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#000',
+    textAlign: 'center',
+    flex: 1,
   },
   backIcon: {
     width: 24,

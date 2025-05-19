@@ -12,20 +12,19 @@ import {
   Alert,
 } from 'react-native';
 import { useRouter } from 'expo-router';
-import {
-  getEspecies,
-  getRacasPorEspecie,
-  getFaixaEtaria,
-  getUsuarioByIdComCidadeEstado,
-  postPet,
-  getSexoPet,
-  getDoencasPorPetId,
-  getDoencaPorId,
-  updatePet, // Add updatePet import
-} from '../../services/api';
+
 import RacasSelectionModal from './RacasSelectionModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
+import updatePet from '../../services/api/Pets/updatePet'; // Importando a função de atualização
+import postPet from '../../services/api/Pets/postPet'; // Importando a função de criação
+import getEspecies from '../../services/api/Especies/getEspecies';
+import getRacasPorEspecie from '../../services/api/Raca/getRacasPorEspecie';
+import getFaixaEtaria from '../../services/api/Faixa-etaria/getFaixaEtaria';
+import getSexoPet from '../../services/api/Sexo/getSexoPet';
+import getDoencasPorPetId from '../../services/api/Doenca/getDoencasPorPetId';
+import getDoencaPorId from '../../services/api/Doenca/getDoencaPorId';
+import getUsuarioByIdComCidadeEstado from '../../services/api/Usuario/getUsuarioByIdComCidadeEstado';
 
 // Updated PetDonationModalProps to include pet and isEditMode
 interface PetDonationModalProps {

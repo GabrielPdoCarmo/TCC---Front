@@ -13,7 +13,7 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Link, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { login } from '../../services/api';
+import  login  from '../../services/api/auth'; // Importando a função de login
 
 // Interface para tipagem de erros da API
 interface ApiError {
@@ -42,26 +42,23 @@ export default function App() {
   const getErrorMessage = (error: unknown): string => {
     // Converter o erro para o tipo ApiError
     const apiError = error as ApiError;
-    
+
     // Verificar se é um erro com informações técnicas para filtrar
-    if (apiError?.message?.includes("Email e senha são obrigatórios")) {
-      return "Por favor, preencha todos os campos de login.";
+    if (apiError?.message?.includes('Email e senha são obrigatórios')) {
+      return 'Por favor, preencha todos os campos de login.';
     }
-    
-    if (apiError?.error?.includes("Erro ao fazer login")) {
-      return "Não foi possível fazer login. Verifique sua conexão.";
+
+    if (apiError?.error?.includes('Erro ao fazer login')) {
+      return 'Não foi possível fazer login. Verifique sua conexão.';
     }
-    
+
     // Verificar se contém strings de depuração como NOBRIDGE ou ERROR
-    if (
-      JSON.stringify(error).includes("NOBRIDGE") || 
-      JSON.stringify(error).includes("ERROR")
-    ) {
-      return "Não foi possível completar sua solicitação. Tente novamente mais tarde.";
+    if (JSON.stringify(error).includes('NOBRIDGE') || JSON.stringify(error).includes('ERROR')) {
+      return 'Não foi possível completar sua solicitação. Tente novamente mais tarde.';
     }
-    
+
     // Mensagem genérica para outros erros
-    return apiError?.error || apiError?.message || "Ocorreu um erro inesperado. Tente novamente.";
+    return apiError?.error || apiError?.message || 'Ocorreu um erro inesperado. Tente novamente.';
   };
 
   const handleLogin = async () => {
@@ -132,10 +129,10 @@ export default function App() {
         // Em modo de desenvolvimento, registramos o erro completo para depuração
         console.error('Erro original:', error);
       }
-      
+
       // Obter mensagem amigável para o usuário
       const userFriendlyMessage = getErrorMessage(error);
-      
+
       Alert.alert('Erro ao fazer login', userFriendlyMessage);
     } finally {
       setLoading(false);

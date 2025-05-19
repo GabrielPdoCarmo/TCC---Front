@@ -13,19 +13,17 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
-import {
-  getPetsByUsuarioId,
-  getUsuarioByIdComCidadeEstado,
-  getRacaById,
-  getFaixaEtariaById,
-  getstatusById,
-  updatePet,
-  deletePet,
-  updateStatus,
-} from '@/services/api';
+
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
-
+import deletePet from '@/services/api/Pets/deletePet';
+import updatePet from '@/services/api/Pets/updatePet';
+import getPetsByUsuarioId from '@/services/api/Pets/getPetsByUsuarioId';
+import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getRacaById from '@/services/api/Raca/getRacaById';
+import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
+import getstatusById from '@/services/api/Status/getstatusById';
+import updateStatus from '@/services/api/Status/updateStatus';
 // Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;

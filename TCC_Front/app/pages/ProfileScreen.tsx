@@ -14,13 +14,17 @@ import {
   ScrollView,
   Alert,
 } from 'react-native';
-import { getUsuarioById, updateUsuario, getEstados, getCidadesPorEstadoID, getSexoUsuario } from '@/services/api';
 import EstadoSelect from '@/components/estados/EstadoSelect';
 import CidadeSelect from '@/components/cidades/CidadeSelect';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Feather from 'react-native-vector-icons/Feather';
 import * as ImagePicker from 'expo-image-picker';
-// Interface para o tipo de usuário conforme retornado pela API
+import getEstados from '@/services/api/Estados/getEstados';
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
+import updateUsuario from '@/services/api/Usuario/updateUsuario';
+import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
+import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
+
 interface Usuario {
   id: number;
   nome: string;
