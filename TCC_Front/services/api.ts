@@ -1,7 +1,7 @@
 import axios from 'axios';
 //Android
 const api = axios.create({
-  baseURL: `http://192.168.1.12:3000/api`,
+  baseURL: `http://192.168.110.225:3000/api`,
   timeout: 10000,
 });
 console.log('Base URL:', api.defaults.baseURL);
@@ -183,7 +183,6 @@ export const updatePet = async (petData: PetUpdatePayload) => {
     if (petInfo.motivoDoacao) formData.append('motivoDoacao', petInfo.motivoDoacao);
     if (petInfo.status_id) formData.append('status_id', String(petInfo.status_id));
 
-
     // Adicionar doenças se existirem
     if (petInfo.doencas && Array.isArray(petInfo.doencas)) {
       petInfo.doencas.forEach((doenca, index) => {
@@ -352,6 +351,38 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
   }
 };
 
+export const getCidadesPorEstadoID = async (estadoID: number): Promise<Cidade[]> => {
+  try {
+    const estadosResponse = await api.get('/estados');
+
+    // Converter ID para número para garantir consistência
+    const estadoIdNumerico = Number(estadoID);
+
+    const estado = estadosResponse.data.find((e: { nome: string; id: number }) => 
+      Number(e.id) === estadoIdNumerico
+    );
+
+    if (!estado) {
+      console.error('Estado não encontrado:', estadoID);
+      return [];
+    }
+
+    // Use o ID do estado encontrado
+    const response = await api.get(`/cidades/${estado.id}`);
+
+    const cidades = response.data.map((cidade: { id: number; nome: string }) => ({
+      id: cidade.id,
+      nome: cidade.nome,
+    }));
+
+    // Ordenar por ordem alfabética
+    return cidades.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
+  } catch (error) {
+    console.error('Erro ao carregar as cidades', error);
+    return [];
+  }
+};
+
 // Chamada para obter os usuários
 export const getUsuarios = async () => {
   try {
@@ -366,6 +397,50 @@ export const getUsuarios = async () => {
     return [];
   }
 };
+
+interface UsuarioUpdatePayload {
+  id: number;
+  nome?: string;
+  email?: string;
+  cpf?: string;
+  telefone?: string;
+  cidade_id?: string;
+  estado_id?: string;
+  cep?: string;
+  foto?: any; // Arquivo de imagem
+}
+
+export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
+  try {
+    const { id, ...usuarioInfo } = usuarioData;
+    const formData = new FormData();
+
+    // Adicionar campos ao FormData apenas se existirem
+    if (usuarioInfo.nome) formData.append('nome', usuarioInfo.nome);
+    if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
+    if (usuarioInfo.cpf) formData.append('cpf', usuarioInfo.cpf);
+    if (usuarioInfo.telefone) formData.append('telefone', usuarioInfo.telefone);
+    if (usuarioInfo.cidade_id) formData.append('cidade', usuarioInfo.cidade_id);
+    if (usuarioInfo.estado_id) formData.append('estado', usuarioInfo.estado_id);
+    if (usuarioInfo.cep) formData.append('cep', usuarioInfo.cep);
+
+    // Adicionar foto se existir
+    if (usuarioInfo.foto) {
+      formData.append('foto', usuarioInfo.foto);
+    }
+
+    const response = await api.put(`/usuarios/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data',
+      },
+    });
+
+    return response.data;
+  } catch (error) {
+    console.error('Erro ao atualizar o usuário', error);
+    throw error;
+  }
+}
 export const getRacaById = async (id: number) => {
   try {
     const response = await api.get(`/racas/${id}`);
@@ -438,7 +513,7 @@ export const getSexoPetById = async (id: number) => {
   }
 };
 
-export const getUsuarioById = async (id: number) => {
+export const getUsuarioByIdComCidadeEstado = async (id: number) => {
   try {
     // 1. Buscar o usuário
     console.log(`Buscando usuário com ID: ${id}`);
@@ -489,7 +564,19 @@ export const getUsuarioById = async (id: number) => {
     return null;
   }
 };
+export const getUsuarioById = async (id: number) => {
+  try {
+    // Buscar o usuário completo
+    console.log(`Buscando usuário com ID: ${id}`);
+    const response = await api.get(`/usuarios/${id}`);
 
+    // Retornar os dados completos do usuário exatamente como recebidos da API
+    return response.data;
+  } catch (error) {
+    console.error(`Erro ao buscar o usuário com ID ${id}:`, error);
+    return null;
+  }
+};
 // Chamada para obter faixa etária
 export const getFaixaEtaria = async () => {
   try {

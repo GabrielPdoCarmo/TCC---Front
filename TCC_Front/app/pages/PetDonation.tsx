@@ -15,13 +15,13 @@ import {
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
 import {
   getPetsByUsuarioId,
-  getUsuarioById,
+  getUsuarioByIdComCidadeEstado,
   getRacaById,
   getFaixaEtariaById,
   getstatusById,
   updatePet,
   deletePet,
-  updateStatus
+  updateStatus,
 } from '@/services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
@@ -106,7 +106,7 @@ export default function PetDonationScreen() {
       console.log('Buscando pets para o usuário ID:', userIdNumber);
 
       // Obter informações do usuário
-      const userData = await getUsuarioById(userIdNumber);
+      const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
       setCurrentUser(userData);
       console.log('Dados do usuário carregados:', userData);
 
@@ -131,7 +131,7 @@ export default function PetDonationScreen() {
             let usuarioNome = userData?.nome || 'Usuário não identificado';
 
             if (pet.usuario_id !== userIdNumber) {
-              const petUsuario = await getUsuarioById(pet.usuario_id);
+              const petUsuario = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
 
               if (petUsuario) {
                 usuarioNome = petUsuario.nome;
@@ -248,23 +248,23 @@ export default function PetDonationScreen() {
           try {
             // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
             await updateStatus(petId); // Assumindo que 2 é o ID para "Disponível para adoção"
-            
+
             // Atualizando o pet na lista local para refletir a mudança de status
-            const updatedPets = pets.map(pet => {
+            const updatedPets = pets.map((pet) => {
               if (pet.id === petId) {
                 return {
                   ...pet,
                   status_id: 2,
-                  status_nome: "Disponível para adoção"
+                  status_nome: 'Disponível para adoção',
                 };
               }
               return pet;
             });
-            
+
             setPets(updatedPets);
-            
+
             Alert.alert('Sucesso', 'Pet disponibilizado para adoção com sucesso!');
-            
+
             // Recarregar a lista de pets para exibir as atualizações
             fetchUserPets();
           } catch (error) {
@@ -303,7 +303,7 @@ export default function PetDonationScreen() {
       Alert.alert('Erro', 'Pet não encontrado para edição.');
     }
   };
-  
+
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
     Alert.alert('Excluir Pet', 'Tem certeza que deseja excluir este pet?', [
@@ -318,10 +318,10 @@ export default function PetDonationScreen() {
           try {
             // Chamar a função deletePet com o ID do pet
             await deletePet(petId);
-            
+
             // Mostrar alerta de sucesso
             Alert.alert('Sucesso', 'Pet excluído com sucesso!');
-            
+
             // Atualizar a lista de pets após a exclusão
             fetchUserPets();
           } catch (error) {
@@ -332,7 +332,7 @@ export default function PetDonationScreen() {
       },
     ]);
   };
-  
+
   // Função para favoritar um pet
   const handleFavoritePet = (petId: number) => {
     // Implementar lógica para favoritar/desfavoritar
@@ -410,17 +410,12 @@ export default function PetDonationScreen() {
             <Text style={styles.activeNavText}>Adoção</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.navItem} 
-            onPress={() => router.push('/pages/PetAdoptionScreen')}
-          >
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
             <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.navItem}
-          >
+          <TouchableOpacity style={styles.navItem}>
             <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
@@ -444,7 +439,7 @@ const styles = StyleSheet.create({
     flex: 1,
     backgroundColor: '#4682B4',
   },
-   activeCircle: {
+  activeCircle: {
     backgroundColor: '#E8F1F8',
     borderRadius: 20,
     padding: 5,
@@ -537,7 +532,7 @@ const styles = StyleSheet.create({
     color: '#000',
   },
   activeNavText: {
-     fontSize: 12,
+    fontSize: 12,
     marginTop: 3,
     color: '#4682B4',
     fontWeight: 'bold',

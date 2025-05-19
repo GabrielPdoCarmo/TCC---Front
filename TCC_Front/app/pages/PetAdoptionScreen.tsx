@@ -12,9 +12,15 @@ import {
   ImageBackground,
   SafeAreaView,
   ActivityIndicator,
-  Dimensions
+  Dimensions,
 } from 'react-native';
-import { getPetsByStatus, getUsuarioById, getRacaById, getstatusById, getFaixaEtariaById, } from '@/services/api';
+import {
+  getPetsByStatus,
+  getUsuarioByIdComCidadeEstado,
+  getRacaById,
+  getstatusById,
+  getFaixaEtariaById,
+} from '@/services/api';
 import PetsCard from '@/components/modal_Pet/PetsCard';
 
 // Definindo uma interface para o tipo Pet
@@ -58,14 +64,14 @@ export default function PetAdoptionScreen() {
           response.map(async (pet: Pet) => {
             // Verifica se as informações de raça e usuário já estão incluídas na resposta
             let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-            let usuarioInfo = pet.usuario_nome ? null : await getUsuarioById(pet.usuario_id);
+            let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
             let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
 
             return {
               ...pet,
-              raca_nome: pet.raca_nome || (racaInfo?.nome || 'Desconhecido'),
-              usuario_nome: pet.usuario_nome || (usuarioInfo?.nome || 'Desconhecido'),
-              status_nome: pet.status_nome || (statusInfo?.nome || 'Disponível para adoção'),
+              raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
+              usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+              status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
               favorito: false, // Inicializa favorito como false
             };
           })
@@ -87,9 +93,7 @@ export default function PetAdoptionScreen() {
   // Filtrar pets quando a busca mudar
   useEffect(() => {
     if (searchQuery) {
-      const filtered = pets.filter(pet =>
-        pet.nome.toLowerCase().includes(searchQuery.toLowerCase())
-      );
+      const filtered = pets.filter((pet) => pet.nome.toLowerCase().includes(searchQuery.toLowerCase()));
       setFilteredPets(filtered);
     } else {
       setFilteredPets(pets);
@@ -111,7 +115,7 @@ export default function PetAdoptionScreen() {
   const handleViewDetails = (petId: number) => {
     router.push({
       pathname: '/pages/PetDetailsScreen',
-      params: { petId }
+      params: { petId },
     });
     console.log(`Ver detalhes do pet ID: ${petId}`);
   };
@@ -119,13 +123,11 @@ export default function PetAdoptionScreen() {
   // Função para favoritar um pet
   const handleFavorite = (petId: number) => {
     // Atualiza o estado local dos pets para refletir o status de favorito
-    const updatedPets = pets.map(pet =>
-      pet.id === petId ? { ...pet, favorito: !pet.favorito } : pet
-    );
+    const updatedPets = pets.map((pet) => (pet.id === petId ? { ...pet, favorito: !pet.favorito } : pet));
     setPets(updatedPets);
 
     // Atualiza os pets filtrados também
-    const updatedFilteredPets = filteredPets.map(pet =>
+    const updatedFilteredPets = filteredPets.map((pet) =>
       pet.id === petId ? { ...pet, favorito: !pet.favorito } : pet
     );
     setFilteredPets(updatedFilteredPets);
@@ -192,12 +194,12 @@ export default function PetAdoptionScreen() {
                   setError(null);
                   // Chamada corrigida para getPetsByStatus sem parâmetros
                   getPetsByStatus()
-                    .then(res => {
+                    .then((res) => {
                       setPets(res);
                       setFilteredPets(res);
                       setLoading(false);
                     })
-                    .catch(err => {
+                    .catch((err) => {
                       console.error(err);
                       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
                       setLoading(false);
@@ -218,7 +220,7 @@ export default function PetAdoptionScreen() {
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.petList}
               showsVerticalScrollIndicator={false}
-              refreshing={loading}  // Mostra o indicador de refresh quando loading for true
+              refreshing={loading} // Mostra o indicador de refresh quando loading for true
               onRefresh={() => {
                 setLoading(true);
                 // Função para recarregar os dados
@@ -232,14 +234,14 @@ export default function PetAdoptionScreen() {
                       response.map(async (pet: Pet) => {
                         // Verifica se as informações de raça e usuário já estão incluídas na resposta
                         let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-                        let usuarioInfo = pet.usuario_nome ? null : await getUsuarioById(pet.usuario_id);
+                        let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
                         let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
 
                         return {
                           ...pet,
-                          raca_nome: pet.raca_nome || (racaInfo?.nome || 'Desconhecido'),
-                          usuario_nome: pet.usuario_nome || (usuarioInfo?.nome || 'Desconhecido'),
-                          status_nome: pet.status_nome || (statusInfo?.nome || 'Disponível para adoção'),
+                          raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
+                          usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+                          status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
                           favorito: false, // Inicializa favorito como false
                         };
                       })
@@ -263,10 +265,7 @@ export default function PetAdoptionScreen() {
 
         {/* Barra de navegação inferior */}
         <View style={styles.bottomNavigation}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/pages/PetDonation')}
-          >
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetDonation')}>
             <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Adoção</Text>
           </TouchableOpacity>
@@ -278,10 +277,7 @@ export default function PetAdoptionScreen() {
             <Text style={styles.activeNavText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navItem}
-          // onPress={() => router.push('/pages/Profile')}
-          >
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/ProfileScreen')}>
             <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>

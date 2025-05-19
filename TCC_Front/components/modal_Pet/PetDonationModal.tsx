@@ -16,7 +16,7 @@ import {
   getEspecies,
   getRacasPorEspecie,
   getFaixaEtaria,
-  getUsuarioById,
+  getUsuarioByIdComCidadeEstado,
   postPet,
   getSexoPet,
   getDoencasPorPetId,
@@ -139,15 +139,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     if (isEditMode && pet) {
       return {
         nome: pet.nome || '',
-        especie: '',  // Será preenchido no useEffect
+        especie: '', // Será preenchido no useEffect
         raca: pet.raca_nome || '',
         idade: pet.idade ? pet.idade.toString() : '',
-        idadeCategoria: '',  // Será preenchido no useEffect
-        responsavel: '',  // Será preenchido com dados do usuário
+        idadeCategoria: '', // Será preenchido no useEffect
+        responsavel: '', // Será preenchido com dados do usuário
         estado: '',
         cidade: '',
         rgPet: pet.rg_Pet || '',
-        sexo: '',  // Será preenchido no useEffect
+        sexo: '', // Será preenchido no useEffect
         possuiDoenca: '',
         doencaDescricao: '',
         motivoDoacao: pet.motivoDoacao || '',
@@ -189,7 +189,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userIdNumber = parseInt(userId, 10);
 
       // Rest of the code remains the same...
-      const userData = await getUsuarioById(userIdNumber);
+      const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
 
       if (!userData) {
         console.error('Dados do usuário não encontrados');
@@ -818,10 +818,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
         foto: formData.foto
           ? {
-            uri: formData.foto,
-            type: 'image/jpeg',
-            name: `pet_${Date.now()}.jpg`,
-          }
+              uri: formData.foto,
+              type: 'image/jpeg',
+              name: `pet_${Date.now()}.jpg`,
+            }
           : null,
       };
 

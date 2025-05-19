@@ -1,6 +1,6 @@
 // ProfileScreen.tsx
 import { router } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,43 +12,229 @@ import {
   SafeAreaView,
   ActivityIndicator,
   ScrollView,
-  Alert
+  Alert,
 } from 'react-native';
-import { getUsuarioById, getEstados, getCidadesPorEstado, getSexoUsuario, validarUsuario } from '@/services/api';
+import {
+  getUsuarioById,
+  getUpdateUsuario,
+  getEstados,
+  getCidadesPorEstadoID,
+  getSexoUsuario,
+  validarUsuario,
+} from '@/services/api';
 import EstadoSelect from '@/components/estados/EstadoSelect';
 import CidadeSelect from '@/components/cidades/CidadeSelect';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Feather from 'react-native-vector-icons/Feather';
 
-// Interface para o tipo de usuário
+// Interface para o tipo de usuário conforme retornado pela API
 interface Usuario {
   id: number;
   nome: string;
   email: string;
   telefone: string;
-  cpf_cnpj: string;
+  cpf: string;
   cep: string;
-  estado: {
+  estado_id: number;
+  cidade_id: number;
+  estado?: {
+    id: number;
     nome: string;
   };
-  cidade: {
+  cidade?: {
+    id: number;
     nome: string;
   };
   foto?: string;
   sexo_id: number;
 }
 
+// Interface para o tipo que é esperado pela API
+interface UsuarioData {
+  id?: number;
+  nome: string;
+  email: string;
+  telefone: string;
+  cpf: string;
+  cep: string;
+  estado_id: number | null;
+  cidade_id: number | null;
+  sexo_id: number;
+  senha?: string | undefined; // Modificado para aceitar undefined explicitamente
+}
+
+// Interfaces para os componentes
+interface Estado {
+  id: number;
+  nome: string;
+}
+
+interface Cidade {
+  id: number;
+  nome: string;
+}
+
+interface Sexo {
+  id: number;
+  descricao: string;
+}
+
+// Helper functions for formatting and validation
+const formatCPF = (cpf: string): string => {
+  // Remove non-numeric characters
+  const numericValue = cpf.replace(/\D/g, '');
+
+  // Apply CPF mask: 000.000.000-00
+  if (numericValue.length <= 3) {
+    return numericValue;
+  } else if (numericValue.length <= 6) {
+    return `${numericValue.slice(0, 3)}.${numericValue.slice(3)}`;
+  } else if (numericValue.length <= 9) {
+    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6)}`;
+  } else {
+    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6, 9)}-${numericValue.slice(
+      9,
+      11
+    )}`;
+  }
+};
+
+const formatTelefone = (telefone: string): string => {
+  // Remove non-numeric characters
+  const numericValue = telefone.replace(/\D/g, '');
+
+  // Apply phone mask: (00) 00000-0000 or (00) 0000-0000
+  if (numericValue.length <= 2) {
+    return numericValue;
+  } else if (numericValue.length <= 6) {
+    return `(${numericValue.slice(0, 2)}) ${numericValue.slice(2)}`;
+  } else if (numericValue.length <= 10) {
+    // For 8-digit numbers (landline)
+    return `(${numericValue.slice(0, 2)}) ${numericValue.slice(2, 6)}-${numericValue.slice(6)}`;
+  } else {
+    // For 9-digit numbers (mobile)
+    return `(${numericValue.slice(0, 2)}) ${numericValue.slice(2, 7)}-${numericValue.slice(7)}`;
+  }
+};
+
+const formatCEP = (cep: string): string => {
+  // Remove non-numeric characters
+  const numericValue = cep.replace(/\D/g, '');
+
+  // Apply CEP mask: 00000-000
+  if (numericValue.length <= 5) {
+    return numericValue;
+  } else {
+    return `${numericValue.slice(0, 5)}-${numericValue.slice(5, 8)}`;
+  }
+};
+
+// Helper function to remove all non-numeric characters
+const stripNonNumeric = (text: string): string => {
+  return text.replace(/\D/g, '');
+};
+
+// Function to validate email format
+const validarEmail = (email: string) => {
+  const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+  return regex.test(email);
+};
+
+// Function to validate CPF format
+const validarCpf = (cpf: string) => {
+  const regex = /^\d{11}$/;
+  return regex.test(stripNonNumeric(cpf));
+};
+
+// Function to validate telephone format
+const validarTelefone = (telefone: string) => {
+  const somenteNumeros = stripNonNumeric(telefone);
+  return somenteNumeros.length >= 10;
+};
+
+// Function to validate CEP format
+const validarCep = (cep: string) => {
+  const regex = /^\d{8}$/;
+  return regex.test(stripNonNumeric(cep));
+};
+
+// Function to normalize strings for case-insensitive comparisons
+const normalizeString = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .toLowerCase() // Convert to lowercase
+    .trim(); // Remove extra spaces
+};
+
+// Function to fetch address data by CEP using the ViaCEP API
+const fetchAddressByCep = async (cep: string): Promise<any> => {
+  try {
+    const formattedCep = stripNonNumeric(cep);
+    if (formattedCep.length !== 8) {
+      return null;
+    }
+
+    const response = await fetch(`https://viacep.com.br/ws/${formattedCep}/json/`);
+    const data = await response.json();
+
+    if (data.erro) {
+      return null;
+    }
+
+    return data;
+  } catch (error) {
+    console.error('Erro ao buscar endereço pelo CEP:', error);
+    return null;
+  }
+};
+
+// Mapping of state abbreviations to full names
+const estadosSiglaParaNome: { [key: string]: string } = {
+  AC: 'Acre',
+  AL: 'Alagoas',
+  AP: 'Amapá',
+  AM: 'Amazonas',
+  BA: 'Bahia',
+  CE: 'Ceará',
+  DF: 'Distrito Federal',
+  ES: 'Espírito Santo',
+  GO: 'Goiás',
+  MA: 'Maranhão',
+  MT: 'Mato Grosso',
+  MS: 'Mato Grosso do Sul',
+  MG: 'Minas Gerais',
+  PA: 'Pará',
+  PB: 'Paraíba',
+  PR: 'Paraná',
+  PE: 'Pernambuco',
+  PI: 'Piauí',
+  RJ: 'Rio de Janeiro',
+  RN: 'Rio Grande do Norte',
+  RS: 'Rio Grande do Sul',
+  RO: 'Rondônia',
+  RR: 'Roraima',
+  SC: 'Santa Catarina',
+  SP: 'São Paulo',
+  SE: 'Sergipe',
+  TO: 'Tocantins',
+};
+
 export default function ProfileScreen() {
   // Estado para armazenar os dados do usuário
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
-  
+
   // Estados para seleção de estado e cidade
-  const [estados, setEstados] = useState<any[]>([]);
-  const [cidades, setCidades] = useState<any[]>([]);
+  const [estados, setEstados] = useState<Estado[]>([]);
+  const [cidades, setCidades] = useState<Cidade[]>([]);
   const [estadoSelecionado, setEstadoSelecionado] = useState<number | null>(null);
-  const [sexos, setSexos] = useState<any[]>([]);
-  
+  const [cidadeSelecionada, setCidadeSelecionada] = useState<number | null>(null);
+  const [sexos, setSexos] = useState<Sexo[]>([]);
+  const [loadingCep, setLoadingCep] = useState<boolean>(false);
+  const [loadingCidades, setLoadingCidades] = useState<boolean>(false);
+
   // Campos editáveis
   const [nome, setNome] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -59,15 +245,55 @@ export default function ProfileScreen() {
   const [cidade, setCidade] = useState<string>('');
   const [senha, setSenha] = useState<string>('');
   const [confirmarSenha, setConfirmarSenha] = useState<string>('');
-  const [sexoId, setSexoId] = useState<number>(1); // 1: Homem, 2: Mulher, 3: Prefiro não dizer
+  const [sexoId, setSexoId] = useState<number>(1);
+  const [sexoErro, setSexoErro] = useState<string>('');
+  // Campos de erro
+  const [nomeErro, setNomeErro] = useState<string>('');
+  const [emailErro, setEmailErro] = useState<string>('');
+  const [telefoneErro, setTelefoneErro] = useState<string>('');
+  const [cpfErro, setCpfErro] = useState<string>('');
+  const [cepErro, setCepErro] = useState<string>('');
+  const [estadoErro, setEstadoErro] = useState<string>('');
+  const [cidadeErro, setCidadeErro] = useState<string>('');
+  const [senhaErro, setSenhaErro] = useState<string>('');
+  const [confirmarSenhaErro, setConfirmarSenhaErro] = useState<string>('');
 
-  // Buscar dados do usuário quando o componente montar
+  // Estado para toggle de senha
+  const [showSenha, setShowSenha] = useState<boolean>(false);
+  const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
+
+  // Cache para armazenar cidades por estado
+  const cidadesCache = useRef<{ [key: string]: Cidade[] }>({});
+
+  // Reference to store user data until states are loaded
+  const pendingUserData = useRef<Usuario | null>(null);
+
+  // Buscar dados iniciais quando o componente montar
   useEffect(() => {
-    fetchUserData();
-    fetchEstados();
-    fetchSexos();
+    initializeData();
   }, []);
-  
+
+  // Função para inicializar todos os dados necessários
+  const initializeData = async () => {
+    try {
+      setLoading(true);
+
+      // Buscar dados em paralelo
+      const [estadosData, sexosData] = await Promise.all([getEstados(), getSexoUsuario()]);
+
+      setEstados(estadosData);
+      setSexos(sexosData);
+
+      // Agora que os estados foram carregados, buscar dados do usuário
+      await fetchUserData(estadosData);
+    } catch (err) {
+      console.error('Erro ao inicializar dados:', err);
+      setError('Erro ao carregar dados. Tente novamente.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
   // Carregar cidades quando o estado é selecionado
   useEffect(() => {
     if (estadoSelecionado) {
@@ -75,134 +301,357 @@ export default function ProfileScreen() {
     }
   }, [estadoSelecionado]);
 
-  // Função para buscar estados
-  const fetchEstados = async () => {
-    try {
-      const data = await getEstados();
-      setEstados(data);
-    } catch (err) {
-      console.error('Erro ao buscar estados:', err);
-    }
-  };
+  // Função para buscar cidades por estado com cache
+  // Add this adapter function inside the ProfileScreen component
+  // This will convert the estadoId (number) to the proper format needed by the API
 
-  // Função para buscar cidades por estado
+  // Função fetchCidades corrigida para usar o nome do estado em vez do ID
   const fetchCidades = async (estadoId: number) => {
+    const estadoKey = estadoId.toString();
+
+    // Log para depuração
+    console.log('Tentando buscar cidades para estadoId:', estadoId);
+    console.log(
+      'Estados disponíveis:',
+      estados.map((e) => `${e.id} - ${e.nome}`)
+    );
+
+    // Verificar se já existe no cache
+    if (cidadesCache.current[estadoKey]) {
+      console.log('Encontrado no cache, usando cidades em cache');
+      setCidades(cidadesCache.current[estadoKey]);
+      return;
+    }
+
+    setLoadingCidades(true);
     try {
-      const data = await getCidadesPorEstado(estadoId);
+      // Chamar a API diretamente com o ID, sem tentar encontrar o estado
+      console.log('Chamando API diretamente com ID:', estadoId);
+      const data = await getCidadesPorEstadoID(estadoId);
+
+      console.log(`Recebidas ${data.length} cidades para o estado ID ${estadoId}`);
       setCidades(data);
+      // Salvar no cache
+      cidadesCache.current[estadoKey] = data;
     } catch (err) {
       console.error('Erro ao buscar cidades:', err);
-    }
-  };
-
-  // Função para buscar sexos
-  const fetchSexos = async () => {
-    try {
-      const data = await getSexoUsuario();
-      setSexos(data);
-    } catch (err) {
-      console.error('Erro ao buscar sexos:', err);
+      setCidades([]);
+    } finally {
+      setLoadingCidades(false);
     }
   };
 
   // Função para buscar dados do usuário usando AsyncStorage
-  const fetchUserData = async () => {
+  const fetchUserData = async (estadosData?: Estado[]) => {
     try {
-      setLoading(true);
-      
       // Use the same '@App:userId' key that was used to store
       const userId = await AsyncStorage.getItem('@App:userId');
-      
+
       if (!userId) {
         console.error('ID do usuário não encontrado no AsyncStorage');
         setError('Não foi possível identificar o usuário conectado.');
-        setLoading(false);
         return;
       }
-      
-      const userIdNumber = parseInt(userId, 10);
-      
+
+      const userIdNumber = parseInt(userId);
+
       // Buscar dados do usuário da API
       const userData = await getUsuarioById(userIdNumber);
-      
+
       if (!userData) {
         console.error('Dados do usuário não encontrados');
         setError('Não foi possível carregar os dados do usuário.');
-        setLoading(false);
         return;
       }
-      
+
       console.log('Dados do usuário carregados:', userData);
-      
+
+      // Atualizar o estado do usuário com os dados recebidos
       setUsuario(userData);
-      
+
       // Preencher os estados para edição
       setNome(userData.nome || '');
       setEmail(userData.email || '');
-      setTelefone(userData.telefone || '');
-      setCpfCnpj(userData.cpf_cnpj || '');
-      setCep(userData.cep || '');
-      
-      // Definir estado e cidade
-      if (userData.estado) {
-        setEstado(userData.estado.nome || '');
-        setEstadoSelecionado(userData.estado.id || null);
-      }
-      
-      if (userData.cidade) {
-        setCidade(userData.cidade.nome || '');
-      }
-      
+      setTelefone(formatTelefone(userData.telefone || ''));
+      setCpfCnpj(formatCPF(userData.cpf || ''));
+      setCep(formatCEP(userData.cep || ''));
       setSexoId(userData.sexo_id || 1);
-      
+
+      // Usar os estados passados como parâmetro ou os já carregados
+      const estadosDisponiveis = estadosData || estados;
+
+      // Definir estado e cidade
+      if (userData.estado_id && estadosDisponiveis.length > 0) {
+        const estadoEncontrado = estadosDisponiveis.find((e) => e.id === userData.estado_id);
+
+        if (estadoEncontrado) {
+          setEstadoSelecionado(userData.estado_id);
+          setEstado(estadoEncontrado.nome);
+
+          // Carregar cidades do estado selecionado
+          await fetchCidades(userData.estado_id);
+        } else {
+          console.error('Estado não encontrado:', userData.estado_id);
+          // Ainda assim define o ID para tentar carregar as cidades
+          setEstadoSelecionado(userData.estado_id);
+        }
+      }
+
+      if (userData.cidade_id) {
+        setCidadeSelecionada(userData.cidade_id);
+      }
+
+      // Se tiver objetos aninhados de estado e cidade, usar esses nomes
+      if (userData.estado && userData.estado.nome) {
+        setEstado(userData.estado.nome);
+      }
+
+      if (userData.cidade && userData.cidade.nome) {
+        setCidade(userData.cidade.nome);
+      }
     } catch (err) {
       console.error('Erro ao buscar dados do usuário:', err);
       setError('Não foi possível carregar os dados do perfil. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
     }
+  };
+
+  // Handlers para inputs formatados
+  const handleNomeChange = (text: string) => {
+    setNome(text);
+    if (text.trim().length > 0) setNomeErro('');
+  };
+
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    if (validarEmail(text)) setEmailErro('');
+  };
+
+  const handleTelefoneChange = (text: string) => {
+    const formattedTelefone = formatTelefone(text);
+    setTelefone(formattedTelefone);
+    if (validarTelefone(formattedTelefone)) setTelefoneErro('');
+  };
+
+  const handleCpfChange = (text: string) => {
+    const formattedCpf = formatCPF(text);
+    setCpfCnpj(formattedCpf);
+    if (validarCpf(stripNonNumeric(formattedCpf))) setCpfErro('');
+  };
+
+  const handleCepChange = (text: string) => {
+    const formattedCep = formatCEP(text);
+    setCep(formattedCep);
+    if (validarCep(stripNonNumeric(formattedCep))) setCepErro('');
+
+    const numericCep = stripNonNumeric(text);
+    if (numericCep.length === 8) {
+      handleBuscarCep(numericCep);
+    }
+  };
+
+  // Função para buscar endereço pelo CEP
+  async function lookupCepAddress(cep: string) {
+    try {
+      const cleanedCep = cep.replace(/\D/g, '');
+      if (cleanedCep.length !== 8) {
+        throw new Error('CEP inválido');
+      }
+
+      const response = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
+      if (!response.ok) {
+        throw new Error('Erro ao buscar o CEP');
+      }
+
+      const data = await response.json();
+
+      if (data.erro) {
+        throw new Error('CEP não encontrado');
+      }
+
+      const estadoNome = estadosSiglaParaNome[data.uf];
+
+      return {
+        cep: data.cep,
+        logradouro: data.logradouro,
+        bairro: data.bairro,
+        cidade: data.localidade,
+        estado: estadoNome,
+      };
+    } catch (error) {
+      console.error('Erro ao buscar endereço:', error);
+      throw error;
+    }
+  }
+
+  // Função para buscar endereço pelo CEP
+  // Função para buscar endereço pelo CEP
+  async function handleBuscarCep(numericCep?: string) {
+    try {
+      setLoadingCep(true);
+
+      const endereco = await lookupCepAddress(numericCep ?? cep);
+
+      if (!endereco || !endereco.estado || !endereco.cidade) {
+        setCepErro('CEP não encontrado ou inválido.');
+        return;
+      }
+
+      // Encontrar o estado correspondente
+      if (endereco.estado) {
+        const estadoEncontrado = estados.find((e) => normalizeString(e.nome) === normalizeString(endereco.estado));
+
+        if (estadoEncontrado) {
+          setEstadoSelecionado(estadoEncontrado.id);
+          setEstado(estadoEncontrado.nome);
+
+          // Armazenar a cidade que queremos selecionar após as cidades serem carregadas
+          const cidadeAlvo = endereco.cidade;
+
+          // Carregar cidades do estado selecionado
+          try {
+            const cidadesDoEstado = await getCidadesPorEstadoID(estadoEncontrado.id);
+
+            // Atualizar o estado com as cidades recebidas
+            setCidades(cidadesDoEstado);
+
+            // Agora que as cidades foram carregadas, procurar pela cidade correspondente
+            if (cidadeAlvo && cidadesDoEstado.length > 0) {
+              const cidadeEncontrada = cidadesDoEstado.find(
+                (c) => normalizeString(c.nome) === normalizeString(cidadeAlvo)
+              );
+
+              if (cidadeEncontrada) {
+                setCidadeSelecionada(cidadeEncontrada.id);
+                setCidade(cidadeEncontrada.nome);
+                console.log('Cidade selecionada:', cidadeEncontrada.nome);
+              } else {
+                console.log('Cidade não encontrada:', cidadeAlvo);
+                console.log(
+                  'Cidades disponíveis:',
+                  cidadesDoEstado.map((c) => c.nome)
+                );
+              }
+            }
+          } catch (cidadeError) {
+            console.error('Erro ao carregar cidades:', cidadeError);
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Erro ao buscar CEP:', error);
+      setCepErro('CEP inválido ou não encontrado.');
+    } finally {
+      setLoadingCep(false);
+    }
+  }
+
+  // Toggle password visibility
+  const toggleSenhaVisibility = () => {
+    setShowSenha(!showSenha);
+  };
+
+  const toggleConfirmarSenhaVisibility = () => {
+    setShowConfirmarSenha(!showConfirmarSenha);
   };
 
   // Função para salvar as alterações no perfil
   const handleSaveProfile = async () => {
-    // Validar senha
-    if (senha && senha !== confirmarSenha) {
-      Alert.alert('Erro', 'As senhas não conferem');
-      return;
-    }
+    // Limpar mensagens de erro anteriores
+    setNomeErro('');
+    setEmailErro('');
+    setTelefoneErro('');
+    setCpfErro('');
+    setCepErro('');
+    setEstadoErro('');
+    setCidadeErro('');
+    setSenhaErro('');
+    setConfirmarSenhaErro('');
+
+    let hasError = false;
 
     // Validar campos obrigatórios
-    if (!nome || !email || !telefone) {
-      Alert.alert('Erro', 'Nome, e-mail e telefone são campos obrigatórios');
+    if (!nome) {
+      setNomeErro('O nome é obrigatório.');
+      hasError = true;
+    }
+
+    if (!email) {
+      setEmailErro('O e-mail é obrigatório.');
+      hasError = true;
+    } else if (!validarEmail(email)) {
+      setEmailErro('E-mail inválido.');
+      hasError = true;
+    }
+    // In your handleSaveProfile function, add this validation
+    if (!sexoId) {
+      setSexoErro('O sexo é obrigatório.');
+      hasError = true;
+    }
+    if (!telefone) {
+      setTelefoneErro('O telefone é obrigatório.');
+      hasError = true;
+    } else if (!validarTelefone(telefone)) {
+      setTelefoneErro('Telefone inválido. Informe DDD + número.');
+      hasError = true;
+    }
+
+    if (!cpfCnpj) {
+      setCpfErro('O CPF é obrigatório.');
+      hasError = true;
+    } else if (!validarCpf(cpfCnpj)) {
+      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+      hasError = true;
+    }
+
+    if (cep && !validarCep(stripNonNumeric(cep))) {
+      setCepErro('CEP inválido. Informe no formato 00000-000.');
+      hasError = true;
+    }
+
+    // Validar senha apenas se foi preenchida
+    if (senha || confirmarSenha) {
+      if (senha !== confirmarSenha) {
+        setConfirmarSenhaErro('As senhas não conferem.');
+        hasError = true;
+      } else if (senha && senha.length < 8) {
+        setSenhaErro('A senha deve ter pelo menos 8 caracteres.');
+        hasError = true;
+      }
+    }
+
+    if (hasError) {
+      Alert.alert('Erro', 'Verifique os campos destacados e tente novamente.');
       return;
     }
 
     try {
       setLoading(true);
-      
+
       // Criar objeto com os dados do usuário para atualização
-      const userData = {
+      const userData: UsuarioData = {
         id: usuario?.id,
         nome,
         email,
-        telefone,
-        cpf_cnpj: cpfCnpj,
-        cep,
+        telefone: stripNonNumeric(telefone),
+        cpf: stripNonNumeric(cpfCnpj),
+        cep: stripNonNumeric(cep),
         estado_id: estadoSelecionado,
-        cidade_id: cidades.find(c => c.nome === cidade)?.id,
+        cidade_id: cidadeSelecionada,
         sexo_id: sexoId,
-        senha: senha || undefined // Só envia senha se tiver sido preenchida
+        senha: senha || undefined, // Só envia senha se tiver sido preenchida
       };
-      
+
       // Validar usuário na API
-      const resultado = await validarUsuario(userData);
-      
+
+      const resultado = await getUpdateUsuario(userData);
+
       if (resultado && resultado.success) {
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
+        // Recarregar dados
+        await fetchUserData();
       } else {
         Alert.alert('Erro', resultado?.message || 'Não foi possível salvar os dados.');
       }
-      
     } catch (err) {
       console.error('Erro ao salvar dados do perfil:', err);
       Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente mais tarde.');
@@ -211,12 +660,38 @@ export default function ProfileScreen() {
     }
   };
 
+  // Helper para encontrar o nome do estado a partir do ID
+  const getEstadoNome = (id: number | null) => {
+    if (!id) return '';
+    const estado = estados.find((e) => e.id === id);
+    return estado ? estado.nome : '';
+  };
+
+  // Helper para encontrar o nome da cidade a partir do ID
+  const getCidadeNome = (id: number | null) => {
+    if (!id) return '';
+    const cidade = cidades.find((c) => c.id === id);
+    return cidade ? cidade.nome : '';
+  };
+
+  // Funções de manipulação adaptadas para compatibilidade com os componentes
+  const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {
+    setEstadoSelecionado(selectedEstado.id);
+    setEstado(selectedEstado.nome);
+    setCidadeSelecionada(null);
+    setCidade('');
+    setEstadoErro('');
+  };
+
+  const handleCidadeSelect = (selectedCidade: { id: number; nome: string }) => {
+    setCidadeSelecionada(selectedCidade.id);
+    setCidade(selectedCidade.nome);
+    setCidadeErro('');
+  };
+
   return (
     <SafeAreaView style={styles.container}>
-      <ImageBackground 
-        source={require('../../assets/images/backgrounds/Fundo_02.png')} 
-        style={styles.backgroundImage}
-      >
+      <ImageBackground source={require('../../assets/images/backgrounds/Fundo_04.png')} style={styles.backgroundImage}>
         <ScrollView contentContainerStyle={styles.scrollContent}>
           {loading ? (
             <View style={styles.loadingContainer}>
@@ -226,208 +701,182 @@ export default function ProfileScreen() {
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={fetchUserData}
-              >
+              <TouchableOpacity style={styles.retryButton} onPress={initializeData}>
                 <Text style={styles.retryButtonText}>Tentar novamente</Text>
               </TouchableOpacity>
             </View>
           ) : (
             <View style={styles.profileContainer}>
               <Text style={styles.pageTitle}>Meus dados</Text>
-              
+
               {/* Área para foto do perfil */}
               <View style={styles.photoContainer}>
                 {usuario?.foto ? (
-                  <Image 
-                    source={{ uri: usuario.foto }} 
-                    style={styles.profilePhoto} 
-                  />
+                  <Image source={{ uri: usuario.foto }} style={styles.profilePhoto} />
                 ) : (
                   <View style={styles.profilePhotoPlaceholder} />
                 )}
               </View>
-              
+
               {/* Campos do formulário */}
               <View style={styles.formContainer}>
                 <Text style={styles.inputLabel}>Nome</Text>
-                <View style={styles.inputContainer}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Nome"
-                    value={nome}
-                    onChangeText={setNome}
-                  />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
+                <View style={[styles.inputContainer, nomeErro ? styles.inputError : null]}>
+                  <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={handleNomeChange} />
                 </View>
-                
-                <Text style={styles.inputLabel}>Sexo</Text>
-                <View style={styles.sexoContainer}>
-                  <TouchableOpacity 
-                    style={[styles.sexoOption, sexoId === 1 && styles.sexoOptionSelected]}
-                    onPress={() => setSexoId(1)}
-                  >
-                    <View style={[styles.radioButton, sexoId === 1 && styles.radioButtonSelected]} />
-                    <Text style={styles.sexoText}>Homem</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.sexoOption, sexoId === 2 && styles.sexoOptionSelected]}
-                    onPress={() => setSexoId(2)}
-                  >
-                    <View style={[styles.radioButton, sexoId === 2 && styles.radioButtonSelected]} />
-                    <Text style={styles.sexoText}>Mulher</Text>
-                  </TouchableOpacity>
-                  
-                  <TouchableOpacity 
-                    style={[styles.sexoOption, sexoId === 3 && styles.sexoOptionSelected]}
-                    onPress={() => setSexoId(3)}
-                  >
-                    <View style={[styles.radioButton, sexoId === 3 && styles.radioButtonSelected]} />
-                    <Text style={styles.sexoText}>Não quero falar</Text>
-                  </TouchableOpacity>
+                {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
+
+                <View style={styles.inputGroup}>
+                  <Text style={styles.label}>
+                    Sexo <Text style={styles.required}>*</Text>
+                  </Text>
+                  <View style={[styles.checkboxContainer, sexoErro ? {} : {}]}>
+                    {(sexos || []).map((item, index) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.checkboxWrapper}
+                        onPress={() => {
+                          setSexoId(item.id);
+                          setSexoErro('');
+                          console.log('Sexo', item);
+                        }}
+                      >
+                        <View style={styles.checkboxCustom}>
+                          {sexoId === item.id && <View style={styles.checkboxInner} />}
+                        </View>
+                        <Text style={styles.checkboxLabel}>{item.descricao}</Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                  {sexoErro ? <Text style={styles.errorText}>{sexoErro}</Text> : null}
                 </View>
-                
+
                 <Text style={styles.inputLabel}>E-mail</Text>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, emailErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
                     placeholder="E-mail"
                     value={email}
-                    onChangeText={setEmail}
+                    onChangeText={handleEmailChange}
                     keyboardType="email-address"
                     autoCapitalize="none"
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
                 </View>
-                
+                {emailErro ? <Text style={styles.errorText}>{emailErro}</Text> : null}
+
                 <Text style={styles.inputLabel}>Telefone</Text>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, telefoneErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
-                    placeholder="(00) 0000-0000"
+                    placeholder="(00) 00000-0000"
                     value={telefone}
-                    onChangeText={setTelefone}
+                    onChangeText={handleTelefoneChange}
                     keyboardType="phone-pad"
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
                 </View>
-                
-                <Text style={styles.inputLabel}>CPF/CNPJ</Text>
-                <View style={styles.inputContainer}>
+                {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
+
+                <Text style={styles.inputLabel}>CPF</Text>
+                <View style={[styles.inputContainer, cpfErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
                     placeholder="000.000.000-00"
                     value={cpfCnpj}
-                    onChangeText={setCpfCnpj}
+                    onChangeText={handleCpfChange}
                     keyboardType="numeric"
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
                 </View>
-                
+                {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
+
                 <Text style={styles.inputLabel}>CEP</Text>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, cepErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
-                    placeholder="00.000-000"
+                    placeholder="00000-000"
                     value={cep}
-                    onChangeText={setCep}
+                    onChangeText={handleCepChange}
                     keyboardType="numeric"
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
+                  {loadingCep && <ActivityIndicator size="small" color="#4682B4" style={styles.loadingIcon} />}
                 </View>
-                
+                {cepErro ? <Text style={styles.errorText}>{cepErro}</Text> : null}
+
                 <Text style={styles.inputLabel}>Estado</Text>
                 <EstadoSelect
+                  estado={estados.find((estado) => estado.id === estadoSelecionado) || null}
                   estados={estados}
-                  selectedEstado={estadoSelecionado}
-                  onEstadoChange={(estadoId) => {
-                    setEstadoSelecionado(estadoId);
-                    // Encontrar o nome do estado para exibição
-                    const estadoObj = estados.find(e => e.id === estadoId);
-                    if (estadoObj) {
-                      setEstado(estadoObj.nome);
-                    }
-                    // Limpar cidade quando mudar o estado
-                    setCidade('');
-                  }}
-                  containerStyle={styles.dropdownContainer}
-                  textStyle={styles.dropdownText}
+                  onSelectEstado={handleEstadoSelect}
+                  showEstados={false} // esta prop está definida mas não é usada
+                  setShowEstados={() => {}} // esta prop está definida mas não é usada
+                  estadoSearch={{ id: -1, nome: '' }} // ou seu estado real de busca
+                  setEstadoSearch={() => {}} // ou sua função real de setter
                 />
-                
+                {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
+
                 <Text style={styles.inputLabel}>Cidade</Text>
                 <CidadeSelect
+                  cidade={cidades.find((cidade) => cidade.id === cidadeSelecionada) || null}
                   cidades={cidades}
-                  selectedCidade={cidades.find(c => c.nome === cidade)?.id}
-                  onCidadeChange={(cidadeId) => {
-                    // Encontrar o nome da cidade para exibição
-                    const cidadeObj = cidades.find(c => c.id === cidadeId);
-                    if (cidadeObj) {
-                      setCidade(cidadeObj.nome);
-                    }
-                  }}
-                  containerStyle={styles.dropdownContainer}
-                  textStyle={styles.dropdownText}
+                  cidadesCarregadas={true} // ou seu estado real de carregamento
+                  loadingCidades={false} // ou seu estado real de carregamento
+                  showCidades={false} // esta prop está definida mas não é usada no componente
+                  setShowCidades={() => {}} // esta prop está definida mas não é usada no componente
+                  onSelectCidade={handleCidadeSelect}
+                  toggleCidades={() => {}} // esta prop está definida mas não é usada no componente
                   disabled={!estadoSelecionado}
                 />
-                
+
                 <Text style={styles.inputLabel}>Senha</Text>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, senhaErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
                     placeholder="Senha"
                     value={senha}
                     onChangeText={setSenha}
-                    secureTextEntry
+                    secureTextEntry={!showSenha}
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
+                  <TouchableOpacity onPress={toggleSenhaVisibility}>
+                    <Feather name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
+                  </TouchableOpacity>
                 </View>
-                
+                {senhaErro ? <Text style={styles.errorText}>{senhaErro}</Text> : null}
+
                 <Text style={styles.inputLabel}>Confirmar Senha</Text>
-                <View style={styles.inputContainer}>
+                <View style={[styles.inputContainer, confirmarSenhaErro ? styles.inputError : null]}>
                   <TextInput
                     style={styles.input}
                     placeholder="Confirmar Senha"
                     value={confirmarSenha}
                     onChangeText={setConfirmarSenha}
-                    secureTextEntry
+                    secureTextEntry={!showConfirmarSenha}
                   />
-                  <Image source={require('../../assets/images/Icone/edit-icon.png')} style={styles.editIcon} />
+                  <TouchableOpacity onPress={toggleConfirmarSenhaVisibility}>
+                    <Feather name={showConfirmarSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
+                  </TouchableOpacity>
                 </View>
-                
-                <TouchableOpacity 
-                  style={styles.saveButton}
-                  onPress={handleSaveProfile}
-                >
+                {confirmarSenhaErro ? <Text style={styles.errorText}>{confirmarSenhaErro}</Text> : null}
+
+                <TouchableOpacity style={styles.saveButton} onPress={handleSaveProfile}>
                   <Text style={styles.saveButtonText}>Salvar</Text>
                 </TouchableOpacity>
               </View>
             </View>
           )}
         </ScrollView>
-        
+
         {/* Barra de navegação inferior */}
         <View style={styles.bottomNavigation}>
-          <TouchableOpacity
-            style={styles.navItem}
-            onPress={() => router.push('/pages/PetDonation')}
-          >
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetDonation')}>
             <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Adoção</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity 
-            style={styles.navItem}
-            onPress={() => router.push('/pages/PetAdoptionScreen')}
-          >
+          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
             <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity
-            style={styles.navItem}
-          >
+          <TouchableOpacity style={styles.navItem}>
             <View style={styles.activeCircle}>
               <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             </View>
@@ -443,6 +892,60 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#4682B4',
+  },
+  inputError: {
+    borderColor: 'red',
+    borderWidth: 1,
+  },
+  inputGroup: {
+    marginBottom: 16,
+  },
+  label: {
+    fontSize: 16,
+    marginBottom: 8,
+    fontWeight: '600',
+    color: '#000000FF',
+  },
+  required: {
+    color: 'red',
+  },
+  checkboxContainer: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+  },
+  checkboxWrapper: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginRight: 20,
+    marginBottom: 10,
+  },
+  checkboxCustom: {
+    height: 20,
+    width: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#000000FF',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 8,
+  },
+  checkboxInner: {
+    height: 12,
+    width: 12,
+    borderRadius: 6,
+    backgroundColor: '#000000FF',
+  },
+  checkboxLabel: {
+    fontSize: 16,
+    color: '#333',
+  },
+  errorText: {
+    color: 'red',
+    fontSize: 14,
+    marginTop: 5,
+  },
+  loadingIcon: {
+    marginLeft: 10,
   },
   backgroundImage: {
     flex: 1,
@@ -470,12 +973,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     padding: 20,
-  },
-  errorText: {
-    fontSize: 16,
-    color: '#FF0000',
-    textAlign: 'center',
-    marginBottom: 15,
   },
   retryButton: {
     backgroundColor: '#4682B4',
