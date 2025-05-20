@@ -47,18 +47,19 @@ interface Usuario {
 }
 
 // Interface para o tipo que é esperado pela API
+// Interface para o tipo que é esperado pela API
 interface UsuarioData {
-  id?: number;
+  id: number;
   nome: string;
   email: string;
   telefone: string;
   cpf: string;
   cep: string;
-  estado_id: number | null;
-  cidade_id: number | null;
+  estado_id: number | undefined; // Mudado de null para undefined
+  cidade_id: number | undefined; // Mudado de null para undefined
   sexo_id: number;
   senha?: string | undefined;
-  foto: string | null; // Adicione a propriedade foto
+  foto: string | null | { uri: string; type: string; name: string };
 }
 
 // Interfaces para os componentes
@@ -631,55 +632,80 @@ export default function ProfileScreen() {
     try {
       setLoading(true);
 
-      // Em vez de usar FormData, vamos criar um objeto direto
+      if (!usuario || !usuario.id) {
+        Alert.alert('Erro', 'Dados do usuário não encontrados.');
+        return;
+      }
+
+      // Preparar os dados do usuário
       const dadosUsuario: UsuarioData = {
-        id: usuario!.id,
+        id: usuario.id,
         nome,
         email,
         telefone: stripNonNumeric(telefone),
         cpf: stripNonNumeric(cpfCnpj),
         cep: stripNonNumeric(cep),
-        estado_id: estadoSelecionado,
-        cidade_id: cidadeSelecionada,
-        sexo_id: sexoId,
-        foto: null, // Inicialmente nulo
+        estado_id: estadoSelecionado ? Number(estadoSelecionado) : undefined,
+        cidade_id: cidadeSelecionada ? Number(cidadeSelecionada) : undefined,
+        sexo_id: Number(sexoId),
+        foto: null, // Inicializa como null
       };
 
-      // Adicionar senha apenas se foi preenchida
-      if (senha) {
+      // IMPORTANTE: Adiciona senha apenas se for preenchida
+      if (senha && senha.length >= 8) {
         dadosUsuario.senha = senha;
+        console.log('Enviando nova senha para atualização');
       }
 
-      // Tratar a foto adequadamente
-      if (foto) {
-        if (foto.startsWith('file://')) {
-          // Se for uma nova foto selecionada do dispositivo (URI local)
-          const filename = foto.split('/').pop();
-          const match = /\.(\w+)$/.exec(filename || '');
-          const type = match ? `image/${match[1]}` : 'image/jpeg';
+      // Logs para debug
+      console.log('Enviando dados para API:', {
+        ...dadosUsuario,
+        senha: dadosUsuario.senha ? '[SENHA INFORMADA]' : undefined,
+      });
 
-          dadosUsuario.foto = {
-            uri: foto,
-          };
+      // Formatação da foto usando a mesma abordagem da tela de pet
+      if (foto && foto.startsWith('file://')) {
+        // Se for uma nova foto selecionada do dispositivo (URI local)
+        const filename = foto.split('/').pop() || `usuario_${Date.now()}.jpg`;
+        const match = /\.(\w+)$/.exec(filename);
+        const type = match ? `image/${match[1]}` : 'image/jpeg';
 
-          console.log('Enviando foto local:', dadosUsuario.foto);
-        } else if (foto !== usuario?.foto) {
-          // Se for outra forma de foto que não é a mesma já existente
-          dadosUsuario.foto = foto;
-        }
+        // Formato similar ao usado na tela de pet
+        dadosUsuario.foto = {
+          uri: foto,
+          type: type,
+          name: `${nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
+        };
+
+        console.log('Enviando nova foto no formato:', dadosUsuario.foto);
       }
-
-      // Adicionar logs para debug
-      console.log('Chamando API updateUsuario com dados:', JSON.stringify(dadosUsuario, null, 2));
 
       const resultado = await updateUsuario(dadosUsuario);
 
-      console.log('Resposta da API:', resultado);
+      console.log('Resposta completa da API:', JSON.stringify(resultado, null, 2));
 
-      if (resultado && resultado.success) {
+      // Verificar o resultado com mais detalhes
+      if (resultado && resultado.id) {
+        // Verificar se os valores foram atualizados corretamente
+        const atualizadoCorretamente =
+          (!estadoSelecionado || resultado.estado_id == estadoSelecionado) &&
+          (!cidadeSelecionada || resultado.cidade_id == cidadeSelecionada);
+
+        if (!atualizadoCorretamente) {
+          console.warn('Atenção: Alguns campos podem não ter sido atualizados corretamente:', {
+            'estado enviado': estadoSelecionado,
+            'estado retornado': resultado.estado_id,
+            'cidade enviada': cidadeSelecionada,
+            'cidade retornada': resultado.cidade_id,
+          });
+        }
+
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
-        // Recarregar dados
-        await fetchUserData();
+
+        // Recarrega dados com uma pequena pausa para garantir que atualizou
+        setTimeout(() => {
+          fetchUserData();
+        }, 500);
       } else {
         const mensagemErro = resultado?.message || 'Não foi possível salvar os dados.';
         console.error('Erro retornado pela API:', mensagemErro);
@@ -731,7 +757,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      // Abrir a galeria de imagens
+      // Abrir a galeria de imagens (igual à implementação da tela de pet)
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         aspect: [4, 3],
@@ -1106,7 +1132,7 @@ const styles = StyleSheet.create({
   },
   infoText: {
     fontSize: 12,
-    color: '#666',
+    color: '#FFFFFFFF',
     textAlign: 'center',
     marginTop: 5,
   },

@@ -10,6 +10,7 @@ interface UsuarioUpdatePayload {
   estado_id?: number;
   cep?: string;
   foto?: any; // Arquivo de imagem
+  senha?: string; // Adicionando senha como opcional
 }
 
 export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
@@ -22,10 +23,18 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
     if (usuarioInfo.cpf) formData.append('cpf', usuarioInfo.cpf);
     if (usuarioInfo.telefone) formData.append('telefone', usuarioInfo.telefone);
-    if (usuarioInfo.cidade_id) formData.append('cidade', String(usuarioInfo.cidade_id));
-    if (usuarioInfo.estado_id) formData.append('estado', String(usuarioInfo.estado_id));
-    if (usuarioInfo.cep) formData.append('cep', usuarioInfo.cep);
+    
+    if (usuarioInfo.cidade_id !== undefined) formData.append('cidade_id', String(usuarioInfo.cidade_id));
+    if (usuarioInfo.estado_id !== undefined) formData.append('estado_id', String(usuarioInfo.estado_id));
+    
+    // CRUCIAL: Enviar o CEP mesmo que seja uma string vazia
+    if (usuarioInfo.cep !== undefined) formData.append('cep', usuarioInfo.cep);
+    
     if (usuarioInfo.sexo_id) formData.append('sexo_id', String(usuarioInfo.sexo_id));
+    if (usuarioInfo.senha) formData.append('senha', usuarioInfo.senha);
+
+    // Log para depuração
+    console.log('Enviando CEP para API:', usuarioInfo.cep);
 
     // Adicionar foto se existir
     if (usuarioInfo.foto) {
@@ -44,4 +53,5 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     throw error;
   }
 };
+
 export default updateUsuario;
