@@ -1,4 +1,6 @@
 import api from '../api';
+import { cpf } from 'cpf-cnpj-validator';
+
 interface UsuarioUpdatePayload {
   id: number;
   nome?: string;
@@ -13,15 +15,44 @@ interface UsuarioUpdatePayload {
   senha?: string; // Adicionando senha como opcional
 }
 
+// Função para validar CPF
+export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
+  // Remove caracteres não numéricos
+  const cpfNumerico = cpfValue.replace(/\D/g, '');
+  
+  if (!cpfNumerico) {
+    return { isValid: false, errorMessage: 'CPF é obrigatório' };
+  }
+  
+  if (!cpf.isValid(cpfNumerico)) {
+    return { isValid: false, errorMessage: 'CPF inválido' };
+  }
+  
+  // CPF válido, retornar formatado
+  return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
+};
+
 export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
   try {
     const { id, ...usuarioInfo } = usuarioData;
     const formData = new FormData();
 
+    // Validar CPF se fornecido
+    if (usuarioInfo.cpf) {
+      const cpfValidation = validateCpf(usuarioInfo.cpf);
+      
+      if (!cpfValidation.isValid) {
+        throw new Error(cpfValidation.errorMessage || 'CPF inválido');
+      }
+      
+      // Usar o CPF formatado
+      const formattedCpf = cpfValidation.formattedCpf;
+      formData.append('cpf', formattedCpf || usuarioInfo.cpf);
+    }
+
     // Adicionar campos ao FormData apenas se existirem
     if (usuarioInfo.nome) formData.append('nome', usuarioInfo.nome);
     if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
-    if (usuarioInfo.cpf) formData.append('cpf', usuarioInfo.cpf);
     if (usuarioInfo.telefone) formData.append('telefone', usuarioInfo.telefone);
     
     if (usuarioInfo.cidade_id !== undefined) formData.append('cidade_id', String(usuarioInfo.cidade_id));
@@ -35,7 +66,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
 
     // Log para depuração
     console.log('Enviando CEP para API:', usuarioInfo.cep);
-
+    
     // Adicionar foto se existir
     if (usuarioInfo.foto) {
       formData.append('foto', usuarioInfo.foto);

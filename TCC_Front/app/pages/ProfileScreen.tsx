@@ -24,7 +24,7 @@ import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
-
+import { cpf } from 'cpf-cnpj-validator';
 interface Usuario {
   id: number;
   nome: string;
@@ -140,9 +140,17 @@ const validarEmail = (email: string) => {
 };
 
 // Function to validate CPF format
-const validarCpf = (cpf: string) => {
-  const regex = /^\d{11}$/;
-  return regex.test(stripNonNumeric(cpf));
+const validarCpf = (cpfValue: string) => {
+  // Remove caracteres não numéricos
+  const numericValue = stripNonNumeric(cpfValue);
+
+  // Verifica se está vazio
+  if (!numericValue) {
+    return false;
+  }
+
+  // Usa a biblioteca para validação completa
+  return cpf.isValid(numericValue);
 };
 
 // Function to validate telephone format
@@ -438,7 +446,19 @@ export default function ProfileScreen() {
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
     setCpfCnpj(formattedCpf);
-    if (validarCpf(stripNonNumeric(formattedCpf))) setCpfErro('');
+
+    // Verifica a validade do CPF enquanto o usuário digita
+    if (text) {
+      if (stripNonNumeric(text).length === 11) {
+        if (!validarCpf(text)) {
+          setCpfErro('CPF inválido. Verifique os números digitados.');
+        } else {
+          setCpfErro('');
+        }
+      } else {
+        setCpfErro(''); // Limpa o erro enquanto o usuário está digitando
+      }
+    }
   };
 
   const handleCepChange = (text: string) => {

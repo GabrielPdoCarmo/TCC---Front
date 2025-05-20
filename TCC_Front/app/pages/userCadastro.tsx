@@ -24,7 +24,8 @@ import createUsuario from '@/services/api/Usuario/createUsuario';
 import validarUsuario from '@/services/api/Usuario/validarUsuario';
 import Feather from 'react-native-vector-icons/Feather';
 import { Redirect, router } from 'expo-router';
-
+// Adicione esta linha no início do arquivo, junto com as outras importações
+import { cpf as cpfValidator } from 'cpf-cnpj-validator';
 // Define the cidade type to ensure consistency throughout the component
 type CidadeType = {
   nome: string;
@@ -308,9 +309,20 @@ export default function CadastroUsuario() {
     return regex.test(email);
   };
 
-  const validarCpf = (cpf: string) => {
-    const regex = /^\d{11}$/;
-    return regex.test(stripNonNumeric(cpf));
+  // No início do arquivo, adicione esta importação
+
+  // Substitua a função validarCpf existente por esta:
+  const validarCpf = (cpfValue: string) => {
+    // Remove caracteres não numéricos
+    const numericValue = stripNonNumeric(cpfValue);
+
+    // Verifica se está vazio
+    if (!numericValue) {
+      return false;
+    }
+
+    // Usa a biblioteca para validação completa (note o uso de cpfValidator em vez de cpf)
+    return cpfValidator.isValid(numericValue);
   };
 
   const validarTelefone = (telefone: string) => {
@@ -357,7 +369,57 @@ export default function CadastroUsuario() {
       setCpfErro('CPF inválido. Informe um CPF com 11 números.');
       hasError = true;
     }
-    // [Manter todas as outras validações...]
+    if (!telefone) {
+      setTelefoneErro('O telefone é obrigatório.');
+      hasError = true;
+    } else if (!validarTelefone(telefone)) {
+      setTelefoneErro('Telefone inválido. Informe um número válido.');
+      hasError = true;
+    }
+
+    if (!email) {
+      setEmailErro('O e-mail é obrigatório.');
+      hasError = true;
+    } else if (!validarEmail(email)) {
+      setEmailErro('E-mail inválido. Informe um e-mail válido.');
+      hasError = true;
+    }
+
+    if (!sexo.id) {
+      setSexoErro('O sexo é obrigatório.');
+      hasError = true;
+    }
+
+    if (!estado || !estado.id) {
+      setEstadoErro('O estado é obrigatório.');
+      hasError = true;
+    }
+
+    if (!cidade || !cidade.id) {
+      setCidadeErro('A cidade é obrigatória.');
+      hasError = true;
+    }
+
+    if (!senha) {
+      setSenhaErro('A senha é obrigatória.');
+      hasError = true;
+    } else if (senha.length < 6) {
+      setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
+      hasError = true;
+    }
+
+    if (!confirmarSenha) {
+      setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
+      hasError = true;
+    } else if (senha !== confirmarSenha) {
+      setConfirmarSenhaErro('As senhas não conferem.');
+      hasError = true;
+    }
+
+    if (cep && !validarCep(cep)) {
+      setCepErro('CEP inválido. Informe um CEP válido.');
+      hasError = true;
+    }
 
     if (hasError) {
       return;
@@ -456,7 +518,19 @@ export default function CadastroUsuario() {
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
     setCpf(formattedCpf);
-    if (text) setCpfErro('');
+
+    // Verifica a validade do CPF enquanto o usuário digita
+    if (text) {
+      if (stripNonNumeric(text).length === 11) {
+        if (!validarCpf(text)) {
+          setCpfErro('CPF inválido. Verifique os números digitados.');
+        } else {
+          setCpfErro('');
+        }
+      } else {
+        setCpfErro(''); // Limpa o erro enquanto o usuário está digitando
+      }
+    }
   };
 
   const handleTelefoneChange = (text: string) => {
