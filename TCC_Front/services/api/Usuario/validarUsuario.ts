@@ -15,6 +15,7 @@ interface UsuarioData {
   cidade_id?: number; // cidade_id opcional porque pode ser preenchido pelo cep
   estado_id?: number; //
   cep?: string; // cep opcional
+  foto: string;
 }
 
 export async function validarUsuario(usuarioData: UsuarioData): Promise<ValidationResponse> {

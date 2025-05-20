@@ -9,17 +9,66 @@ import {
   ImageBackground,
   SafeAreaView,
   Alert,
+  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Link, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import  login  from '../../services/api/auth'; // Importando a função de login
+import login from '../../services/api/auth'; // Importando a função de login
+import getUsuarioById from '../../services/api/Usuario/getUsuarioById'; // Importando a função de buscar usuário
 
 // Interface para tipagem de erros da API
 interface ApiError {
   error?: string;
   message?: string;
 }
+
+// Interface para as props do WelcomeModal
+interface WelcomeModalProps {
+  visible: boolean;
+  onClose: () => void;
+  userName: string;
+  photoUrl: string | null;
+}
+
+// Componente para o modal de boas-vindas com foto
+const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName, photoUrl }) => {
+  
+  return (
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
+      onRequestClose={onClose}
+    >
+      <View style={styles.modalOverlay}>
+        <View style={styles.modalContent}>
+          <Text style={styles.modalTitle}>Bem-vindo!</Text>
+          
+          {photoUrl ? (
+            <View style={styles.photoContainer}>
+              <Image 
+                source={{ uri: photoUrl }} 
+                style={styles.userPhoto} 
+                resizeMode="cover"
+                onError={(e) => console.error("Erro ao carregar imagem:", e.nativeEvent.error)}
+              />
+            </View>
+          ) : (
+            <View style={styles.photoPlaceholder}>
+              <Icon name="person" size={40} color="#555" />
+            </View>
+          )}
+          
+          <Text style={styles.modalText}>Olá, {userName || 'usuário'}!</Text>
+          <TouchableOpacity style={styles.modalButton} onPress={onClose}>
+            <Text style={styles.modalButtonText}>Continuar</Text>
+          </TouchableOpacity>
+        </View>
+      </View>
+    </Modal>
+  );
+};
 
 export default function App() {
   const [email, setEmail] = useState('');
@@ -28,6 +77,11 @@ export default function App() {
   const [emailErro, setEmailErro] = useState('');
   const [senhaErro, setSenhaErro] = useState('');
   const [loading, setLoading] = useState(false);
+  
+  // Estados para o modal de boas-vindas
+  const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
+  const [userName, setUserName] = useState('');
+  const [userPhoto, setUserPhoto] = useState<string | null>(null);
 
   // Limpar erros conforme o campo é alterado
   useEffect(() => {
@@ -38,12 +92,11 @@ export default function App() {
     if (senha) setSenhaErro('');
   }, [senha]);
 
-  // Função para tratar mensagens de erro da API e retornar mensagens amigáveis
+  // Função para tratar mensagens de erro da API
   const getErrorMessage = (error: unknown): string => {
-    // Converter o erro para o tipo ApiError
+    // [manter código existente]
     const apiError = error as ApiError;
-
-    // Verificar se é um erro com informações técnicas para filtrar
+    
     if (apiError?.message?.includes('Email e senha são obrigatórios')) {
       return 'Por favor, preencha todos os campos de login.';
     }
@@ -52,12 +105,10 @@ export default function App() {
       return 'Não foi possível fazer login. Verifique sua conexão.';
     }
 
-    // Verificar se contém strings de depuração como NOBRIDGE ou ERROR
     if (JSON.stringify(error).includes('NOBRIDGE') || JSON.stringify(error).includes('ERROR')) {
       return 'Não foi possível completar sua solicitação. Tente novamente mais tarde.';
     }
 
-    // Mensagem genérica para outros erros
     return apiError?.error || apiError?.message || 'Ocorreu um erro inesperado. Tente novamente.';
   };
 
@@ -68,6 +119,7 @@ export default function App() {
     // Validações
     let temErros = false;
 
+    // [manter código de validação existente]
     if (!email) {
       setEmailErro('O e-mail é obrigatório');
       temErros = true;
@@ -85,7 +137,7 @@ export default function App() {
     }
 
     if (temErros) {
-      return; // Não prossegue se houver erros de validação
+      return;
     }
 
     // Iniciar o processo de login
@@ -101,46 +153,60 @@ export default function App() {
       // Agora verificamos se os dados foram salvos
       const userId = await AsyncStorage.getItem('@App:userId');
       const userJson = await AsyncStorage.getItem('@App:user');
-
-      // Apenas para depuração - remover ou usar um sistema de logging mais sofisticado
-      if (__DEV__) {
-        console.log('Dados salvos no AsyncStorage:', { userId, userJson });
-      }
+      
+      console.log('Dados salvos no AsyncStorage:', { userId, userJson });
 
       if (!userId || !userJson) {
         throw { error: 'Falha ao finalizar login' };
       }
-
-      // Login bem-sucedido, exibe mensagem de boas-vindas
-      Alert.alert(
-        'Sucesso',
-        `Bem-vindo, ${data.usuario?.nome || 'usuário'}!`,
-        [
-          {
-            text: 'OK',
-            onPress: () => router.push('/pages/PetAdoptionScreen'),
-          },
-        ],
-        { cancelable: false }
-      );
+      
+      // NOVA ETAPA: Buscar detalhes completos do usuário para obter a foto
+      const userDetails = await getUsuarioById(parseInt(userId));
+      console.log('Detalhes completos do usuário:', userDetails);
+      
+      // Verificar se temos uma URL de foto nos detalhes do usuário
+      let photoUrlToUse = null;
+      
+      if (userDetails && userDetails.foto) {
+        // Verificar se a URL já tem http/https. Se não tiver, adicionar
+        photoUrlToUse = userDetails.foto;
+        if (!photoUrlToUse.startsWith('http://') && !photoUrlToUse.startsWith('https://')) {
+          // Assumindo que a API retorna caminhos relativos a uma URL base
+          const apiBaseUrl = 'https://petsup-api.onrender.com'; // Substitua pela URL base da sua API
+          photoUrlToUse = `${apiBaseUrl}${photoUrlToUse}`;
+        }
+        console.log('URL da foto ajustada:', photoUrlToUse);
+      }
+      
+      // Preparar dados para o modal de boas-vindas
+      setUserName(userDetails?.nome || data.usuario?.nome || 'usuário');
+      setUserPhoto(photoUrlToUse);
+      
+      // Mostrar o modal de boas-vindas
+      setWelcomeModalVisible(true);
+      
     } catch (error: unknown) {
       // Ao invés de exibir o erro técnico, exibimos uma mensagem amigável
       if (__DEV__) {
-        // Em modo de desenvolvimento, registramos o erro completo para depuração
         console.error('Erro original:', error);
       }
 
-      // Obter mensagem amigável para o usuário
       const userFriendlyMessage = getErrorMessage(error);
-
       Alert.alert('Erro ao fazer login', userFriendlyMessage);
     } finally {
       setLoading(false);
     }
   };
 
+  // Função para fechar o modal e navegar para a próxima tela
+  const handleCloseWelcomeModal = () => {
+    setWelcomeModalVisible(false);
+    router.push('/pages/PetAdoptionScreen');
+  };
+
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
+      {/* [manter JSX existente] */}
       <SafeAreaView style={styles.container}>
         <View style={styles.mainContent}>
           <Image source={require('../../assets/images/Icone/Pets_Up.png')} style={styles.logoImage} />
@@ -182,13 +248,89 @@ export default function App() {
             </Link>
           </View>
         </View>
-        <View style={styles.bottomIcons}></View>
+        
+        {/* Modal de boas-vindas com foto */}
+        <WelcomeModal 
+          visible={welcomeModalVisible} 
+          onClose={handleCloseWelcomeModal}
+          userName={userName}
+          photoUrl={userPhoto}
+        />
       </SafeAreaView>
     </ImageBackground>
   );
 }
 
 const styles = StyleSheet.create({
+  // [manter estilos existentes]
+  // Estilos de modal e foto
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: 'white',
+    borderRadius: 20,
+    padding: 20,
+    width: '80%',
+    alignItems: 'center',
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+  },
+  modalTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    marginBottom: 20,
+    color: '#333',
+  },
+  modalText: {
+    fontSize: 18,
+    marginVertical: 15,
+    textAlign: 'center',
+    color: '#333',
+  },
+  modalButton: {
+    backgroundColor: '#4285F4',
+    paddingVertical: 10,
+    paddingHorizontal: 30,
+    borderRadius: 25,
+    marginTop: 10,
+  },
+  modalButtonText: {
+    color: 'white',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  photoContainer: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    overflow: 'hidden',
+    borderWidth: 3,
+    borderColor: '#4285F4',
+  },
+  userPhoto: {
+    width: '100%',
+    height: '100%',
+  },
+  photoPlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#E8E8E8',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginVertical: 10,
+    borderWidth: 3,
+    borderColor: '#ccc',
+  },
+  
+  // [Manter todos os outros estilos existentes]
   backgroundImage: {
     flex: 1,
     width: '100%',

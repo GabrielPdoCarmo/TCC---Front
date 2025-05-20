@@ -1,10 +1,13 @@
 import api from '../api/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+
 interface Usuario {
   id: number;
   nome: string;
   email: string;
+  foto?: string; // Adicionado campo para a URL da foto
 }
+
 interface LoginResponse {
   message: string;
   token: string;
@@ -20,6 +23,7 @@ interface ApiErrorResponse {
 interface CustomError {
   error: string;
 }
+
 export const login = async (email: string, senha: string): Promise<LoginResponse> => {
   try {
     const response = await api.post('/auth/login', { email, senha });
@@ -36,6 +40,11 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
 
     // Armazenar os dados do usuário no AsyncStorage
     await AsyncStorage.setItem('@App:user', JSON.stringify(responseData.usuario));
+
+    // Armazenar a URL da foto se existir
+    if (responseData.usuario.foto) {
+      await AsyncStorage.setItem('@App:userPhoto', responseData.usuario.foto);
+    }
 
     // Armazenar o ID do usuário separadamente
     if (responseData.usuario.id) {
@@ -74,4 +83,5 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
     throw { error: 'Erro ao fazer login. Verifique sua conexão.' } as CustomError;
   }
 };
+
 export default login;
