@@ -379,7 +379,7 @@ export default function PetDetailsScreen() {
       >
         <View style={styles.header}>
           <Text style={styles.headerTitle}>Detalhes do Pet</Text>
-          <TouchableOpacity style={styles.settingsButton}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
             <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
           </TouchableOpacity>
         </View>

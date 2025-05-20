@@ -157,7 +157,7 @@ export default function PetAdoptionScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity style={styles.settingsButton}>
+          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
             <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
           </TouchableOpacity>
         </View>

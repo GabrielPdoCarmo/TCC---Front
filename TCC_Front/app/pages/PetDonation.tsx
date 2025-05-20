@@ -362,7 +362,7 @@ export default function PetDonationScreen() {
             <View style={{ width: 60 }} />
             <Text style={styles.headerTitle}>Adoção</Text>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton}>
+              <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/pages/ConfigScreen')}>
                 <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
               </TouchableOpacity>
             </View>
