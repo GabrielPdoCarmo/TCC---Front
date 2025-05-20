@@ -53,17 +53,17 @@ export default function ConfigScreen() {
             try {
               // Obter o ID do usuário logado
               const userId = await AsyncStorage.getItem('@App:userId');
-
+              console.log('ID do usuário:', userId);
               if (!userId) {
                 throw new Error('ID do usuário não encontrado');
               }
 
               // Converter para número
               const userIdNumber = parseInt(userId);
-
+              console.log('ID do usuário convertido:', userIdNumber);
               // Verificar se o usuário existe antes de excluir
               const usuario = await getUsuarioById(userIdNumber);
-
+              console.log('Usuário encontrado:', usuario);
               if (!usuario || !usuario.id) {
                 throw new Error('Usuário não encontrado');
               }
