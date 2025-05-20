@@ -1,4 +1,4 @@
-// ProfileScreen.tsx
+// ProfileScreen.tsx with added character limits
 import { router } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -861,6 +861,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
+                  maxLength={50} // Limitando o nome a 50 caracteres
                 />
                 {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
 
@@ -902,6 +903,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
+                  maxLength={100} // Limitando o email a 100 caracteres
                 />
                 {emailErro ? <Text style={styles.errorText}>{emailErro}</Text> : null}
 
@@ -917,6 +919,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
+                  maxLength={15} // Limitando o telefone a 15 caracteres (formato: (00) 00000-0000)
                 />
                 {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
 
@@ -932,6 +935,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
+                  maxLength={14} // Limitando o CPF a 14 caracteres (formato: 000.000.000-00)
                 />
                 {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
 
@@ -948,6 +952,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
+                    maxLength={9} // Limitando o CEP a 9 caracteres (formato: 00000-000)
                   />
                   {loadingCep && <ActivityIndicator size="small" color="#4682B4" style={styles.loadingIcon} />}
                 </View>
@@ -992,6 +997,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
+                    maxLength={50} // Limitando a senha a 50 caracteres
                   />
                   <TouchableOpacity onPress={toggleSenhaVisibility}>
                     <Feather name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
@@ -1012,6 +1018,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
+                    maxLength={50} // Limitando a confirmação de senha a 50 caracteres
                   />
                   <TouchableOpacity onPress={toggleConfirmarSenhaVisibility}>
                     <Feather name={showConfirmarSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
