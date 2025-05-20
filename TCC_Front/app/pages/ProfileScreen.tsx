@@ -47,7 +47,6 @@ interface Usuario {
 }
 
 // Interface para o tipo que é esperado pela API
-// Interface para o tipo que é esperado pela API
 interface UsuarioData {
   id: number;
   nome: string;
@@ -309,10 +308,6 @@ export default function ProfileScreen() {
     }
   }, [estadoSelecionado]);
 
-  // Função para buscar cidades por estado com cache
-  // Add this adapter function inside the ProfileScreen component
-  // This will convert the estadoId (number) to the proper format needed by the API
-
   // Função fetchCidades corrigida para usar o nome do estado em vez do ID
   const fetchCidades = async (estadoId: number) => {
     const estadoKey = estadoId.toString();
@@ -429,47 +424,63 @@ export default function ProfileScreen() {
   // Handlers para inputs formatados
   const handleNomeChange = (text: string) => {
     setNome(text);
-    if (text.trim().length > 0) setNomeErro('');
+    // Limpa o erro se houver texto ou se o campo estiver vazio
+    setNomeErro('');
   };
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
-    if (validarEmail(text)) setEmailErro('');
+    // Limpa o erro se o email for válido ou se o campo estiver vazio
+    if (validarEmail(text) || text === '') {
+      setEmailErro('');
+    }
   };
 
   const handleTelefoneChange = (text: string) => {
     const formattedTelefone = formatTelefone(text);
     setTelefone(formattedTelefone);
-    if (validarTelefone(formattedTelefone)) setTelefoneErro('');
+    // Limpa o erro se o telefone for válido ou se o campo estiver vazio
+    if (validarTelefone(formattedTelefone) || stripNonNumeric(text) === '') {
+      setTelefoneErro('');
+    }
   };
 
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
     setCpfCnpj(formattedCpf);
 
-    // Verifica a validade do CPF enquanto o usuário digita
-    if (text) {
-      if (stripNonNumeric(text).length === 11) {
-        if (!validarCpf(text)) {
-          setCpfErro('CPF inválido. Verifique os números digitados.');
-        } else {
-          setCpfErro('');
-        }
-      } else {
-        setCpfErro(''); // Limpa o erro enquanto o usuário está digitando
-      }
+    // Limpa o erro se o CPF for válido ou se o campo estiver vazio
+    const numericValue = stripNonNumeric(text);
+    if (validarCpf(text) || numericValue === '') {
+      setCpfErro('');
+    } else if (numericValue.length === 11) {
+      setCpfErro('CPF inválido. Verifique os números digitados.');
     }
   };
 
   const handleCepChange = (text: string) => {
     const formattedCep = formatCEP(text);
     setCep(formattedCep);
-    if (validarCep(stripNonNumeric(formattedCep))) setCepErro('');
 
     const numericCep = stripNonNumeric(text);
+    // Limpa o erro se o CEP for válido ou se o campo estiver vazio
+    if (validarCep(numericCep) || numericCep === '') {
+      setCepErro('');
+    }
+
     if (numericCep.length === 8) {
       handleBuscarCep(numericCep);
     }
+  };
+
+  const handleSenhaChange = (text: string) => {
+    setSenha(text);
+    setSenhaErro('');
+  };
+
+  const handleConfirmarSenhaChange = (text: string) => {
+    setConfirmarSenha(text);
+    setConfirmarSenhaErro('');
   };
 
   // Função para buscar endereço pelo CEP
@@ -506,7 +517,6 @@ export default function ProfileScreen() {
     }
   }
 
-  // Função para buscar endereço pelo CEP
   // Função para buscar endereço pelo CEP
   async function handleBuscarCep(numericCep?: string) {
     try {
@@ -578,7 +588,6 @@ export default function ProfileScreen() {
   };
 
   // Função para salvar as alterações no perfil
-  // Função corrigida para salvar as alterações no perfil
   const handleSaveProfile = async () => {
     // Limpar mensagens de erro anteriores
     setNomeErro('');
@@ -720,6 +729,12 @@ export default function ProfileScreen() {
           });
         }
 
+        // Resetar os campos de senha se tiverem dados
+        if (senha || confirmarSenha) {
+          setSenha('');
+          setConfirmarSenha('');
+        }
+
         Alert.alert('Sucesso', 'Dados salvos com sucesso!');
 
         // Recarrega dados com uma pequena pausa para garantir que atualizou
@@ -817,7 +832,10 @@ export default function ProfileScreen() {
               <Text style={styles.pageTitle}>Meus dados</Text>
 
               <View style={styles.photoContainer}>
-                <TouchableOpacity style={styles.photoUploadButton} onPress={pickImage}>
+                <TouchableOpacity
+                  style={[styles.photoUploadButton, fotoErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  onPress={pickImage}
+                >
                   {foto || usuario?.foto ? (
                     <Image source={{ uri: foto || usuario?.foto }} style={styles.profilePhoto} />
                   ) : (
@@ -833,9 +851,17 @@ export default function ProfileScreen() {
               {/* Campos do formulário */}
               <View style={styles.formContainer}>
                 <Text style={styles.inputLabel}>Nome</Text>
-                <View style={[styles.inputContainer, nomeErro ? styles.inputError : null]}>
-                  <TextInput style={styles.input} placeholder="Nome" value={nome} onChangeText={handleNomeChange} />
-                </View>
+                <TextInput
+                  style={[styles.inputNoScroll, nomeErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  placeholder="Nome"
+                  value={nome}
+                  onChangeText={handleNomeChange}
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
+                  textAlignVertical="center"
+                />
                 {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
 
                 <View style={styles.inputGroup}>
@@ -864,50 +890,64 @@ export default function ProfileScreen() {
                 </View>
 
                 <Text style={styles.inputLabel}>E-mail</Text>
-                <View style={[styles.inputContainer, emailErro ? styles.inputError : null]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="E-mail"
-                    value={email}
-                    onChangeText={handleEmailChange}
-                    keyboardType="email-address"
-                    autoCapitalize="none"
-                  />
-                </View>
+                <TextInput
+                  style={[styles.inputNoScroll, emailErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  placeholder="E-mail"
+                  value={email}
+                  onChangeText={handleEmailChange}
+                  keyboardType="email-address"
+                  autoCapitalize="none"
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
+                  textAlignVertical="center"
+                />
                 {emailErro ? <Text style={styles.errorText}>{emailErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>Telefone</Text>
-                <View style={[styles.inputContainer, telefoneErro ? styles.inputError : null]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="(00) 00000-0000"
-                    value={telefone}
-                    onChangeText={handleTelefoneChange}
-                    keyboardType="phone-pad"
-                  />
-                </View>
+                <TextInput
+                  style={[styles.inputNoScroll, telefoneErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  placeholder="(00) 00000-0000"
+                  value={telefone}
+                  onChangeText={handleTelefoneChange}
+                  keyboardType="phone-pad"
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
+                  textAlignVertical="center"
+                />
                 {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>CPF</Text>
-                <View style={[styles.inputContainer, cpfErro ? styles.inputError : null]}>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="000.000.000-00"
-                    value={cpfCnpj}
-                    onChangeText={handleCpfChange}
-                    keyboardType="numeric"
-                  />
-                </View>
+                <TextInput
+                  style={[styles.inputNoScroll, cpfErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  placeholder="000.000.000-00"
+                  value={cpfCnpj}
+                  onChangeText={handleCpfChange}
+                  keyboardType="numeric"
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
+                  textAlignVertical="center"
+                />
                 {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>CEP</Text>
-                <View style={[styles.inputContainer, cepErro ? styles.inputError : null]}>
+                <View style={[styles.inputWithIcon, cepErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                   <TextInput
-                    style={styles.input}
+                    style={styles.inputInContainer}
                     placeholder="00000-000"
                     value={cep}
                     onChangeText={handleCepChange}
                     keyboardType="numeric"
+                    multiline={false}
+                    scrollEnabled={false}
+                    disableFullscreenUI={true}
+                    numberOfLines={1}
+                    textAlignVertical="center"
                   />
                   {loadingCep && <ActivityIndicator size="small" color="#4682B4" style={styles.loadingIcon} />}
                 </View>
@@ -937,15 +977,21 @@ export default function ProfileScreen() {
                   toggleCidades={() => {}} // esta prop está definida mas não é usada no componente
                   disabled={!estadoSelecionado}
                 />
+                {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>Senha</Text>
-                <View style={[styles.inputContainer, senhaErro ? styles.inputError : null]}>
+                <View style={[styles.inputWithIcon, senhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                   <TextInput
-                    style={styles.input}
+                    style={styles.inputInContainer}
                     placeholder="Senha"
                     value={senha}
-                    onChangeText={setSenha}
+                    onChangeText={handleSenhaChange}
                     secureTextEntry={!showSenha}
+                    multiline={false}
+                    scrollEnabled={false}
+                    disableFullscreenUI={true}
+                    numberOfLines={1}
+                    textAlignVertical="center"
                   />
                   <TouchableOpacity onPress={toggleSenhaVisibility}>
                     <Feather name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
@@ -954,13 +1000,18 @@ export default function ProfileScreen() {
                 {senhaErro ? <Text style={styles.errorText}>{senhaErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>Confirmar Senha</Text>
-                <View style={[styles.inputContainer, confirmarSenhaErro ? styles.inputError : null]}>
+                <View style={[styles.inputWithIcon, confirmarSenhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                   <TextInput
-                    style={styles.input}
+                    style={styles.inputInContainer}
                     placeholder="Confirmar Senha"
                     value={confirmarSenha}
-                    onChangeText={setConfirmarSenha}
+                    onChangeText={handleConfirmarSenhaChange}
                     secureTextEntry={!showConfirmarSenha}
+                    multiline={false}
+                    scrollEnabled={false}
+                    disableFullscreenUI={true}
+                    numberOfLines={1}
+                    textAlignVertical="center"
                   />
                   <TouchableOpacity onPress={toggleConfirmarSenhaVisibility}>
                     <Feather name={showConfirmarSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
@@ -1012,6 +1063,23 @@ const styles = StyleSheet.create({
   inputGroup: {
     marginBottom: 16,
   },
+  inputNoScroll: {
+    height: 50,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    width: '100%',
+    textAlign: 'left',
+    textAlignVertical: 'center',
+  },
+  inputInContainer: {
+    flex: 1,
+    height: 50,
+    textAlign: 'left',
+    textAlignVertical: 'center',
+    paddingVertical: 0,
+  },
   label: {
     fontSize: 16,
     marginBottom: 8,
@@ -1053,8 +1121,9 @@ const styles = StyleSheet.create({
   },
   errorText: {
     color: 'red',
-    fontSize: 14,
-    marginTop: 5,
+    fontSize: 12,
+    marginTop: -10,
+    marginLeft: 10,
   },
   loadingIcon: {
     marginLeft: 10,
@@ -1172,8 +1241,21 @@ const styles = StyleSheet.create({
     height: 50,
   },
   input: {
-    flex: 1,
     height: 40,
+    backgroundColor: '#E8E8E8',
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    marginBottom: 15,
+    width: '100%', // Garante que o input ocupe toda a largura
+  },
+  inputWithIcon: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#E8E8E8',
+    borderRadius: 25,
+    paddingHorizontal: 15,
+    height: 50,
+    marginBottom: 15,
   },
   editIcon: {
     width: 20,
