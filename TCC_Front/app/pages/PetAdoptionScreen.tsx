@@ -1,4 +1,4 @@
-// PetAdoptionScreen.tsx (modificado)
+// PetAdoptionScreen.tsx (com implementação de favoritos e usuário logado)
 import { router } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -13,14 +13,22 @@ import {
   SafeAreaView,
   ActivityIndicator,
   Dimensions,
+  Alert,
 } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsCard from '@/components/modal_Pet/PetsCard';
 import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import getRacaById from '@/services/api/Raca/getRacaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
+
+import getFavorito from '@/services/api/Favoritos/getFavorito';
+import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
+import checkFavorito from '@/services/api/Favoritos/checkFavorito';
+
 // Definindo uma interface para o tipo Pet
 interface Pet {
   id: number;
@@ -39,6 +47,14 @@ interface Pet {
   favorito?: boolean;
 }
 
+// Interface para o usuário
+interface Usuario {
+  id: number;
+  nome: string;
+  email?: string;
+  // outras propriedades do usuário
+}
+
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
@@ -48,8 +64,46 @@ export default function PetAdoptionScreen() {
   const [filteredPets, setFilteredPets] = useState<Pet[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [usuarioId, setUsuarioId] = useState<number | null>(null);
+  const [usuario, setUsuario] = useState<Usuario | null>(null);
 
-  // Carregar os pets disponíveis quando o componente montar
+  // Carregar o ID do usuário logado do AsyncStorage na montagem do componente
+  useEffect(() => {
+    fetchUsuarioLogado();
+  }, []);
+
+  // Função para buscar o usuário logado
+  const fetchUsuarioLogado = async () => {
+    try {
+      // Usar a mesma chave '@App:userId' que foi usada para armazenar
+      const userId = await AsyncStorage.getItem('@App:userId');
+
+      if (!userId) {
+        console.error('ID do usuário não encontrado no AsyncStorage');
+        // Mantenha isso apenas para debug, não altere o estado de erro para permitir que o usuário veja os pets
+        // mesmo sem estar logado
+        return;
+      }
+
+      const userIdNumber = parseInt(userId);
+      setUsuarioId(userIdNumber);
+
+      // Buscar dados do usuário da API
+      const userData = await getUsuarioById(userIdNumber);
+
+      if (!userData) {
+        console.error('Dados do usuário não encontrados');
+        return;
+      }
+
+      console.log('Dados do usuário carregados:', userData);
+      setUsuario(userData);
+    } catch (err) {
+      console.error('Erro ao buscar dados do usuário:', err);
+    }
+  };
+
+  // Carregar os pets disponíveis quando o componente montar ou quando o ID do usuário mudar
   useEffect(() => {
     const fetchPets = async () => {
       try {
@@ -57,7 +111,7 @@ export default function PetAdoptionScreen() {
         // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
         const response = await getPetsByStatus();
 
-        // Para cada pet, buscar as informações adicionais de forma paralela se necessário
+        // Para cada pet, buscar as informações adicionais de forma paralela
         const petsWithDetails = await Promise.all(
           response.map(async (pet: Pet) => {
             // Verifica se as informações de raça e usuário já estão incluídas na resposta
@@ -65,12 +119,18 @@ export default function PetAdoptionScreen() {
             let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
             let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
 
+            // Verificar se o pet é favorito (somente se o usuário estiver logado)
+            let isFavorito = false;
+            if (usuarioId) {
+              isFavorito = await checkFavorito(usuarioId, pet.id);
+            }
+
             return {
               ...pet,
               raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
               usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
               status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
-              favorito: false, // Inicializa favorito como false
+              favorito: isFavorito,
             };
           })
         );
@@ -86,7 +146,7 @@ export default function PetAdoptionScreen() {
     };
 
     fetchPets();
-  }, []);
+  }, [usuarioId]);
 
   // Filtrar pets quando a busca mudar
   useEffect(() => {
@@ -109,7 +169,7 @@ export default function PetAdoptionScreen() {
     // });
   };
 
-  // Função para ver detalhes do pet - MODIFICADA
+  // Função para ver detalhes do pet
   const handleViewDetails = (petId: number) => {
     router.push({
       pathname: '/pages/PetDetailsScreen',
@@ -118,20 +178,39 @@ export default function PetAdoptionScreen() {
     console.log(`Ver detalhes do pet ID: ${petId}`);
   };
 
-  // Função para favoritar um pet
-  const handleFavorite = (petId: number) => {
-    // Atualiza o estado local dos pets para refletir o status de favorito
-    const updatedPets = pets.map((pet) => (pet.id === petId ? { ...pet, favorito: !pet.favorito } : pet));
-    setPets(updatedPets);
+  // Função para favoritar/desfavoritar um pet
+  // Função para favoritar/desfavoritar um pet
+  const handleFavorite = async (petId: number) => {
+    try {
+      // Encontrar o pet atual para verificar se já é favorito
+      const pet = pets.find((p) => p.id === petId);
+      if (!pet) return;
 
-    // Atualiza os pets filtrados também
-    const updatedFilteredPets = filteredPets.map((pet) =>
-      pet.id === petId ? { ...pet, favorito: !pet.favorito } : pet
-    );
-    setFilteredPets(updatedFilteredPets);
+      if (pet.favorito) {
+        // Se já é favorito, remove dos favoritos
+        if (usuarioId) {
+          await deleteFavorito(usuarioId, petId);
+        }
+      } else {
+        // Se não é favorito, adiciona aos favoritos
+        if (usuarioId) {
+          await getFavorito(usuarioId, petId);
+        }
+      }
 
-    // Aqui você poderia fazer uma chamada API para salvar essa informação no backend
-    console.log(`Pet ID ${petId} marcado como favorito`);
+      // Atualiza o estado local dos pets para refletir o status de favorito
+      const updatedPets = pets.map((p) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+      setPets(updatedPets);
+
+      // Atualiza os pets filtrados também
+      const updatedFilteredPets = filteredPets.map((p) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+      setFilteredPets(updatedFilteredPets);
+
+      console.log(`Pet ID ${petId} ${pet.favorito ? 'removido dos' : 'adicionado aos'} favoritos`);
+    } catch (error) {
+      console.error('Erro ao atualizar favorito:', error);
+      Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
+    }
   };
 
   // Renderizar cada item da lista de pets
@@ -190,18 +269,49 @@ export default function PetAdoptionScreen() {
                 onPress={() => {
                   setLoading(true);
                   setError(null);
-                  // Chamada corrigida para getPetsByStatus sem parâmetros
-                  getPetsByStatus()
-                    .then((res) => {
-                      setPets(res);
-                      setFilteredPets(res);
+                  // Função para recarregar os dados
+                  const fetchPets = async () => {
+                    try {
+                      // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
+                      const response = await getPetsByStatus();
+
+                      // Para cada pet, buscar as informações adicionais de forma paralela
+                      const petsWithDetails = await Promise.all(
+                        response.map(async (pet: Pet) => {
+                          // Verifica se as informações de raça e usuário já estão incluídas na resposta
+                          let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
+                          let usuarioInfo = pet.usuario_nome
+                            ? null
+                            : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+                          let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
+
+                          // Verificar se o pet é favorito (somente se o usuário estiver logado)
+                          let isFavorito = false;
+                          if (usuarioId) {
+                            isFavorito = await checkFavorito(usuarioId, pet.id);
+                          }
+
+                          return {
+                            ...pet,
+                            raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
+                            usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+                            status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
+                            favorito: isFavorito,
+                          };
+                        })
+                      );
+
+                      setPets(petsWithDetails);
+                      setFilteredPets(petsWithDetails);
                       setLoading(false);
-                    })
-                    .catch((err) => {
-                      console.error(err);
+                    } catch (err) {
+                      console.error('Erro ao buscar pets:', err);
                       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
                       setLoading(false);
-                    });
+                    }
+                  };
+
+                  fetchPets();
                 }}
               >
                 <Text style={styles.retryButtonText}>Tentar novamente</Text>
@@ -227,7 +337,7 @@ export default function PetAdoptionScreen() {
                     // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
                     const response = await getPetsByStatus();
 
-                    // Para cada pet, buscar as informações adicionais de forma paralela se necessário
+                    // Para cada pet, buscar as informações adicionais de forma paralela
                     const petsWithDetails = await Promise.all(
                       response.map(async (pet: Pet) => {
                         // Verifica se as informações de raça e usuário já estão incluídas na resposta
@@ -235,12 +345,18 @@ export default function PetAdoptionScreen() {
                         let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
                         let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
 
+                        // Verificar se o pet é favorito (somente se o usuário estiver logado)
+                        let isFavorito = false;
+                        if (usuarioId) {
+                          isFavorito = await checkFavorito(usuarioId, pet.id);
+                        }
+
                         return {
                           ...pet,
                           raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
                           usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
                           status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
-                          favorito: false, // Inicializa favorito como false
+                          favorito: isFavorito,
                         };
                       })
                     );

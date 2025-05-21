@@ -41,18 +41,12 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
 
   // Função para exibir alerta quando tentar editar um pet disponível para adoção
   const handleEditDisabled = () => {
-    Alert.alert(
-      'Operação não permitida',
-      'Este pet está disponível para adoção e não pode ser editado.'
-    );
+    Alert.alert('Operação não permitida', 'Este pet está disponível para adoção e não pode ser editado.');
   };
 
   // Função para exibir alerta quando tentar disponibilizar para adoção novamente
   const handleAdoptDisabled = () => {
-    Alert.alert(
-      'Operação não permitida',
-      'Este pet já está disponível para adoção.'
-    );
+    Alert.alert('Operação não permitida', 'Este pet já está disponível para adoção.');
   };
 
   return (
@@ -75,39 +69,48 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
           <Text style={styles.label}>
             Nome: <Text style={styles.value}>{pet.nome}</Text>
           </Text>
+          <TouchableOpacity
+            style={styles.favoriteButton}
+            onPress={() => {
+              // Verificar se onFavorite existe antes de chamá-lo
+              if (onFavorite) {
+                onFavorite(pet.id);
+              }
+            }}
+          >
+            <Image
+              source={
+                pet.favorito
+                  ? require('../../assets/images/Icone/star-icon.png')
+                  : require('../../assets/images/Icone/star-icon-open.png')
+              }
+              style={styles.favoriteIcon}
+            />
+          </TouchableOpacity>
           <Text style={styles.label}>
             Raça: <Text style={styles.value}>{pet.raca_nome}</Text>
           </Text>
           <Text style={styles.label}>
-            Idade: <Text style={styles.value}>
+            Idade:{' '}
+            <Text style={styles.value}>
               {pet.idade} {pet.faixa_etaria_unidade}
             </Text>
           </Text>
           <Text style={styles.label}>
             Responsável: <Text style={styles.value}>{pet.usuario_nome}</Text>
           </Text>
-          <Text style={[
-            styles.label,
-            isAvailableForAdoption ? styles.statusAdoption : null
-          ]}>
-            Status: <Text style={[
-              styles.value,
-              isAvailableForAdoption ? styles.statusAdoptionText : null
-            ]}>{pet.status_nome}</Text>
+          <Text style={[styles.label, isAvailableForAdoption ? styles.statusAdoption : null]}>
+            Status:{' '}
+            <Text style={[styles.value, isAvailableForAdoption ? styles.statusAdoptionText : null]}>
+              {pet.status_nome}
+            </Text>
           </Text>
         </View>
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
-            <TouchableOpacity
-              style={[
-                styles.editButton
-              ]}
-              onPress={onAdopt}
-            >
-              <Text style={[
-                styles.buttonText
-              ]}>Adotar</Text>
+            <TouchableOpacity style={[styles.editButton]} onPress={onAdopt}>
+              <Text style={[styles.buttonText]}>Adotar</Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.detalhesButton} onPress={OnDetalhes}>
               <Text style={styles.buttonText}>Detalhes</Text>
@@ -235,7 +238,11 @@ const styles = StyleSheet.create({
   },
   statusAdoptionText: {
     color: '#4CAF50',
-  }
+  },
+  favoriteIcon: {
+    width: 25,
+    height: 25,
+  },
 });
 
 export default PetsCard;
