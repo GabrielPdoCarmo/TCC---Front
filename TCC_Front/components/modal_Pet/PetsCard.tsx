@@ -81,8 +81,8 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
             <Image
               source={
                 pet.favorito
-                  ? require('../../assets/images/Icone/star-icon.png')
-                  : require('../../assets/images/Icone/star-icon-open.png')
+                  ? require('../../assets/images/Icone/star-icon-open.png')
+                  : require('../../assets/images/Icone/star-icon.png')
               }
               style={styles.favoriteIcon}
             />
