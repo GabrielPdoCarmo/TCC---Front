@@ -33,25 +33,19 @@ interface WelcomeModalProps {
 
 // Componente para o modal de boas-vindas com foto
 const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName, photoUrl }) => {
-  
   return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-    >
+    <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Bem-vindo!</Text>
-          
+
           {photoUrl ? (
             <View style={styles.photoContainer}>
-              <Image 
-                source={{ uri: photoUrl }} 
-                style={styles.userPhoto} 
+              <Image
+                source={{ uri: photoUrl }}
+                style={styles.userPhoto}
                 resizeMode="cover"
-                onError={(e) => console.error("Erro ao carregar imagem:", e.nativeEvent.error)}
+                onError={(e) => console.error('Erro ao carregar imagem:', e.nativeEvent.error)}
               />
             </View>
           ) : (
@@ -59,7 +53,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName,
               <Icon name="person" size={40} color="#555" />
             </View>
           )}
-          
+
           <Text style={styles.modalText}>Olá, {userName || 'usuário'}!</Text>
           <TouchableOpacity style={styles.modalButton} onPress={onClose}>
             <Text style={styles.modalButtonText}>Continuar</Text>
@@ -77,7 +71,7 @@ export default function App() {
   const [emailErro, setEmailErro] = useState('');
   const [senhaErro, setSenhaErro] = useState('');
   const [loading, setLoading] = useState(false);
-  
+
   // Estados para o modal de boas-vindas
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
@@ -96,7 +90,7 @@ export default function App() {
   const getErrorMessage = (error: unknown): string => {
     // [manter código existente]
     const apiError = error as ApiError;
-    
+
     if (apiError?.message?.includes('Email e senha são obrigatórios')) {
       return 'Por favor, preencha todos os campos de login.';
     }
@@ -153,20 +147,20 @@ export default function App() {
       // Agora verificamos se os dados foram salvos
       const userId = await AsyncStorage.getItem('@App:userId');
       const userJson = await AsyncStorage.getItem('@App:user');
-      
+
       console.log('Dados salvos no AsyncStorage:', { userId, userJson });
 
       if (!userId || !userJson) {
         throw { error: 'Falha ao finalizar login' };
       }
-      
+
       // NOVA ETAPA: Buscar detalhes completos do usuário para obter a foto
       const userDetails = await getUsuarioById(parseInt(userId));
       console.log('Detalhes completos do usuário:', userDetails);
-      
+
       // Verificar se temos uma URL de foto nos detalhes do usuário
       let photoUrlToUse = null;
-      
+
       if (userDetails && userDetails.foto) {
         // Verificar se a URL já tem http/https. Se não tiver, adicionar
         photoUrlToUse = userDetails.foto;
@@ -177,14 +171,13 @@ export default function App() {
         }
         console.log('URL da foto ajustada:', photoUrlToUse);
       }
-      
+
       // Preparar dados para o modal de boas-vindas
       setUserName(userDetails?.nome || data.usuario?.nome || 'usuário');
       setUserPhoto(photoUrlToUse);
-      
+
       // Mostrar o modal de boas-vindas
       setWelcomeModalVisible(true);
-      
     } catch (error: unknown) {
       // Ao invés de exibir o erro técnico, exibimos uma mensagem amigável
       if (__DEV__) {
@@ -237,7 +230,12 @@ export default function App() {
             </TouchableOpacity>
           </View>
           <Text style={styles.errorTextSenha}>{senhaErro}</Text>
-          <Text style={[styles.forgotPassword, (emailErro || senhaErro) && { marginTop: 0 }]}>Esqueceu sua senha?</Text>
+          <TouchableOpacity
+            onPress={() => router.push('/pages/ForgotPasswordScreen')}
+            style={[styles.forgotPasswordContainer, (emailErro || senhaErro) && { marginTop: 0 }]}
+          >
+            <Text style={styles.forgotPasswordText}>Esqueceu sua senha?</Text>
+          </TouchableOpacity>
           <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
             <Text style={styles.loginButtonText}>{loading ? 'Carregando...' : 'Entrar'}</Text>
           </TouchableOpacity>
@@ -248,10 +246,10 @@ export default function App() {
             </Link>
           </View>
         </View>
-        
+
         {/* Modal de boas-vindas com foto */}
-        <WelcomeModal 
-          visible={welcomeModalVisible} 
+        <WelcomeModal
+          visible={welcomeModalVisible}
           onClose={handleCloseWelcomeModal}
           userName={userName}
           photoUrl={userPhoto}
@@ -262,8 +260,16 @@ export default function App() {
 }
 
 const styles = StyleSheet.create({
-  // [manter estilos existentes]
-  // Estilos de modal e foto
+  forgotPasswordContainer: {
+    alignSelf: 'flex-start',
+    marginLeft: 30,
+    marginTop: -20,
+    marginBottom: 10,
+  },
+  forgotPasswordText: {
+    fontSize: 14,
+    color: '#000',
+  },
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
@@ -329,7 +335,7 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#ccc',
   },
-  
+
   // [Manter todos os outros estilos existentes]
   backgroundImage: {
     flex: 1,

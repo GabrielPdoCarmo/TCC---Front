@@ -11,6 +11,7 @@ import {
   Image,
   Alert,
   Linking, // Adicionado para abrir links externos
+  ScrollView, // Adicionado ScrollView
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
@@ -23,17 +24,33 @@ export default function ConfigScreen() {
 
   // Function to handle logout
   const handleLogout = async () => {
-    try {
-      // Clear the user data from AsyncStorage
-      await AsyncStorage.removeItem('@App:userId');
-      await AsyncStorage.removeItem('@App:userToken');
+    Alert.alert(
+      'Deslogar',
+      'Tem certeza que deseja deslogar da sua conta?',
+      [
+        {
+          text: 'Cancelar',
+          style: 'cancel',
+        },
+        {
+          text: 'Deslogar',
+          onPress: async () => {
+            try {
+              // Clear the user data from AsyncStorage
+              await AsyncStorage.removeItem('@App:userId');
+              await AsyncStorage.removeItem('@App:userToken');
 
-      // Navigate to login screen
-      router.replace('/');
-    } catch (error) {
-      console.error('Error during logout:', error);
-      Alert.alert('Erro', 'Não foi possível fazer logout. Tente novamente.');
-    }
+              // Navigate to login screen
+              router.replace('/');
+            } catch (error) {
+              console.error('Error during logout:', error);
+              Alert.alert('Erro', 'Não foi possível fazer logout. Tente novamente.');
+            }
+          },
+        },
+      ],
+      { cancelable: true }
+    );
   };
 
   // Function to handle delete account
@@ -137,32 +154,39 @@ export default function ConfigScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.title}>Configurações</Text>
 
-        <View style={styles.contentContainer}>
-          <View style={styles.section}>
-            <Text style={styles.sectionTitle}>Denuncia casos de Abandono</Text>
-            <Text style={[styles.phoneNumber, styles.centerText]}>Disque: 181 ou 190</Text>
+        {/* Adicionado ScrollView aqui */}
+        <ScrollView 
+          style={styles.scrollView}
+          showsVerticalScrollIndicator={false}
+          contentContainerStyle={styles.scrollContent}
+        >
+          <View style={styles.contentContainer}>
+            <View style={styles.section}>
+              <Text style={styles.sectionTitle}>Denuncia casos de Abandono</Text>
+              <Text style={[styles.phoneNumber, styles.centerText]}>Disque: 181 ou 190</Text>
+            </View>
+
+            {/* Todos os botões agora estão no mesmo nível de hierarquia */}
+            <TouchableOpacity style={styles.button} onPress={handleLearnMore}>
+              <Text style={styles.buttonText}>Saiba Mais sobre o{'\n'}Abandono de Animais</Text>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.button} onPress={handleAdocaoResponsavel}>
+              <Text style={styles.buttonText}>Como realizar uma adoção responsável</Text>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.button} onPress={handleDeleteAccount}>
+              <Text style={styles.deleteAccountText}>Excluir Conta</Text>
+              <Text style={styles.arrowIcon}>›</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
+              <Text style={styles.logoutButtonText}>Deslogar</Text>
+            </TouchableOpacity>
           </View>
-
-          {/* Todos os botões agora estão no mesmo nível de hierarquia */}
-          <TouchableOpacity style={styles.button} onPress={handleLearnMore}>
-            <Text style={styles.buttonText}>Saiba Mais</Text>
-            <Text style={styles.arrowIcon}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.button} onPress={handleAdocaoResponsavel}>
-            <Text style={styles.buttonText}>Como realizar uma adoção responsável</Text>
-            <Text style={styles.arrowIcon}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.button} onPress={handleDeleteAccount}>
-            <Text style={styles.deleteAccountText}>Excluir Conta</Text>
-            <Text style={styles.arrowIcon}>›</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.logoutButton} onPress={handleLogout}>
-            <Text style={styles.logoutButtonText}>Deslogar</Text>
-          </TouchableOpacity>
-        </View>
+        </ScrollView>
 
         {/* Bottom Navigation */}
         <View style={styles.bottomNavigation}>
@@ -206,30 +230,40 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 20,
   },
+  // Adicionados novos estilos para o ScrollView
+  scrollView: {
+    flex: 1,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: 20,
+  },
   contentContainer: {
     flex: 1,
     paddingHorizontal: 20,
     paddingTop: 20,
   },
   section: {
-    marginBottom: 20, // Reduzido o espaçamento da seção
-    alignItems: 'center', // Centraliza os itens na seção
+    marginBottom: 20,
+    alignItems: 'center',
   },
   sectionTitle: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#000',
     marginBottom: 5,
-    textAlign: 'center', // Centraliza o texto do título
+    textAlign: 'center',
+    marginTop: -20,
   },
   phoneNumber: {
     fontSize: 24,
     fontWeight: 'bold',
     color: '#FF0000',
     marginBottom: 20,
+    marginTop: 50,
   },
   centerText: {
-    textAlign: 'center', // Centraliza o texto do número de telefone
+    textAlign: 'center',
   },
   button: {
     flexDirection: 'row',
