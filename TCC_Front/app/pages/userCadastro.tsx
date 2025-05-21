@@ -779,6 +779,10 @@ export default function CadastroUsuario() {
                 style={[styles.input, nomeErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
                 placeholder="Nome"
                 value={nome}
+                multiline={false}
+                scrollEnabled={false}
+                disableFullscreenUI={true}
+                numberOfLines={1}
                 onChangeText={(text) => {
                   setNome(text);
                   if (text) setNomeErro('');
@@ -820,6 +824,10 @@ export default function CadastroUsuario() {
                 placeholder="E-mail"
                 keyboardType="email-address"
                 value={email}
+                multiline={false}
+                scrollEnabled={false}
+                disableFullscreenUI={true}
+                numberOfLines={1}
                 onChangeText={(text) => {
                   setEmail(text);
                   if (text) setEmailErro('');
@@ -838,6 +846,10 @@ export default function CadastroUsuario() {
                 placeholder="(00) 00000-0000"
                 keyboardType="phone-pad"
                 value={telefone}
+                multiline={false}
+                scrollEnabled={false}
+                disableFullscreenUI={true}
+                numberOfLines={1}
                 onChangeText={handleTelefoneChange}
                 maxLength={15} // (00) 00000-0000 has 15 characters with formatting
               />
@@ -854,6 +866,10 @@ export default function CadastroUsuario() {
                 placeholder="000.000.000-00"
                 keyboardType="numeric"
                 value={cpf}
+                multiline={false}
+                scrollEnabled={false}
+                disableFullscreenUI={true}
+                numberOfLines={1}
                 onChangeText={handleCpfChange}
                 maxLength={14} // 000.000.000-00 has 14 characters with formatting
               />
@@ -868,6 +884,10 @@ export default function CadastroUsuario() {
                   placeholder="00000-000"
                   keyboardType="numeric"
                   value={cep}
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
                   onChangeText={handleCepChange}
                   maxLength={9} // 00000-000 has 9 characters with formatting
                 />
@@ -933,6 +953,10 @@ export default function CadastroUsuario() {
                   placeholder="Senha"
                   secureTextEntry={!showSenha}
                   value={senha}
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
                   onChangeText={(text) => {
                     setSenha(text);
                     if (text) setSenhaErro('');
@@ -960,6 +984,10 @@ export default function CadastroUsuario() {
                   placeholder="Confirmar Senha"
                   secureTextEntry={!showConfirmarSenha}
                   value={confirmarSenha}
+                  multiline={false}
+                  scrollEnabled={false}
+                  disableFullscreenUI={true}
+                  numberOfLines={1}
                   onChangeText={(text) => {
                     setConfirmarSenha(text);
                     if (text) setConfirmarSenhaErro('');
