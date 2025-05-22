@@ -1,5 +1,5 @@
-// PetAdoptionScreen.tsx (com implementação de favoritos e usuário logado)
-import { router } from 'expo-router';
+// PetAdoptionScreen.tsx (com implementação de favoritos, usuário logado e filtro avançado)
+import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -16,6 +16,7 @@ import {
   Alert,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { debounce } from 'lodash';
 
 import PetsCard from '@/components/modal_Pet/PetsCard';
 import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
@@ -24,10 +25,17 @@ import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import getRacaById from '@/services/api/Raca/getRacaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
-
+import getPetByName from '@/services/api/Pets/getPetByName';
 import getFavorito from '@/services/api/Favoritos/getFavorito';
 import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
+
+// Importar serviços para busca de pets filtrados
+import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
+import getPetsByAgeRange from '@/services/api/Pets/getPetsByAgeRange';
+import getPetsByRaca from '@/services/api/Pets/getPetsByRaca';     
+import getPetsByEspecie from '@/services/api/Pets/getPetsByEspecie';
+import getPetsByLocation from '@/services/api/Pets/getPetsByLocation';
 
 // Definindo uma interface para o tipo Pet
 interface Pet {
@@ -45,6 +53,7 @@ interface Pet {
   status_nome?: string;
   sexo_id?: number;
   favorito?: boolean;
+  especie_id?: number;
 }
 
 // Interface para o usuário
@@ -55,17 +64,46 @@ interface Usuario {
   // outras propriedades do usuário
 }
 
+// Interface para os filtros
+interface FilterParams {
+  especieIds?: number[];
+  faixaEtariaIds?: number[];
+  faixasEtariaIdades?: { [key: number]: number }; // Mapeamento de ID da faixa etária para idade específica (como número)
+  racaIds?: number[];
+  estadoIds?: number[];
+  cidadeIds?: number[];
+  onlyFavorites?: boolean;
+}
+
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
 export default function PetAdoptionScreen() {
+  const params = useLocalSearchParams();
   const [searchQuery, setSearchQuery] = useState<string>('');
-  const [pets, setPets] = useState<Pet[]>([]);
-  const [filteredPets, setFilteredPets] = useState<Pet[]>([]);
+  const [allPets, setAllPets] = useState<Pet[]>([]); // Todos os pets carregados
+  const [filteredPets, setFilteredPets] = useState<Pet[]>([]); // Pets exibidos após filtros/busca
   const [loading, setLoading] = useState<boolean>(true);
+  const [searchLoading, setSearchLoading] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
+  const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
+
+  // Verificar se há filtros para aplicar quando a tela recebe parâmetros
+  useEffect(() => {
+    const checkForFilters = async () => {
+      if (params.applyFilters === 'true') {
+        const storedFilters = await AsyncStorage.getItem('@App:petFilters');
+        if (storedFilters) {
+          const parsedFilters = JSON.parse(storedFilters);
+          setActiveFilters(parsedFilters);
+        }
+      }
+    };
+    
+    checkForFilters();
+  }, [params.applyFilters]);
 
   // Carregar o ID do usuário logado do AsyncStorage na montagem do componente
   useEffect(() => {
@@ -103,43 +141,114 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // Carregar os pets disponíveis quando o componente montar ou quando o ID do usuário mudar
+  // Função para carregar pets com detalhes completos
+  const loadPetsWithDetails = async (pets: Pet[]): Promise<Pet[]> => {
+    return Promise.all(
+      pets.map(async (pet: Pet) => {
+        // Verifica se as informações de raça e usuário já estão incluídas na resposta
+        let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
+        let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+        let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
+        // Buscar informações da faixa etária
+        let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
+
+        // Verificar se o pet é favorito (somente se o usuário estiver logado)
+        let isFavorito = false;
+        if (usuarioId) {
+          isFavorito = await checkFavorito(usuarioId, pet.id);
+        }
+
+        return {
+          ...pet,
+          raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
+          usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+          status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
+          faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
+          favorito: isFavorito,
+        };
+      })
+    );
+  };
+
+  // Função para aplicar filtros aos pets
+  const applyFiltersToData = async (pets: Pet[], filters: FilterParams): Promise<Pet[]> => {
+    try {
+      let filteredData = pets;
+
+      // Se o filtro é apenas para favoritos
+      if (filters.onlyFavorites && usuarioId) {
+        // Buscar apenas os favoritos do usuário
+        const favoritePets = await getFavoritosPorUsuario(usuarioId);
+        const favoritePetsWithDetails = await loadPetsWithDetails(favoritePets);
+        return favoritePetsWithDetails;
+      }
+
+      // Aplicar outros filtros
+      if (filters.especieIds && filters.especieIds.length > 0) {
+        filteredData = filteredData.filter((pet: Pet) => 
+          filters.especieIds?.includes(pet.especie_id || 0)
+        );
+      }
+
+      if (filters.racaIds && filters.racaIds.length > 0) {
+        filteredData = filteredData.filter((pet: Pet) => 
+          filters.racaIds?.includes(pet.raca_id)
+        );
+      }
+
+      if (filters.faixaEtariaIds && filters.faixaEtariaIds.length > 0) {
+        filteredData = filteredData.filter((pet: Pet) => 
+          filters.faixaEtariaIds?.includes(pet.faixa_etaria_id)
+        );
+      }
+
+      // Para filtros de localização, seria necessário mais informações sobre a estrutura dos dados
+      // Por enquanto, mantemos apenas os filtros básicos implementados
+
+      return filteredData;
+    } catch (error) {
+      console.error('Erro ao aplicar filtros:', error);
+      return pets;
+    }
+  };
+
+  // Carregar os pets disponíveis quando o componente montar ou quando houver filtros para aplicar
   useEffect(() => {
     const fetchPets = async () => {
       try {
         setLoading(true);
-        // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
+        setError(null);
+
+        console.log('Carregando pets com status_id = 2...');
+        
+        // Buscar todos os pets disponíveis (status_id = 2)
         const response = await getPetsByStatus();
+        console.log('Pets encontrados:', response.length);
 
-        // Para cada pet, buscar as informações adicionais de forma paralela
-        const petsWithDetails = await Promise.all(
-          response.map(async (pet: Pet) => {
-            // Verifica se as informações de raça e usuário já estão incluídas na resposta
-            let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-            let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-            let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
-            // Buscar informações da faixa etária
-            let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
+        if (!response || response.length === 0) {
+          console.log('Nenhum pet encontrado com status_id = 2');
+          setAllPets([]);
+          setFilteredPets([]);
+          setLoading(false);
+          return;
+        }
 
-            // Verificar se o pet é favorito (somente se o usuário estiver logado)
-            let isFavorito = false;
-            if (usuarioId) {
-              isFavorito = await checkFavorito(usuarioId, pet.id);
-            }
+        // Carregar detalhes completos dos pets
+        const petsWithDetails = await loadPetsWithDetails(response);
+        console.log('Pets com detalhes carregados:', petsWithDetails.length);
 
-            return {
-              ...pet,
-              raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
-              usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
-              status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
-              faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
-              favorito: isFavorito,
-            };
-          })
-        );
+        // Armazenar todos os pets
+        setAllPets(petsWithDetails);
 
-        setPets(petsWithDetails);
-        setFilteredPets(petsWithDetails);
+        // Aplicar filtros se existirem
+        if (activeFilters) {
+          console.log('Aplicando filtros:', activeFilters);
+          const filtered = await applyFiltersToData(petsWithDetails, activeFilters);
+          setFilteredPets(filtered);
+        } else {
+          setFilteredPets(petsWithDetails);
+        }
+
         setLoading(false);
       } catch (err) {
         console.error('Erro ao buscar pets:', err);
@@ -149,17 +258,110 @@ export default function PetAdoptionScreen() {
     };
 
     fetchPets();
-  }, [usuarioId]);
+  }, [usuarioId, activeFilters]);
 
-  // Filtrar pets quando a busca mudar
-  useEffect(() => {
-    if (searchQuery) {
-      const filtered = pets.filter((pet) => pet.nome.toLowerCase().includes(searchQuery.toLowerCase()));
-      setFilteredPets(filtered);
-    } else {
-      setFilteredPets(pets);
+  // Função para buscar pets por nome
+  const searchPetsByName = async (name: string) => {
+    try {
+      setSearchLoading(true);
+      
+      if (!name || name.trim() === '') {
+        // Se a busca estiver vazia, voltar aos pets originais (com filtros se houver)
+        if (activeFilters) {
+          const filtered = await applyFiltersToData(allPets, activeFilters);
+          setFilteredPets(filtered);
+        } else {
+          setFilteredPets(allPets);
+        }
+        setSearchLoading(false);
+        return;
+      }
+
+      console.log('Buscando pets por nome:', name);
+
+      // Chama a API para buscar pets pelo nome
+      const response = await getPetByName(name);
+      
+      // Se não encontrar nada, mostra lista vazia
+      if (!response || response.length === 0) {
+        console.log('Nenhum pet encontrado com o nome:', name);
+        setFilteredPets([]);
+        setSearchLoading(false);
+        return;
+      }
+
+      // Carregar detalhes completos dos pets encontrados
+      const petsWithDetails = await loadPetsWithDetails(response);
+
+      // Aplicar filtros ativos nos resultados da busca, se houver
+      if (activeFilters) {
+        const filtered = await applyFiltersToData(petsWithDetails, activeFilters);
+        setFilteredPets(filtered);
+      } else {
+        setFilteredPets(petsWithDetails);
+      }
+
+      setSearchLoading(false);
+    } catch (err) {
+      console.error('Erro ao buscar pets por nome:', err);
+      setFilteredPets([]);
+      setSearchLoading(false);
     }
-  }, [searchQuery, pets]);
+  };
+
+  // Crie uma versão com debounce da função de pesquisa para não sobrecarregar a API
+  const debouncedSearch = debounce(searchPetsByName, 500);
+
+  // UseEffect separado para busca - só executa quando há mudança no searchQuery e não está carregando
+  useEffect(() => {
+    // Só executa a busca se não estiver no carregamento inicial
+    if (!loading && searchQuery !== undefined) {
+      debouncedSearch(searchQuery);
+    }
+    
+    // Limpar o debounce quando o componente for desmontado
+    return () => {
+      debouncedSearch.cancel();
+    };
+  }, [searchQuery, loading]);
+
+  // Função para recarregar os dados
+  const refreshData = async () => {
+    try {
+      setLoading(true);
+      setError(null);
+
+      // Buscar todos os pets disponíveis (status_id = 2)
+      const response = await getPetsByStatus();
+
+      if (!response || response.length === 0) {
+        setAllPets([]);
+        setFilteredPets([]);
+        setLoading(false);
+        return;
+      }
+
+      // Carregar detalhes completos dos pets
+      const petsWithDetails = await loadPetsWithDetails(response);
+
+      // Armazenar todos os pets
+      setAllPets(petsWithDetails);
+
+      // Aplicar filtros se existirem
+      if (activeFilters) {
+        const filtered = await applyFiltersToData(petsWithDetails, activeFilters);
+        setFilteredPets(filtered);
+      } else {
+        setFilteredPets(petsWithDetails);
+      }
+
+      setLoading(false);
+    } catch (err) {
+      console.error('Erro ao recarregar pets:', err);
+      setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
+      setLoading(false);
+    }
+  };
 
   // Função para lidar com a adoção de um pet
   const handleAdopt = (petId: number) => {
@@ -181,12 +383,21 @@ export default function PetAdoptionScreen() {
     console.log(`Ver detalhes do pet ID: ${petId}`);
   };
 
-  // Função para favoritar/desfavoritar um pet
+  // Função para abrir a tela de filtro avançado
+  const handleAdvancedFilter = () => {
+    // Navegar para a tela de filtro avançado com os filtros atuais, se houver
+    const currentFiltersStr = activeFilters ? encodeURIComponent(JSON.stringify(activeFilters)) : '';
+    router.push({
+      pathname: '/pages/FilterScreen',
+      params: { filters: currentFiltersStr }
+    });
+  };
+
   // Função para favoritar/desfavoritar um pet
   const handleFavorite = async (petId: number) => {
     try {
       // Encontrar o pet atual para verificar se já é favorito
-      const pet = pets.find((p) => p.id === petId);
+      const pet = allPets.find((p: Pet) => p.id === petId);
       if (!pet) return;
 
       if (pet.favorito) {
@@ -202,11 +413,11 @@ export default function PetAdoptionScreen() {
       }
 
       // Atualiza o estado local dos pets para refletir o status de favorito
-      const updatedPets = pets.map((p) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
-      setPets(updatedPets);
+      const updatedAllPets = allPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+      setAllPets(updatedAllPets);
 
       // Atualiza os pets filtrados também
-      const updatedFilteredPets = filteredPets.map((p) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+      const updatedFilteredPets = filteredPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
       setFilteredPets(updatedFilteredPets);
 
       console.log(`Pet ID ${petId} ${pet.favorito ? 'removido dos' : 'adicionado aos'} favoritos`);
@@ -214,6 +425,12 @@ export default function PetAdoptionScreen() {
       console.error('Erro ao atualizar favorito:', error);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
     }
+  };
+
+  // Função para limpar filtros ativos
+  const clearFilters = async () => {
+    await AsyncStorage.removeItem('@App:petFilters');
+    setActiveFilters(null);
   };
 
   // Renderizar cada item da lista de pets
@@ -228,6 +445,51 @@ export default function PetAdoptionScreen() {
     </View>
   );
 
+  // Função para verificar se há filtros ativos e mostrar informações na interface
+  const getFilterInfo = () => {
+    if (!activeFilters) return '';
+    
+    // Contar filtros aplicados
+    let filterCount = 0;
+    
+    // Contar espécies
+    if (activeFilters.especieIds && activeFilters.especieIds.length > 0) {
+      filterCount += activeFilters.especieIds.length;
+    }
+    
+    // Contar faixas etárias (e considerar idades específicas como filtros adicionais)
+    if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
+      filterCount += activeFilters.faixaEtariaIds.length;
+      
+      // Contar idades específicas como filtros adicionais
+      if (activeFilters.faixasEtariaIdades) {
+        filterCount += Object.keys(activeFilters.faixasEtariaIdades).length;
+      }
+    }
+    
+    // Contar raças
+    if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
+      filterCount += activeFilters.racaIds.length;
+    }
+    
+    // Contar estados
+    if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
+      filterCount += activeFilters.estadoIds.length;
+    }
+    
+    // Contar cidades
+    if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
+      filterCount += activeFilters.cidadeIds.length;
+    }
+    
+    // Contar favoritos
+    if (activeFilters.onlyFavorites) {
+      filterCount += 1;
+    }
+    
+    return filterCount > 0 ? `${filterCount} filtro${filterCount > 1 ? 's' : ''} aplicado${filterCount > 1 ? 's' : ''}` : 'Filtros';
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
@@ -239,19 +501,40 @@ export default function PetAdoptionScreen() {
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
-            <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
-          </TouchableOpacity>
+          {searchLoading ? (
+            <ActivityIndicator size="small" color="#4682B4" style={styles.searchLoading} />
+          ) : (
+            <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
+              <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Botões de filtro */}
         <View style={styles.filterContainer}>
-          <TouchableOpacity style={styles.filterButton}>
-            <Text style={styles.filterButtonText}>Filtro Avançado</Text>
-            <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.arrowIcon} />
+          <TouchableOpacity 
+            style={[styles.filterButton, activeFilters && styles.activeFilterButton]}
+            onPress={handleAdvancedFilter}
+          >
+            <Text style={[styles.filterButtonText, activeFilters && styles.activeFilterText]}>
+              {activeFilters ? getFilterInfo() : 'Filtro Avançado'}
+            </Text>
+            {activeFilters ? (
+              <TouchableOpacity onPress={clearFilters} style={styles.clearFilterButton}>
+                <Text style={styles.clearFilterText}>✕</Text>
+              </TouchableOpacity>
+            ) : (
+              <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.arrowIcon} />
+            )}
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.myPetsButton}>
+          <TouchableOpacity 
+            style={styles.myPetsButton} 
+            onPress={() => router.push({
+              pathname: '/pages/ProfileScreen',
+              params: { showMyPets: 'true' }
+            })}
+          >
             <Text style={styles.myPetsButtonText}>Meus Pets</Text>
             <Image source={require('../../assets/images/Icone/arrow-right.png')} style={styles.arrowIcon} />
           </TouchableOpacity>
@@ -267,121 +550,34 @@ export default function PetAdoptionScreen() {
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity
-                style={styles.retryButton}
-                onPress={() => {
-                  setLoading(true);
-                  setError(null);
-                  // Função para recarregar os dados
-                  const fetchPets = async () => {
-                    try {
-                      // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
-                      const response = await getPetsByStatus();
-
-                      // Para cada pet, buscar as informações adicionais de forma paralela
-                      const petsWithDetails = await Promise.all(
-                        response.map(async (pet: Pet) => {
-                          // Verifica se as informações de raça e usuário já estão incluídas na resposta
-                          let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-                          let usuarioInfo = pet.usuario_nome
-                            ? null
-                            : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-                          let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
-                          // Buscar informações da faixa etária
-                          let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
-
-                          // Verificar se o pet é favorito (somente se o usuário estiver logado)
-                          let isFavorito = false;
-                          if (usuarioId) {
-                            isFavorito = await checkFavorito(usuarioId, pet.id);
-                          }
-
-                          return {
-                            ...pet,
-                            raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
-                            usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
-                            status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
-                            faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
-                            favorito: isFavorito,
-                          };
-                        })
-                      );
-
-                      setPets(petsWithDetails);
-                      setFilteredPets(petsWithDetails);
-                      setLoading(false);
-                    } catch (err) {
-                      console.error('Erro ao buscar pets:', err);
-                      setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
-                      setLoading(false);
-                    }
-                  };
-
-                  fetchPets();
-                }}
-              >
+              <TouchableOpacity style={styles.retryButton} onPress={refreshData}>
                 <Text style={styles.retryButtonText}>Tentar novamente</Text>
               </TouchableOpacity>
             </View>
           ) : filteredPets.length === 0 ? (
             <View style={styles.emptyContainer}>
-              <Text style={styles.emptyText}>Nenhum pet encontrado com esse nome</Text>
+              <Text style={styles.emptyText}>
+                {searchQuery 
+                  ? 'Nenhum pet encontrado com esse nome' 
+                  : activeFilters 
+                    ? 'Nenhum pet encontrado com os filtros selecionados' 
+                    : 'Nenhum pet disponível para adoção'}
+              </Text>
+              {activeFilters && (
+                <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
+                  <Text style={styles.clearFiltersText}>Limpar filtros</Text>
+                </TouchableOpacity>
+              )}
             </View>
           ) : (
             <FlatList
               data={filteredPets}
               renderItem={renderPetItem}
-              keyExtractor={(item) => item.id.toString()}
+              keyExtractor={(item: Pet) => item.id.toString()}
               contentContainerStyle={styles.petList}
               showsVerticalScrollIndicator={false}
-              refreshing={loading} // Mostra o indicador de refresh quando loading for true
-              onRefresh={() => {
-                setLoading(true);
-                // Função para recarregar os dados
-                const fetchPets = async () => {
-                  try {
-                    // Usando a função getPetsByStatus atualizada que já busca pets com status_id = 2
-                    const response = await getPetsByStatus();
-
-                    // Para cada pet, buscar as informações adicionais de forma paralela
-                    const petsWithDetails = await Promise.all(
-                      response.map(async (pet: Pet) => {
-                        // Verifica se as informações de raça e usuário já estão incluídas na resposta
-                        let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-                        let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-                        let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
-                        // Buscar informações da faixa etária
-                        let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
-
-                        // Verificar se o pet é favorito (somente se o usuário estiver logado)
-                        let isFavorito = false;
-                        if (usuarioId) {
-                          isFavorito = await checkFavorito(usuarioId, pet.id);
-                        }
-
-                        return {
-                          ...pet,
-                          raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
-                          usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
-                          status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
-                          faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
-                          favorito: isFavorito,
-                        };
-                      })
-                    );
-
-                    setPets(petsWithDetails);
-                    setFilteredPets(petsWithDetails);
-                    setLoading(false);
-                  } catch (err) {
-                    console.error('Erro ao buscar pets:', err);
-                    setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
-                    setLoading(false);
-                  }
-                };
-
-                fetchPets();
-              }}
+              refreshing={loading}
+              onRefresh={refreshData}
             />
           )}
         </View>
@@ -461,6 +657,9 @@ const styles = StyleSheet.create({
     flex: 1,
     height: 40,
   },
+  searchLoading: {
+    marginLeft: 10,
+  },
   settingsButton: {
     marginLeft: 5,
   },
@@ -482,8 +681,30 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 8,
   },
+  activeFilterButton: {
+    backgroundColor: '#E8F1F8',
+    borderWidth: 1,
+    borderColor: '#4682B4',
+  },
   filterButtonText: {
     marginRight: 5,
+    fontWeight: 'bold',
+  },
+  activeFilterText: {
+    color: '#4682B4',
+  },
+  clearFilterButton: {
+    backgroundColor: '#4682B4',
+    borderRadius: 12,
+    width: 24,
+    height: 24,
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginLeft: 5,
+  },
+  clearFilterText: {
+    color: '#FFFFFF',
+    fontSize: 12,
     fontWeight: 'bold',
   },
   myPetsButton: {
@@ -549,8 +770,19 @@ const styles = StyleSheet.create({
   },
   emptyText: {
     fontSize: 16,
-    color: '#666',
+    color: '#FFFF',
     textAlign: 'center',
+    marginBottom: 15,
+  },
+  clearFiltersButton: {
+    backgroundColor: '#4682B4',
+    paddingVertical: 8,
+    paddingHorizontal: 15,
+    borderRadius: 20,
+  },
+  clearFiltersText: {
+    color: '#FFFFFF',
+    fontWeight: 'bold',
   },
   bottomNavigation: {
     flexDirection: 'row',
