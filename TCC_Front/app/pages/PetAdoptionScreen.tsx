@@ -118,6 +118,8 @@ export default function PetAdoptionScreen() {
             let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
             let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
             let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
+            // Buscar informações da faixa etária
+            let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
 
             // Verificar se o pet é favorito (somente se o usuário estiver logado)
             let isFavorito = false;
@@ -130,6 +132,7 @@ export default function PetAdoptionScreen() {
               raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
               usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
               status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
+              faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
               favorito: isFavorito,
             };
           })
@@ -284,6 +287,8 @@ export default function PetAdoptionScreen() {
                             ? null
                             : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
                           let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
+                          // Buscar informações da faixa etária
+                          let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
 
                           // Verificar se o pet é favorito (somente se o usuário estiver logado)
                           let isFavorito = false;
@@ -296,6 +301,7 @@ export default function PetAdoptionScreen() {
                             raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
                             usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
                             status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
+                            faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
                             favorito: isFavorito,
                           };
                         })
@@ -344,6 +350,8 @@ export default function PetAdoptionScreen() {
                         let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
                         let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
                         let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
+                        // Buscar informações da faixa etária
+                        let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
 
                         // Verificar se o pet é favorito (somente se o usuário estiver logado)
                         let isFavorito = false;
@@ -356,6 +364,7 @@ export default function PetAdoptionScreen() {
                           raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
                           usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
                           status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
+                          faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
                           favorito: isFavorito,
                         };
                       })
