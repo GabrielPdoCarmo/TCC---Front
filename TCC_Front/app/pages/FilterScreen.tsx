@@ -1,4 +1,4 @@
-// FilterScreen.tsx
+// FilterScreen.tsx - CORRIGIDO
 import { useEffect, useState } from 'react';
 import {
   View,
@@ -10,7 +10,8 @@ import {
   ScrollView,
   ActivityIndicator,
   TextInput,
-  ImageBackground
+  ImageBackground,
+  Alert
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -20,9 +21,11 @@ import getEspecies from '@/services/api/Especies/getEspecies';
 import getFaixaEtaria from '@/services/api/Faixa-etaria/getFaixaEtaria';
 import getRacasPorEspecie from '@/services/api/Raca/getRacasPorEspecie';
 import getEstados from '@/services/api/Estados/getEstados';
-import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
+import getEstadoID from '@/services/api/Estados/getEstadoID';
+import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
-
+import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
+import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
 // Interfaces para os tipos
 interface Especie {
   id: number;
@@ -69,6 +72,7 @@ interface FilterParams {
   estadoIds?: number[];
   cidadeIds?: number[];
   onlyFavorites?: boolean;
+  favoritePetIds?: number[]; // IDs dos pets favoritos do usuário
 }
 
 export default function FilterScreen() {
@@ -80,6 +84,8 @@ export default function FilterScreen() {
   const [estados, setEstados] = useState<Estado[]>([]);
   const [cidades, setCidades] = useState<Cidade[]>([]);
   const [onlyFavorites, setOnlyFavorites] = useState<boolean>(false);
+  const [favoritePetIds, setFavoritePetIds] = useState<number[]>([]); // IDs dos pets favoritos
+  const [loadingFavorites, setLoadingFavorites] = useState<boolean>(false);
 
   // Estados para controlar expansão de seções
   const [especiesExpanded, setEspeciesExpanded] = useState<boolean>(false);
@@ -102,6 +108,67 @@ export default function FilterScreen() {
   // Carregar filtros existentes, se houver
   const params = useLocalSearchParams();
   const currentFilters = params.filters ? JSON.parse(decodeURIComponent(params.filters as string)) : {};
+
+  // Função para buscar favoritos do usuário - CORRIGIDA
+  const loadUserFavorites = async () => {
+    try {
+      setLoadingFavorites(true);
+      
+      // Tentar buscar o ID do usuário da mesma forma que o PetAdoptionScreen
+      let userId = null;
+      
+      // Primeiro, tentar buscar pelo '@App:userId' (usado no PetAdoptionScreen)
+      const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
+      if (userIdFromStorage) {
+        userId = parseInt(userIdFromStorage);
+        console.log('ID do usuário encontrado em @App:userId:', userId);
+      } else {
+        // Se não encontrar, tentar buscar pelos dados completos do usuário
+        const userData = await AsyncStorage.getItem('@App:userData');
+        if (userData) {
+          const user = JSON.parse(userData);
+          userId = user.id;
+          console.log('ID do usuário encontrado em @App:userData:', userId);
+        }
+      }
+
+      if (!userId) {
+        console.log('ID do usuário não encontrado em nenhum local');
+        setLoadingFavorites(false);
+        return;
+      }
+
+      console.log('Buscando favoritos para o usuário:', userId);
+
+      // Buscar favoritos do usuário
+      const favoritos = await getFavoritosPorUsuario(userId);
+      console.log('Favoritos retornados da API:', favoritos);
+      
+      // Extrair apenas os IDs dos pets favoritos
+      const petIds = favoritos.map((favorito: any) => {
+        // Tentar diferentes formas de acessar o pet_id
+        return favorito.pet_id || favorito.petId || favorito.pet?.id;
+      }).filter(Boolean); // Remove valores undefined/null
+      
+      console.log('IDs dos pets favoritos extraídos:', petIds);
+      
+      setFavoritePetIds(petIds);
+      setLoadingFavorites(false);
+      
+      console.log(`Carregados ${petIds.length} pets favoritos para o usuário ${userId}`);
+      
+    } catch (error) {
+      console.error('Erro ao carregar favoritos do usuário:', error);
+      setLoadingFavorites(false);
+      
+      // Mostrar alerta para o usuário em caso de erro
+      Alert.alert(
+        'Erro',
+        'Não foi possível carregar seus favoritos. Tente novamente.',
+        [{ text: 'OK' }]
+      );
+    }
+  };
 
   // Função para verificar se há espécies selecionadas
   const hasSelectedEspecies = () => {
@@ -188,6 +255,9 @@ export default function FilterScreen() {
         setFaixasEtarias(faixasEtariasData);
         setEstados(estadosData);
         setOnlyFavorites(currentFilters.onlyFavorites || false);
+
+        // Carregar favoritos do usuário
+        await loadUserFavorites();
 
         // Carregar raças se houver espécies selecionadas
         if (currentFilters.especieIds && currentFilters.especieIds.length > 0) {
@@ -295,7 +365,7 @@ export default function FilterScreen() {
       for (const estadoId of estadoIds) {
         const estado = estadosArray.find((e: Estado) => e.id === estadoId);
         if (estado) {
-          const cidadesData = await getCidadesPorEstado(estado.nome);
+          const cidadesData = await getCidadesPorEstadoID(estado.id);
           // Adicionar o estado_id às cidades para facilitar o agrupamento
           const cidadesComEstadoId = cidadesData.map((cidade: Cidade) => ({
             ...cidade,
@@ -367,6 +437,17 @@ export default function FilterScreen() {
     }
   };
 
+  // Função para alternar favoritos - CORRIGIDA
+  const toggleFavorites = async () => {
+    const newFavoritesState = !onlyFavorites;
+    setOnlyFavorites(newFavoritesState);
+    
+    // Se está ativando favoritos e ainda não carregou os favoritos, carregar agora
+    if (newFavoritesState && favoritePetIds.length === 0 && !loadingFavorites) {
+      await loadUserFavorites();
+    }
+  };
+
   // Função para atualizar a idade específica de uma faixa etária
   const updateIdadeEspecifica = (id: number, idade: string) => {
     const updatedFaixas = faixasEtarias.map((faixa: FaixaEtaria) => {
@@ -427,12 +508,16 @@ export default function FilterScreen() {
       filters.cidadeIds = selectedCidadeIds;
     }
 
+    // Incluir configuração de favoritos
     if (onlyFavorites) {
       filters.onlyFavorites = true;
+      filters.favoritePetIds = favoritePetIds; // Incluir IDs dos pets favoritos
     }
 
     // Armazenar os filtros para serem usados na tela PetAdoptionScreen
     await AsyncStorage.setItem('@App:petFilters', JSON.stringify(filters));
+
+    console.log('Filtros aplicados:', filters);
 
     // Voltar para a tela anterior com os filtros
     router.push({
@@ -1080,8 +1165,16 @@ export default function FilterScreen() {
           )}
 
           {/* Seção Favoritos */}
-          <TouchableOpacity style={styles.filterSection} onPress={() => setOnlyFavorites(!onlyFavorites)}>
-            <Text style={styles.filterSectionText}>Favoritos</Text>
+          <TouchableOpacity style={styles.filterSection} onPress={toggleFavorites}>
+            <View style={styles.favoritesSectionContent}>
+              <Text style={styles.filterSectionText}>Favoritos</Text>
+              {loadingFavorites && (
+                <ActivityIndicator size="small" color="#4682B4" style={styles.favoritesLoader} />
+              )}
+              {onlyFavorites && favoritePetIds.length > 0 && (
+                <Text style={styles.favoritesCount}>({favoritePetIds.length} pets)</Text>
+              )}
+            </View>
             <Image
               source={
                 onlyFavorites
@@ -1091,6 +1184,15 @@ export default function FilterScreen() {
               style={styles.starIcon}
             />
           </TouchableOpacity>
+
+          {/* Mostrar aviso se favoritos estiver ativo mas não há favoritos */}
+          {onlyFavorites && favoritePetIds.length === 0 && !loadingFavorites && (
+            <View style={styles.infoMessageAttached}>
+              <Text style={styles.infoMessageText}>
+                ℹ️ Você ainda não possui pets favoritos
+              </Text>
+            </View>
+          )}
 
           {/* Botão Aplicar Filtro */}
           <TouchableOpacity style={styles.applyButton} onPress={applyFilters}>
@@ -1433,5 +1535,20 @@ const styles = StyleSheet.create({
     color: '#666',
     fontStyle: 'italic',
     lineHeight: 18,
+  },
+  // Novos estilos para seção de favoritos
+  favoritesSectionContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  favoritesLoader: {
+    marginLeft: 10,
+  },
+  favoritesCount: {
+    fontSize: 14,
+    color: '#4682B4',
+    fontWeight: '500',
+    marginLeft: 8,
   },
 });

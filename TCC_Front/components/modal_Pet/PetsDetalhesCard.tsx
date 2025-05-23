@@ -1,5 +1,5 @@
 // petsdetalhes.tsx
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -49,6 +49,25 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
   onBackPress,
   loading = false
 }) => {
+  // Estado local para controlar a exibição do ícone de favorito
+  const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
+
+  // Atualizar o estado local quando o prop pet.favorito mudar
+  useEffect(() => {
+    setIsFavorite(pet.favorito || false);
+  }, [pet.favorito]);
+
+  // Função para alternar o estado do favorito
+  const handleToggleFavorite = () => {
+    // Atualizar o estado local imediatamente para feedback visual rápido
+    setIsFavorite(!isFavorite);
+    
+    // Chamar a função passada via props para atualizar no backend
+    if (onFavoriteToggle) {
+      onFavoriteToggle(pet.id);
+    }
+  };
+
   // Função para obter os nomes das doenças, se existirem
   const getDiseaseNames = () => {
     if (pet?.doencas && pet.doencas.length > 0) {
@@ -122,6 +141,8 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
 
   // Log para verificar o valor do rgPet
   console.log('RG do Pet no componente:', pet.rgPet);
+  console.log('Estado de favorito atual:', isFavorite);
+  
   return (
     <View style={styles.petCardContainer}>
       <View style={styles.petCard}>
@@ -139,13 +160,13 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.infoValue}>{pet.nome}</Text>
             <TouchableOpacity 
               style={styles.favoriteButton} 
-              onPress={() => onFavoriteToggle(pet.id)}
+              onPress={handleToggleFavorite}
             >
               <Image
                 source={
-                  pet.favorito
-                    ? require('../../assets/images/Icone/star-icon.png')
-                    : require('../../assets/images/Icone/star-icon-open.png')
+                  isFavorite
+                    ? require('../../assets/images/Icone/star-icon-open.png')
+                    : require('../../assets/images/Icone/star-icon.png')
                 }
                 style={styles.favoriteIcon}
               />
@@ -270,8 +291,8 @@ const styles = StyleSheet.create({
     padding: 5,
   },
   favoriteIcon: {
-    width: 24,
-    height: 24,
+    width: 25,
+    height: 25,
     tintColor: '#FFD700',
   },
   motiveSection: {

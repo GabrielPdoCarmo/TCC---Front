@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
 
 // Interface PetCardProps atualizada
@@ -16,7 +16,7 @@ interface PetCardProps {
     faixa_etaria_unidade?: string; // Unidade da faixa etária
     status_id: number;
     status_nome?: string; // Nome do status
-    favorito?: boolean; // Adicionado estado inicial de favorito
+    favorito?: boolean; // Estado inicial de favorito
   };
   onAdopt?: () => void;
   OnDetalhes?: () => void;
@@ -27,13 +27,20 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
+  // Atualizar o estado local quando o prop pet.favorito mudar
+  useEffect(() => {
+    setIsFavorite(pet.favorito || false);
+  }, [pet.favorito]);
+
   // Verifica se o pet está disponível para adoção (status_id === 2)
   const isAvailableForAdoption = pet.status_id === 2;
 
   // Função para alternar o estado do favorito
   const handleToggleFavorite = () => {
+    // Atualizar o estado local imediatamente para feedback visual rápido
     setIsFavorite(!isFavorite);
-    // Chamar a função passada via props, se existir
+    
+    // Chamar a função passada via props para atualizar no backend
     if (onFavorite) {
       onFavorite(pet.id);
     }
@@ -48,6 +55,8 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
   const handleAdoptDisabled = () => {
     Alert.alert('Operação não permitida', 'Este pet já está disponível para adoção.');
   };
+
+  console.log('PetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
 
   return (
     <View style={styles.container}>
@@ -69,24 +78,22 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
           <Text style={styles.label}>
             Nome: <Text style={styles.value}>{pet.nome}</Text>
           </Text>
+          
+          {/* Botão de favorito único */}
           <TouchableOpacity
             style={styles.favoriteButton}
-            onPress={() => {
-              // Verificar se onFavorite existe antes de chamá-lo
-              if (onFavorite) {
-                onFavorite(pet.id);
-              }
-            }}
+            onPress={handleToggleFavorite}
           >
             <Image
               source={
-                pet.favorito
+                isFavorite
                   ? require('../../assets/images/Icone/star-icon-open.png')
                   : require('../../assets/images/Icone/star-icon.png')
               }
               style={styles.favoriteIcon}
             />
           </TouchableOpacity>
+          
           <Text style={styles.label}>
             Raça: <Text style={styles.value}>{pet.raca_nome}</Text>
           </Text>
@@ -106,6 +113,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
             </Text>
           </Text>
         </View>
+        
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
@@ -128,7 +136,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 15,
     marginBottom: 25, // aumentado
-    padding: 20, // aumentado
+    padding: '6%', // aumentado
     minHeight: 180, // adicionado
     elevation: 3,
     shadowColor: '#000',
@@ -178,9 +186,9 @@ const styles = StyleSheet.create({
     right: -10,
     padding: 5,
   },
-  starIcon: {
-    width: 30,
-    height: 30,
+  favoriteIcon: {
+    width: 25,
+    height: 25,
     tintColor: '#FFD700',
   },
   actionContainer: {
@@ -238,10 +246,6 @@ const styles = StyleSheet.create({
   },
   statusAdoptionText: {
     color: '#4CAF50',
-  },
-  favoriteIcon: {
-    width: 25,
-    height: 25,
   },
 });
 

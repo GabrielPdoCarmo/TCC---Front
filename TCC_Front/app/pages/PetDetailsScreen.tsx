@@ -12,8 +12,10 @@ import {
   ImageBackground,
   Dimensions,
   ScrollView,
+  Alert,
 } from 'react-native';
 import { router, useLocalSearchParams } from 'expo-router';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
 import { getPetById } from '@/services/api/Pets/getPetById';
@@ -24,7 +26,10 @@ import getstatusById from '@/services/api/Status/getstatusById';
 import getSexoPetById from '@/services/api/Sexo/getSexoPetById';
 import getDoencasPorPetId from '@/services/api/Doenca/getDoencasPorPetId';
 import getDoencaPorId from '@/services/api/Doenca/getDoencaPorId';
-// Interfaces para os tipos de dados
+import getFavorito from '@/services/api/Favoritos/getFavorito';
+import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
+import checkFavorito from '@/services/api/Favoritos/checkFavorito';
+
 interface Usuario {
   id: any;
   nome: any;
@@ -99,6 +104,32 @@ export default function PetDetailsScreen() {
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
+  const [usuarioId, setUsuarioId] = useState<number | null>(null);
+
+  // Carregar o ID do usuário logado do AsyncStorage na montagem do componente
+  useEffect(() => {
+    fetchUsuarioLogado();
+  }, []);
+
+  // Função para buscar o usuário logado
+  const fetchUsuarioLogado = async () => {
+    try {
+      // Usar a mesma chave '@App:userId' que foi usada para armazenar
+      const userId = await AsyncStorage.getItem('@App:userId');
+
+      if (!userId) {
+        console.log('ID do usuário não encontrado no AsyncStorage');
+        // Permite visualizar pet mesmo sem estar logado
+        return;
+      }
+
+      const userIdNumber = parseInt(userId);
+      setUsuarioId(userIdNumber);
+      console.log('Usuário logado ID:', userIdNumber);
+    } catch (err) {
+      console.error('Erro ao buscar dados do usuário:', err);
+    }
+  };
 
   useEffect(() => {
     // Verificar se o petId é válido
@@ -197,6 +228,24 @@ export default function PetDetailsScreen() {
           return null;
         };
 
+        // Função para verificar se o pet é favorito
+        const checkIfFavorite = async (): Promise<boolean> => {
+          if (!usuarioId) {
+            console.log('Usuário não logado - não verificando favoritos');
+            return false;
+          }
+          
+          try {
+            console.log(`Verificando se pet ID ${petId} é favorito do usuário ID ${usuarioId}`);
+            const isFavorite = await checkFavorito(usuarioId, petId);
+            console.log(`Pet ${petId} é favorito:`, isFavorite);
+            return isFavorite;
+          } catch (err) {
+            console.error('Erro ao verificar se pet é favorito:', err);
+            return false;
+          }
+        };
+
         // Função otimizada para buscar doenças de um pet
         const getDoencas = async (): Promise<Array<{ id: number; nome: string }>> => {
           try {
@@ -273,14 +322,15 @@ export default function PetDetailsScreen() {
           }
         };
 
-        // Buscar informações adicionais em paralelo para melhor desempenho - adicionado faixaEtariaInfo
-        const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencas, faixaEtariaInfo] = await Promise.all([
+        // Buscar informações adicionais em paralelo para melhor desempenho - adicionado faixaEtariaInfo e verificação de favorito
+        const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencas, faixaEtariaInfo, isFavorite] = await Promise.all([
           getRaca(),
           getUsuario(),
           getStatus(),
           getSexo(),
           getDoencas(),
           getFaixaEtaria(),
+          checkIfFavorite(),
         ]);
 
         // Combinar todos os dados
@@ -332,13 +382,14 @@ export default function PetDetailsScreen() {
           doencas: doencas || [],
           motivo_doacao: motivoDoacao, // Mantendo para compatibilidade com snake_case
           motivoDoacao: motivoDoacao, // Mantendo para compatibilidade com camelCase
-          favorito: false,
+          favorito: isFavorite, // Definir o estado real de favorito
           faixa_etaria_unidade: faixaEtariaUnidade,
           cidade_nome: cidade_nome,
           estado_nome: estado_nome,
           rgPet: rgPet, // Adicionar o RG do Pet
         });
 
+        console.log('Pet carregado com status de favorito:', isFavorite);
         setLoading(false);
       } catch (err) {
         console.error('Erro ao buscar detalhes do pet:', err);
@@ -348,13 +399,44 @@ export default function PetDetailsScreen() {
     };
 
     fetchPetDetails();
-  }, [petId]);
+  }, [petId, usuarioId]); // Adicionar usuarioId como dependência
 
-  const toggleFavorite = () => {
-    if (pet) {
-      setPet({ ...pet, favorito: !pet.favorito });
-      // Aqui você pode implementar a lógica para salvar o estado de favorito no backend
-      console.log(`Pet ID ${pet.id} marcado como ${!pet.favorito ? 'favorito' : 'não favorito'}`);
+  // Função atualizada para gerenciar favoritos
+  const toggleFavorite = async () => {
+    if (!pet) return;
+
+    try {
+      console.log(`Alternando favorito para pet ID ${pet.id}${usuarioId ? `, usuário ID ${usuarioId}` : ' (usuário não logado)'}`);
+      
+      if (usuarioId) {
+        // Se usuário está logado, usar as APIs
+        if (pet.favorito) {
+          // Se já é favorito, remove dos favoritos
+          console.log('Removendo dos favoritos...');
+          await deleteFavorito(usuarioId, pet.id);
+          console.log('Pet removido dos favoritos com sucesso');
+        } else {
+          // Se não é favorito, adiciona aos favoritos
+          console.log('Adicionando aos favoritos...');
+          await getFavorito(usuarioId, pet.id);
+          console.log('Pet adicionado aos favoritos com sucesso');
+        }
+      }
+
+      // Atualizar o estado local do pet
+      setPet(prevPet => ({
+        ...prevPet!,
+        favorito: !prevPet!.favorito
+      }));
+
+      console.log(`Pet ID ${pet.id} ${pet.favorito ? 'removido dos' : 'adicionado aos'} favoritos`);
+    } catch (error) {
+      console.error('Erro ao atualizar favorito:', error);
+      Alert.alert(
+        'Erro',
+        'Não foi possível atualizar os favoritos. Tente novamente.',
+        [{ text: 'OK' }]
+      );
     }
   };
 
@@ -417,7 +499,7 @@ export default function PetDetailsScreen() {
 
                     // Buscar informações adicionais
                     try {
-                      const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo] =
+                        const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo, isFavorite] =
                         await Promise.all([
                           getRacaById(petData.raca_id),
                           getUsuarioByIdComCidadeEstado(petData.usuario_id),
@@ -425,6 +507,7 @@ export default function PetDetailsScreen() {
                           getSexoPetById(petData.sexo_id || 0),
                           getDoencasPorPetId(petId),
                           getFaixaEtariaById(petData.faixa_etaria_id || 0),
+                          usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
                         ]);
 
                       // Extrair nomes da cidade e estado do usuário, se disponíveis
@@ -491,7 +574,7 @@ export default function PetDetailsScreen() {
                         doencas: doencas,
                         motivo_doacao: motivoDoacao,
                         motivoDoacao: motivoDoacao,
-                        favorito: false,
+                        favorito: isFavorite, // Usar o status real de favorito
                         faixa_etaria_unidade: faixaEtariaUnidade,
                         cidade_nome: cidade_nome,
                         estado_nome: estado_nome,
@@ -509,7 +592,7 @@ export default function PetDetailsScreen() {
                         doencas: [],
                         motivo_doacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
                         motivoDoacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
-                        favorito: false,
+                        favorito: false, // Padrão como não favorito se não conseguir verificar
                         faixa_etaria_unidade: '',
                         cidade_nome: 'Não informado',
                         estado_nome: 'Não informado',
