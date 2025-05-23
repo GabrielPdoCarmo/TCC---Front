@@ -675,11 +675,7 @@ export default function FilterScreen() {
               onSubmitEditing={handleSearch}
               returnKeyType="search"
             />
-            {searchQuery.length > 0 && (
-              <TouchableOpacity onPress={clearSearch} style={styles.clearSearchIconButton}>
-                <Text style={styles.clearSearchIconText}>✕</Text>
-              </TouchableOpacity>
-            )}
+
             <TouchableOpacity onPress={handleSearch} style={styles.searchNameButton}>
               {searchLoading ? (
                 <ActivityIndicator size="small" color="#4682B4" />
@@ -688,6 +684,12 @@ export default function FilterScreen() {
               )}
             </TouchableOpacity>
           </View>
+
+          {searchQuery.length > 0 && (
+            <TouchableOpacity onPress={clearSearch} style={styles.clearSearchIconButton}>
+              <Text style={styles.clearSearchIconText}>✕</Text>
+            </TouchableOpacity>
+          )}
         </View>
 
         {/* Mensagem simples com resultado */}
@@ -1569,12 +1571,12 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   clearSearchIconButton: {
-    padding: 5,
-    marginHorizontal: 5,
+    alignSelf: 'flex-end',
+    paddingVertical: 5,
+    paddingHorizontal: 10,
     backgroundColor: '#E6E6E6',
     borderRadius: 20,
-    justifyContent: 'center',
-    alignItems: 'center',
+    marginTop: 5,
   },
 
   clearSearchIconText: {
