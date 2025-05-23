@@ -1568,4 +1568,17 @@ const styles = StyleSheet.create({
     textAlign: 'center',
     fontWeight: '500',
   },
+  clearSearchIconButton: {
+    padding: 5,
+    marginHorizontal: 5,
+    backgroundColor: '#E6E6E6',
+    borderRadius: 20,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+
+  clearSearchIconText: {
+    fontSize: 16,
+    color: '#333',
+  },
 });
