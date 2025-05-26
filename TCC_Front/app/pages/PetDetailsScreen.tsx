@@ -21,6 +21,7 @@ import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
 import { getPetById } from '@/services/api/Pets/getPetById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById'; // ✅ ADICIONADO: Import para buscar foto do usuário
 import getRacaById from '@/services/api/Raca/getRacaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import getSexoPetById from '@/services/api/Sexo/getSexoPetById';
@@ -33,6 +34,7 @@ import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 interface Usuario {
   id: any;
   nome: any;
+  foto?: string; // ✅ ADICIONADO: Propriedade para foto do usuário
   cidade?: { id: any; nome: string };
   estado?: { id: any; nome: any };
   cidade_nome?: string;
@@ -56,6 +58,7 @@ interface Pet {
   idade: string;
   usuario_id: number;
   usuario_nome?: string;
+  usuario_foto?: string; // ✅ ADICIONADO: Propriedade para foto do usuário responsável
   foto?: string;
   faixa_etaria_id: number;
   faixa_etaria_unidade?: string;
@@ -179,10 +182,26 @@ export default function PetDetailsScreen() {
         const getUsuario = async () => {
           if (petData.usuario_id) {
             try {
-              // Buscar dados do usuário
+              // ✅ MODIFICADO: Buscar dados completos do usuário incluindo cidade/estado
               const usuarioData = await getUsuarioByIdComCidadeEstado(petData.usuario_id);
-              console.log('Dados do usuário obtidos:', usuarioData);
-              return usuarioData as Usuario;
+              console.log('Dados do usuário com cidade/estado obtidos:', usuarioData);
+              
+              // ✅ ADICIONADO: Buscar dados básicos do usuário para pegar a foto
+              let usuarioFoto = null;
+              try {
+                const usuarioBasico = await getUsuarioById(petData.usuario_id);
+                console.log('Dados básicos do usuário obtidos:', usuarioBasico);
+                usuarioFoto = usuarioBasico?.foto || null;
+                console.log('Foto do usuário extraída:', usuarioFoto);
+              } catch (err) {
+                console.error(`Erro ao buscar dados básicos do usuário com ID ${petData.usuario_id}:`, err);
+              }
+              
+              // Combinar os dados do usuário com a foto
+              return {
+                ...usuarioData,
+                foto: usuarioFoto
+              } as Usuario;
             } catch (err) {
               console.error(`Erro ao buscar o usuário com ID ${petData.usuario_id}:`, err);
               return null;
@@ -341,10 +360,15 @@ export default function PetDetailsScreen() {
         // Extrair nomes da cidade e estado do usuário, se disponíveis
         let cidade_nome = 'Não informado';
         let estado_nome = 'Não informado';
+        let usuario_foto = null; // ✅ ADICIONADO: Variável para foto do usuário
 
         // Verifica se temos informações de cidade e estado do usuário
         if (usuarioInfo) {
           console.log('Informações do usuário para localização:', usuarioInfo);
+
+          // ✅ ADICIONADO: Extrair foto do usuário
+          usuario_foto = usuarioInfo.foto || null;
+          console.log('Foto do usuário extraída para o pet:', usuario_foto);
 
           // Verificar se há propriedade cidade_nome diretamente no usuário
           if (usuarioInfo.cidade_nome) {
@@ -377,6 +401,7 @@ export default function PetDetailsScreen() {
           ...petData,
           raca_nome: petData.raca_nome || racaInfo?.nome || 'Desconhecido',
           usuario_nome: petData.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+          usuario_foto: usuario_foto, // ✅ ADICIONADO: Incluir foto do usuário
           status_nome: petData.status_nome || statusInfo?.nome || 'Disponível para adoção',
           sexo_nome: petData.sexo_nome || sexoInfo?.descricao || 'Não informado',
           doencas: doencas || [],
@@ -390,6 +415,7 @@ export default function PetDetailsScreen() {
         });
 
         console.log('Pet carregado com status de favorito:', isFavorite);
+        console.log('Pet carregado com foto do usuário:', usuario_foto);
         setLoading(false);
       } catch (err) {
         console.error('Erro ao buscar detalhes do pet:', err);
@@ -499,7 +525,7 @@ export default function PetDetailsScreen() {
 
                     // Buscar informações adicionais
                     try {
-                        const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo, isFavorite] =
+                        const [racaInfo, usuarioInfoCompleto, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo, isFavorite] =
                         await Promise.all([
                           getRacaById(petData.raca_id),
                           getUsuarioByIdComCidadeEstado(petData.usuario_id),
@@ -510,27 +536,36 @@ export default function PetDetailsScreen() {
                           usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
                         ]);
 
+                      // ✅ ADICIONADO: Buscar foto do usuário separadamente
+                      let usuarioFoto = null;
+                      try {
+                        const usuarioBasico = await getUsuarioById(petData.usuario_id);
+                        usuarioFoto = usuarioBasico?.foto || null;
+                      } catch (err) {
+                        console.error(`Erro ao buscar foto do usuário:`, err);
+                      }
+
                       // Extrair nomes da cidade e estado do usuário, se disponíveis
                       let cidade_nome = 'Não informado';
                       let estado_nome = 'Não informado';
 
-                      if (usuarioInfo) {
+                      if (usuarioInfoCompleto) {
                         // Verificar se há propriedade cidade_nome diretamente no usuário
-                        if ((usuarioInfo as Usuario).cidade_nome) {
-                          cidade_nome = (usuarioInfo as Usuario).cidade_nome as string;
+                        if ((usuarioInfoCompleto as Usuario).cidade_nome) {
+                          cidade_nome = (usuarioInfoCompleto as Usuario).cidade_nome as string;
                         }
                         // Verificar se há propriedade cidade com objeto aninhado
-                        else if ((usuarioInfo as Usuario).cidade && (usuarioInfo as Usuario).cidade!.nome) {
-                          cidade_nome = (usuarioInfo as Usuario).cidade!.nome;
+                        else if ((usuarioInfoCompleto as Usuario).cidade && (usuarioInfoCompleto as Usuario).cidade!.nome) {
+                          cidade_nome = (usuarioInfoCompleto as Usuario).cidade!.nome;
                         }
 
                         // Verificar se há propriedade estado_nome diretamente no usuário
-                        if ((usuarioInfo as Usuario).estado_nome) {
-                          estado_nome = (usuarioInfo as Usuario).estado_nome as string;
+                        if ((usuarioInfoCompleto as Usuario).estado_nome) {
+                          estado_nome = (usuarioInfoCompleto as Usuario).estado_nome as string;
                         }
                         // Verificar se há propriedade estado com objeto aninhado
-                        else if ((usuarioInfo as Usuario).estado && (usuarioInfo as Usuario).estado!.nome) {
-                          estado_nome = (usuarioInfo as Usuario).estado!.nome;
+                        else if ((usuarioInfoCompleto as Usuario).estado && (usuarioInfoCompleto as Usuario).estado!.nome) {
+                          estado_nome = (usuarioInfoCompleto as Usuario).estado!.nome;
                         }
                       }
 
@@ -568,7 +603,8 @@ export default function PetDetailsScreen() {
                       setPet({
                         ...petData,
                         raca_nome: racaInfo?.nome || 'Desconhecido',
-                        usuario_nome: usuarioInfo?.nome || 'Desconhecido',
+                        usuario_nome: usuarioInfoCompleto?.nome || 'Desconhecido',
+                        usuario_foto: usuarioFoto, // ✅ ADICIONADO: Incluir foto do usuário
                         status_nome: statusInfo?.nome || 'Disponível para adoção',
                         sexo_nome: sexoInfo?.descricao || 'Não informado',
                         doencas: doencas,
@@ -587,6 +623,7 @@ export default function PetDetailsScreen() {
                         ...petData,
                         raca_nome: 'Desconhecido',
                         usuario_nome: 'Desconhecido',
+                        usuario_foto: null, // ✅ ADICIONADO
                         status_nome: 'Disponível para adoção',
                         sexo_nome: 'Não informado',
                         doencas: [],

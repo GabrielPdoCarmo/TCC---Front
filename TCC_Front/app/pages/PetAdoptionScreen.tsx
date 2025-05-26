@@ -1,4 +1,4 @@
-// PetAdoptionScreen.tsx (sem barra de busca) - CORRIGIDO
+// PetAdoptionScreen.tsx (sem barra de busca) - CORRIGIDO COM FOTO DO USUÁRIO
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -39,6 +39,7 @@ interface Pet {
   idade: string;
   usuario_id: number;
   usuario_nome?: string;
+  usuario_foto?: string | null; // ✅ CORRIGIDO: Aceita null para foto do usuário
   usuario_cidade_id?: number;
   usuario_estado_id?: number;
   foto?: string;
@@ -56,6 +57,7 @@ interface Usuario {
   id: number;
   nome: string;
   email?: string;
+  foto?: string; // ✅ NOVO: Foto do usuário
   cidade?: {
     id: number;
     nome: string;
@@ -194,7 +196,7 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // Função melhorada para carregar pets com detalhes completos
+  // ✅ FUNÇÃO MELHORADA para carregar pets com detalhes completos incluindo foto do usuário
   const loadPetsWithDetails = async (pets: Pet[]): Promise<Pet[]> => {
     // Verificar se pets é um array válido
     if (!Array.isArray(pets) || pets.length === 0) {
@@ -206,12 +208,24 @@ export default function PetAdoptionScreen() {
       return Promise.all(
         pets.map(async (pet: Pet) => {
           try {
-            // Verifica se as informações de raça e usuário já estão incluídas na resposta
+            // Buscar informações básicas se não estiverem incluídas
             let racaInfo = pet.raca_nome ? null : await getRacaById(pet.raca_id);
-            let usuarioInfo = pet.usuario_nome ? null : await getUsuarioByIdComCidadeEstado(pet.usuario_id);
             let statusInfo = pet.status_nome ? null : await getstatusById(pet.status_id);
-            // Buscar informações da faixa etária
             let faixaEtariaInfo = pet.faixa_etaria_unidade ? null : await getFaixaEtariaById(pet.faixa_etaria_id);
+
+            // ✅ CORREÇÃO: Buscar dados do usuário para localização E foto separadamente
+            let usuarioInfo = null;
+            let usuarioFotoInfo = null;
+
+            // Se não temos nome do usuário, buscar dados completos com localização
+            if (!pet.usuario_nome) {
+              usuarioInfo = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+            }
+
+            // ✅ SEMPRE buscar a foto usando getUsuarioById
+            if (!pet.usuario_foto) {
+              usuarioFotoInfo = await getUsuarioById(pet.usuario_id);
+            }
 
             // Verificar se o pet é favorito (somente se o usuário estiver logado)
             let isFavorito = false;
@@ -223,6 +237,7 @@ export default function PetAdoptionScreen() {
               ...pet,
               raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
               usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+              usuario_foto: pet.usuario_foto || usuarioFotoInfo?.foto || null, // ✅ FOTO via getUsuarioById
               usuario_cidade_id: pet.usuario_cidade_id || usuarioInfo?.cidade?.id,
               usuario_estado_id: pet.usuario_estado_id || usuarioInfo?.estado?.id,
               status_nome: pet.status_nome || statusInfo?.nome || 'Disponível para adoção',
@@ -236,6 +251,7 @@ export default function PetAdoptionScreen() {
               ...pet,
               raca_nome: pet.raca_nome || 'Desconhecido',
               usuario_nome: pet.usuario_nome || 'Desconhecido',
+              usuario_foto: pet.usuario_foto || null, // ✅ NOVO: Foto padrão em caso de erro
               status_nome: pet.status_nome || 'Disponível para adoção',
               faixa_etaria_unidade: pet.faixa_etaria_unidade || '',
               favorito: false,
@@ -249,6 +265,7 @@ export default function PetAdoptionScreen() {
         ...pet,
         raca_nome: pet.raca_nome || 'Desconhecido',
         usuario_nome: pet.usuario_nome || 'Desconhecido',
+        usuario_foto: pet.usuario_foto || null, // ✅ NOVO: Foto padrão em caso de erro geral
         status_nome: pet.status_nome || 'Disponível para adoção',
         faixa_etaria_unidade: pet.faixa_etaria_unidade || '',
         favorito: false,
@@ -422,7 +439,7 @@ export default function PetAdoptionScreen() {
           return;
         }
 
-        // Carregar detalhes completos dos pets
+        // Carregar detalhes completos dos pets (incluindo foto do usuário)
         const petsWithDetails = await loadPetsWithDetails(response);
         console.log('Pets com detalhes carregados:', petsWithDetails.length);
 
@@ -470,7 +487,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // Carregar detalhes completos dos pets
+      // Carregar detalhes completos dos pets (incluindo foto do usuário)
       const petsWithDetails = await loadPetsWithDetails(response);
 
       // Armazenar todos os pets

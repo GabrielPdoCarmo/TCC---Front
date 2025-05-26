@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
 
 // Interface PetCardProps atualizada
 interface PetCardProps {
@@ -11,6 +11,7 @@ interface PetCardProps {
     idade: string;
     usuario_id: number;
     usuario_nome?: string; // Nome do usuário responsável
+    usuario_foto?: string | null; // ✅ CORRIGIDO: Aceita null para foto do usuário responsável
     foto?: string;
     faixa_etaria_id: number;
     faixa_etaria_unidade?: string; // Unidade da faixa etária
@@ -27,6 +28,9 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
+  // Estado para controlar a exibição da foto ampliada
+  const [showExpandedPhoto, setShowExpandedPhoto] = useState(false);
+
   // Atualizar o estado local quando o prop pet.favorito mudar
   useEffect(() => {
     setIsFavorite(pet.favorito || false);
@@ -39,7 +43,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
   const handleToggleFavorite = () => {
     // Atualizar o estado local imediatamente para feedback visual rápido
     setIsFavorite(!isFavorite);
-    
+
     // Chamar a função passada via props para atualizar no backend
     if (onFavorite) {
       onFavorite(pet.id);
@@ -54,6 +58,13 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
   // Função para exibir alerta quando tentar disponibilizar para adoção novamente
   const handleAdoptDisabled = () => {
     Alert.alert('Operação não permitida', 'Este pet já está disponível para adoção.');
+  };
+
+  // Função para expandir a foto do usuário
+  const handleExpandUserPhoto = () => {
+    if (pet.usuario_foto) {
+      setShowExpandedPhoto(true);
+    }
   };
 
   console.log('PetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
@@ -78,12 +89,9 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
           <Text style={styles.label}>
             Nome: <Text style={styles.value}>{pet.nome}</Text>
           </Text>
-          
+
           {/* Botão de favorito único */}
-          <TouchableOpacity
-            style={styles.favoriteButton}
-            onPress={handleToggleFavorite}
-          >
+          <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
             <Image
               source={
                 isFavorite
@@ -93,7 +101,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
               style={styles.favoriteIcon}
             />
           </TouchableOpacity>
-          
+
           <Text style={styles.label}>
             Raça: <Text style={styles.value}>{pet.raca_nome}</Text>
           </Text>
@@ -103,9 +111,26 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
               {pet.idade} {pet.faixa_etaria_unidade}
             </Text>
           </Text>
-          <Text style={styles.label}>
-            Responsável: <Text style={styles.value}>{pet.usuario_nome}</Text>
-          </Text>
+
+          {/* ✅ MODIFICADO: Responsável em linhas separadas */}
+          <Text style={styles.label}>Responsável:</Text>
+          <TouchableOpacity
+            style={styles.userInfoContainer}
+            onPress={handleExpandUserPhoto}
+            activeOpacity={pet.usuario_foto ? 0.7 : 1}
+          >
+            {pet.usuario_foto ? (
+              <Image source={{ uri: pet.usuario_foto }} style={styles.userPhoto} />
+            ) : (
+              <View style={styles.defaultUserPhoto}>
+                <Text style={styles.defaultUserPhotoText}>
+                  {pet.usuario_nome ? pet.usuario_nome.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.value}>{pet.usuario_nome}</Text>
+          </TouchableOpacity>
+
           <Text style={[styles.label, isAvailableForAdoption ? styles.statusAdoption : null]}>
             Status:{' '}
             <Text style={[styles.value, isAvailableForAdoption ? styles.statusAdoptionText : null]}>
@@ -113,12 +138,14 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
             </Text>
           </Text>
         </View>
-        
+
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
             <TouchableOpacity style={[styles.editButton]} onPress={onAdopt}>
-              <Text style={[styles.buttonText]}>Adotar</Text>
+              <Text numberOfLines={1} style={[styles.buttonText]}>
+                Adicionar aos meus Pets
+              </Text>
             </TouchableOpacity>
             <TouchableOpacity style={styles.detalhesButton} onPress={OnDetalhes}>
               <Text style={styles.buttonText}>Detalhes</Text>
@@ -126,6 +153,28 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite }: PetCardProps) => {
           </View>
         </View>
       </View>
+
+      {/* Modal para foto ampliada */}
+      <Modal
+        visible={showExpandedPhoto}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowExpandedPhoto(false)}
+      >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExpandedPhoto(false)}>
+          <View style={styles.modalContent}>
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowExpandedPhoto(false)}>
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+
+            {pet.usuario_foto && (
+              <Image source={{ uri: pet.usuario_foto }} style={styles.expandedPhoto} resizeMode="contain" />
+            )}
+
+            <Text style={styles.expandedPhotoName}>{pet.usuario_nome}</Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -191,6 +240,38 @@ const styles = StyleSheet.create({
     height: 25,
     tintColor: '#FFD700',
   },
+
+  // ✅ ESTILOS ATUALIZADOS para foto do usuário
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 3,
+  },
+  userPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  defaultUserPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#4682B4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  defaultUserPhotoText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+
   actionContainer: {
     marginTop: 'auto',
   },
@@ -212,13 +293,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   editButton: {
-    backgroundColor: '#0044FFFF',
+    backgroundColor: '#2E5BFF', // ✅ MANTIDO: Cor azul mais vibrante igual à imagem
     borderRadius: 25,
     paddingVertical: 6,
-    paddingHorizontal: 12,
-    width: 100,
+    paddingHorizontal: 12, // ✅ AUMENTADO: Mais padding horizontal para acomodar o texto
     marginRight: 10,
     alignItems: 'center',
+    flexShrink: 0,
+    width: 200, // ✅ ADICIONADO: Largura fixa para manter o botão consistente
+    // ✅ ADICIONADO: Impede quebra de linha
   },
   detalhesButton: {
     backgroundColor: '#468CB4FF',
@@ -246,6 +329,55 @@ const styles = StyleSheet.create({
   },
   statusAdoptionText: {
     color: '#4CAF50',
+  },
+
+  // ✅ ESTILOS para o modal da foto ampliada
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    maxWidth: '90%',
+    maxHeight: '80%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  expandedPhoto: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 3,
+    borderColor: '#4682B4',
+    marginTop: 20,
+  },
+  expandedPhotoName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 15,
+    textAlign: 'center',
   },
 });
 

@@ -32,6 +32,9 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
   // Verifica se o pet está disponível para adoção (status_id === 2)
   const isAvailableForAdoption = pet.status_id === 2;
   
+  // Verifica se o pet tem status_id === 1
+  const isStatusOne = pet.status_id === 1;
+  
   // Removida a verificação de status para o botão de edição
   // O botão de edição agora sempre estará habilitado, independente do status
 
@@ -85,11 +88,13 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
           </Text>
           <Text style={[
             styles.label, 
-            isAvailableForAdoption ? styles.statusAdoption : null
+            isAvailableForAdoption ? styles.statusAdoption : null,
+            isStatusOne ? styles.statusAdoption : null
           ]}>
             Status: <Text style={[
               styles.value, 
-              isAvailableForAdoption ? styles.statusAdoptionText : null
+              isAvailableForAdoption ? styles.statusAdoptionText : null,
+              isStatusOne ? styles.statusOneText : null
             ]}>{pet.status_nome}</Text>
           </Text>
         </View>
@@ -241,6 +246,10 @@ const styles = StyleSheet.create({
   },
   statusAdoptionText: {
     color: '#4CAF50',
+  },
+  // Novo estilo para status_id === 1
+  statusOneText: {
+    color: '#DE952F',
   }
 });
 

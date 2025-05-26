@@ -152,6 +152,11 @@ export default function CadastroUsuario() {
   const cidadesCache = useRef<{ [key: string]: CidadeType[] }>({});
   const navigation = useNavigation<any>();
 
+  // Função para voltar à tela de login
+  const handleVoltarLogin = () => {
+    router.push('/pages/login');
+  };
+
   // Função para selecionar uma imagem
   const pickImage = async () => {
     try {
@@ -743,6 +748,14 @@ export default function CadastroUsuario() {
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.mainContent}>
+            {/* Botão Voltar */}
+            <View style={styles.backButtonContainer}>
+              <TouchableOpacity style={styles.backButton} onPress={handleVoltarLogin}>
+                <Feather name="arrow-left" size={24} color="#333" />
+                <Text style={styles.backButtonText}>Voltar ao Login</Text>
+              </TouchableOpacity>
+            </View>
+
             <View style={styles.titleContainer}>
               <Text style={styles.pageTitle}>Dados Pessoais</Text>
             </View>
@@ -1021,6 +1034,28 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  backButtonContainer: {
+    marginTop: 10,
+    marginBottom: 20,
+    alignItems: 'flex-start',
+    width: '100%',
+  },
+  backButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#ddd',
+  },
+  backButtonText: {
+    marginLeft: 8,
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
   saveButton: {
     backgroundColor: '#4CAF50', // Cor do botão
     paddingVertical: 10,
@@ -1073,7 +1108,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     textAlign: 'center',
-    marginTop: 50,
+    marginTop: 20,
   },
   formContainer: {
     width: '100%',

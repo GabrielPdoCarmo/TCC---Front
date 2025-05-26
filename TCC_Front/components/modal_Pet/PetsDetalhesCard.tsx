@@ -6,7 +6,8 @@ import {
   Image,
   TouchableOpacity,
   StyleSheet,
-  Dimensions
+  Dimensions,
+  Modal
 } from 'react-native';
 
 // Definindo a interface para o tipo Pet
@@ -16,6 +17,7 @@ interface Pet {
   raca_nome?: string;
   idade: string;
   usuario_nome?: string;
+  usuario_foto?: string | null;  // ✅ CORRIGIDO: Aceita null para foto do usuário responsável
   cidade_id?: number;
   estado_id?: number;
   cidade_nome?: string;  // Added city name property
@@ -51,6 +53,9 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
 }) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
+  
+  // ✅ ADICIONADO: Estado para controlar a exibição da foto ampliada
+  const [showExpandedPhoto, setShowExpandedPhoto] = useState(false);
 
   // Atualizar o estado local quando o prop pet.favorito mudar
   useEffect(() => {
@@ -65,6 +70,13 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
     // Chamar a função passada via props para atualizar no backend
     if (onFavoriteToggle) {
       onFavoriteToggle(pet.id);
+    }
+  };
+
+  // ✅ ADICIONADO: Função para expandir a foto do usuário
+  const handleExpandUserPhoto = () => {
+    if (pet.usuario_foto) {
+      setShowExpandedPhoto(true);
     }
   };
 
@@ -189,10 +201,24 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.infoValue}>{formatRG(pet.rgPet)}</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Responsável:</Text>
-            <Text style={styles.infoValue}>{pet.usuario_nome || 'Desconhecido'}</Text>
-          </View>
+          {/* ✅ MODIFICADO: Responsável em linhas separadas */}
+          <Text style={[styles.infoLabel, { marginBottom: 3 }]}>Responsável:</Text>
+          <TouchableOpacity 
+            style={styles.userInfoContainer}
+            onPress={handleExpandUserPhoto}
+            activeOpacity={pet.usuario_foto ? 0.7 : 1}
+          >
+            {pet.usuario_foto ? (
+              <Image source={{ uri: pet.usuario_foto }} style={styles.userPhoto} />
+            ) : (
+              <View style={styles.defaultUserPhoto}>
+                <Text style={styles.defaultUserPhotoText}>
+                  {pet.usuario_nome ? pet.usuario_nome.charAt(0).toUpperCase() : 'U'}
+                </Text>
+              </View>
+            )}
+            <Text style={styles.userName}>{pet.usuario_nome || 'Desconhecido'}</Text>
+          </TouchableOpacity>
 
           {/* Linha para cidade e estado */}
           <View style={styles.infoRow}>
@@ -231,10 +257,43 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
             style={styles.adoptButton} 
             onPress={() => onAdoptPress(pet.id)}
           >
-            <Text style={styles.buttonText}>Adotar</Text>
+            <Text style={styles.buttonText}>Adicionar ao meus Pets</Text>
           </TouchableOpacity>
         </View>
       </View>
+
+      {/* ✅ ADICIONADO: Modal para foto ampliada */}
+      <Modal
+        visible={showExpandedPhoto}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowExpandedPhoto(false)}
+      >
+        <TouchableOpacity 
+          style={styles.modalOverlay}
+          activeOpacity={1}
+          onPress={() => setShowExpandedPhoto(false)}
+        >
+          <View style={styles.modalContent}>
+            <TouchableOpacity 
+              style={styles.closeButton}
+              onPress={() => setShowExpandedPhoto(false)}
+            >
+              <Text style={styles.closeButtonText}>✕</Text>
+            </TouchableOpacity>
+            
+            {pet.usuario_foto && (
+              <Image 
+                source={{ uri: pet.usuario_foto }} 
+                style={styles.expandedPhoto}
+                resizeMode="contain"
+              />
+            )}
+            
+            <Text style={styles.expandedPhotoName}>{pet.usuario_nome}</Text>
+          </View>
+        </TouchableOpacity>
+      </Modal>
     </View>
   );
 };
@@ -269,21 +328,21 @@ const styles = StyleSheet.create({
     backgroundColor: '#E1E1E1',
   },
   petInfo: {
-    padding: 15,
+    padding: 12,
   },
   infoRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   infoLabel: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: 'bold',
     color: '#000',
     marginRight: 5,
   },
   infoValue: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#000',
     flex: 1,
   },
@@ -295,44 +354,127 @@ const styles = StyleSheet.create({
     height: 25,
     tintColor: '#FFD700',
   },
+  
+  // ✅ ADICIONADO: Estilos para foto do usuário
+  userInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 4,
+  },
+  userPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  defaultUserPhoto: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#4682B4',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 8,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  defaultUserPhotoText: {
+    fontSize: 12,
+    fontWeight: 'bold',
+    color: '#FFFFFF',
+  },
+  userName: {
+    fontSize: 14,
+    color: '#000',
+  },
+  
   motiveSection: {
-    marginTop: 10,
+    marginTop: 8,
   },
   description: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#333',
-    lineHeight: 20,
-    marginTop: 5,
+    lineHeight: 18,
+    marginTop: 4,
   },
   buttonsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    padding: 15,
+    padding: 12,
+    gap: 10,
   },
   backButton: {
     backgroundColor: '#808080',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    marginRight: 10,
   },
   adoptButton: {
     backgroundColor: '#4682B4',
-    paddingVertical: 12,
-    paddingHorizontal: 30,
+    paddingVertical: 10,
+    paddingHorizontal: 25,
     borderRadius: 25,
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    marginLeft: 10,
   },
   buttonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 13,
     fontWeight: 'bold',
+    textAlign: 'center',
+  },
+
+  // ✅ ADICIONADO: Estilos para o modal da foto ampliada
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.8)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    padding: 20,
+    alignItems: 'center',
+    maxWidth: '90%',
+    maxHeight: '80%',
+    position: 'relative',
+  },
+  closeButton: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    width: 30,
+    height: 30,
+    borderRadius: 15,
+    backgroundColor: 'rgba(0, 0, 0, 0.1)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 1,
+  },
+  closeButtonText: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#666',
+  },
+  expandedPhoto: {
+    width: 250,
+    height: 250,
+    borderRadius: 125,
+    borderWidth: 3,
+    borderColor: '#4682B4',
+    marginTop: 20,
+  },
+  expandedPhotoName: {
+    fontSize: 18,
+    fontWeight: 'bold',
+    color: '#333',
+    marginTop: 15,
+    textAlign: 'center',
   },
 });
 

@@ -500,6 +500,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
+    borderWidth: 2, // Adicione esta linha
+    borderColor: '#000000', // Adicione esta linha
   },
   addIcon: {
     width: 24,
