@@ -802,26 +802,6 @@ export default function MyPetsScreen() {
             />
           )}
         </View>
-
-        {/* Barra de navegação inferior */}
-        <View style={styles.bottomNavigation}>
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetDonation')}>
-            <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Adoção</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
-            <Image source={require('../../assets/images/Icone/donation-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Pets</Text>
-          </TouchableOpacity>
-
-          <TouchableOpacity style={styles.navItem}>
-            <View style={styles.activeCircle}>
-              <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
-            </View>
-            <Text style={styles.activeNavText}>Meus Pets</Text>
-          </TouchableOpacity>
-        </View>
       </ImageBackground>
     </SafeAreaView>
   );
