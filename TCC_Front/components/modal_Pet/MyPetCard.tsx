@@ -165,7 +165,7 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
           </TouchableOpacity>
 
           <Text style={styles.label}>
-            Status: <Text style={styles.value}>{pet.status_nome}</Text>
+            Status: <Text style={(styles.value, styles.statusOneText)}>{pet.status_nome}</Text>
           </Text>
         </View>
 
@@ -292,6 +292,10 @@ const styles = StyleSheet.create({
     marginBottom: 3,
   },
   value: {
+    fontWeight: 'bold',
+  },
+  statusOneText: {
+    color: '#0E9999FF',
     fontWeight: 'bold',
   },
   favoriteButton: {
