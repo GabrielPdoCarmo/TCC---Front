@@ -1,4 +1,4 @@
-// ProfileScreen.tsx with added character limits
+// ProfileScreen.tsx with added character limits and CEP validation
 import { router } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -25,6 +25,7 @@ import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import { cpf } from 'cpf-cnpj-validator';
+
 interface Usuario {
   id: number;
   nome: string;
@@ -75,6 +76,14 @@ interface Cidade {
 interface Sexo {
   id: number;
   descricao: string;
+}
+
+// NOVA INTERFACE: Para armazenar dados do CEP
+interface CEPData {
+  estadoId: number | null;
+  cidadeId: number | null;
+  estadoNome: string;
+  cidadeNome: string;
 }
 
 // Helper functions for formatting and validation
@@ -241,6 +250,14 @@ export default function ProfileScreen() {
   const [loadingCep, setLoadingCep] = useState<boolean>(false);
   const [loadingCidades, setLoadingCidades] = useState<boolean>(false);
 
+  // NOVO ESTADO: Para rastrear dados preenchidos pelo CEP
+  const [dadosDoCep, setDadosDoCep] = useState<CEPData>({
+    estadoId: null,
+    cidadeId: null,
+    estadoNome: '',
+    cidadeNome: ''
+  });
+
   // Campos editáveis
   const [nome, setNome] = useState<string>('');
   const [email, setEmail] = useState<string>('');
@@ -254,6 +271,7 @@ export default function ProfileScreen() {
   const [sexoId, setSexoId] = useState<number>(1);
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoErro, setFotoErro] = useState<string>('');
+  
   // Campos de erro
   const [nomeErro, setNomeErro] = useState<string>('');
   const [emailErro, setEmailErro] = useState<string>('');
@@ -265,6 +283,7 @@ export default function ProfileScreen() {
   const [senhaErro, setSenhaErro] = useState<string>('');
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState<string>('');
   const [sexoErro, setSexoErro] = useState<string>('');
+  
   // Estado para toggle de senha
   const [showSenha, setShowSenha] = useState<boolean>(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
@@ -421,6 +440,31 @@ export default function ProfileScreen() {
     }
   };
 
+  // NOVA FUNÇÃO: Verificar se deve limpar o CEP
+  const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
+    // Se não há dados do CEP ou CEP está vazio, não fazer nada
+    if (!dadosDoCep.estadoId || !dadosDoCep.cidadeId || !cep.trim()) {
+      return;
+    }
+
+    // Se o estado ou cidade selecionado for diferente do que veio do CEP
+    const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
+    const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
+
+    if (estadoDiferente || cidadeDiferente) {
+      console.log('Estado ou cidade diferente do CEP, limpando CEP...');
+      setCep('');
+      setCepErro('');
+      // Limpar dados do CEP já que foi alterado manualmente
+      setDadosDoCep({
+        estadoId: null,
+        cidadeId: null,
+        estadoNome: '',
+        cidadeNome: ''
+      });
+    }
+  };
+
   // Handlers para inputs formatados
   const handleNomeChange = (text: string) => {
     setNome(text);
@@ -517,7 +561,7 @@ export default function ProfileScreen() {
     }
   }
 
-  // Função para buscar endereço pelo CEP
+  // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     try {
       setLoadingCep(true);
@@ -557,6 +601,21 @@ export default function ProfileScreen() {
                 setCidadeSelecionada(cidadeEncontrada.id);
                 setCidade(cidadeEncontrada.nome);
                 console.log('Cidade selecionada:', cidadeEncontrada.nome);
+
+                // NOVO: Armazenar dados do CEP para validação futura
+                setDadosDoCep({
+                  estadoId: estadoEncontrado.id,
+                  cidadeId: cidadeEncontrada.id,
+                  estadoNome: estadoEncontrado.nome,
+                  cidadeNome: cidadeEncontrada.nome
+                });
+
+                console.log('Dados do CEP armazenados:', {
+                  estadoId: estadoEncontrado.id,
+                  cidadeId: cidadeEncontrada.id,
+                  estadoNome: estadoEncontrado.nome,
+                  cidadeNome: cidadeEncontrada.nome
+                });
               } else {
                 console.log('Cidade não encontrada:', cidadeAlvo);
                 console.log(
@@ -768,20 +827,32 @@ export default function ProfileScreen() {
     return cidade ? cidade.nome : '';
   };
 
-  // Funções de manipulação adaptadas para compatibilidade com os componentes
+  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
   const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {
+    // Verificar se deve limpar o CEP antes de alterar
+    verificarELimparCep(selectedEstado.id, cidadeSelecionada);
+    
     setEstadoSelecionado(selectedEstado.id);
     setEstado(selectedEstado.nome);
     setCidadeSelecionada(null);
     setCidade('');
     setEstadoErro('');
+
+    console.log(`Estado selecionado manualmente: ${selectedEstado.nome} (ID: ${selectedEstado.id})`);
   };
 
+  // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: { id: number; nome: string }) => {
+    // Verificar se deve limpar o CEP antes de alterar
+    verificarELimparCep(estadoSelecionado, selectedCidade.id);
+    
     setCidadeSelecionada(selectedCidade.id);
     setCidade(selectedCidade.nome);
     setCidadeErro('');
+
+    console.log(`Cidade selecionada manualmente: ${selectedCidade.nome} (ID: ${selectedCidade.id})`);
   };
+
   const pickImage = async () => {
     try {
       // Solicitar permissão para acessar a galeria
@@ -811,6 +882,7 @@ export default function ProfileScreen() {
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_04.png')} style={styles.backgroundImage}>

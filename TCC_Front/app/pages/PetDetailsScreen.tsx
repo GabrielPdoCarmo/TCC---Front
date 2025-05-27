@@ -19,9 +19,10 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
 import { getPetById } from '@/services/api/Pets/getPetById';
+import { createMyPet } from '@/services/api/MyPets/createMypets'; // ✅ ADICIONADO
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
-import getUsuarioById from '@/services/api/Usuario/getUsuarioById'; // ✅ ADICIONADO: Import para buscar foto do usuário
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import getRacaById from '@/services/api/Raca/getRacaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import getSexoPetById from '@/services/api/Sexo/getSexoPetById';
@@ -34,7 +35,7 @@ import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 interface Usuario {
   id: any;
   nome: any;
-  foto?: string; // ✅ ADICIONADO: Propriedade para foto do usuário
+  foto?: string;
   cidade?: { id: any; nome: string };
   estado?: { id: any; nome: any };
   cidade_nome?: string;
@@ -58,7 +59,7 @@ interface Pet {
   idade: string;
   usuario_id: number;
   usuario_nome?: string;
-  usuario_foto?: string; // ✅ ADICIONADO: Propriedade para foto do usuário responsável
+  usuario_foto?: string;
   foto?: string;
   faixa_etaria_id: number;
   faixa_etaria_unidade?: string;
@@ -79,7 +80,6 @@ interface Pet {
 const { width, height } = Dimensions.get('window');
 
 export default function PetDetailsScreen() {
-  // Correção na extração do parâmetro petId
   const params = useLocalSearchParams();
 
   // Verificação mais robusta do parâmetro petId
@@ -101,7 +101,6 @@ export default function PetDetailsScreen() {
     }
   }
 
-  // Verificar se o petId foi extraído corretamente
   console.log('PetDetailsScreen - petId extraído:', petId);
 
   const [pet, setPet] = useState<Pet | null>(null);
@@ -117,12 +116,10 @@ export default function PetDetailsScreen() {
   // Função para buscar o usuário logado
   const fetchUsuarioLogado = async () => {
     try {
-      // Usar a mesma chave '@App:userId' que foi usada para armazenar
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
         console.log('ID do usuário não encontrado no AsyncStorage');
-        // Permite visualizar pet mesmo sem estar logado
         return;
       }
 
@@ -135,7 +132,6 @@ export default function PetDetailsScreen() {
   };
 
   useEffect(() => {
-    // Verificar se o petId é válido
     if (!petId) {
       setError('ID do pet não fornecido ou inválido');
       setLoading(false);
@@ -147,7 +143,6 @@ export default function PetDetailsScreen() {
         setLoading(true);
         console.log(`Buscando pet com ID: ${petId}`);
 
-        // Buscar dados do pet usando a API
         let petData;
         try {
           petData = await getPetById(petId);
@@ -155,9 +150,7 @@ export default function PetDetailsScreen() {
             throw new Error('Pet não encontrado');
           }
 
-          // Garantir que motivoDoacao está disponível
           console.log('Motivo de doação:', petData.motivoDoacao);
-          // Registrar o RG do Pet se disponível
           console.log('RG do Pet:', petData.rgPet);
         } catch (err) {
           console.error(`Erro ao buscar pet com ID ${petId}:`, err);
@@ -182,11 +175,9 @@ export default function PetDetailsScreen() {
         const getUsuario = async () => {
           if (petData.usuario_id) {
             try {
-              // ✅ MODIFICADO: Buscar dados completos do usuário incluindo cidade/estado
               const usuarioData = await getUsuarioByIdComCidadeEstado(petData.usuario_id);
               console.log('Dados do usuário com cidade/estado obtidos:', usuarioData);
               
-              // ✅ ADICIONADO: Buscar dados básicos do usuário para pegar a foto
               let usuarioFoto = null;
               try {
                 const usuarioBasico = await getUsuarioById(petData.usuario_id);
@@ -197,7 +188,6 @@ export default function PetDetailsScreen() {
                 console.error(`Erro ao buscar dados básicos do usuário com ID ${petData.usuario_id}:`, err);
               }
               
-              // Combinar os dados do usuário com a foto
               return {
                 ...usuarioData,
                 foto: usuarioFoto
@@ -234,7 +224,6 @@ export default function PetDetailsScreen() {
           return null;
         };
 
-        // Nova função para buscar a faixa etária
         const getFaixaEtaria = async () => {
           if (petData.faixa_etaria_id) {
             try {
@@ -247,7 +236,6 @@ export default function PetDetailsScreen() {
           return null;
         };
 
-        // Função para verificar se o pet é favorito
         const checkIfFavorite = async (): Promise<boolean> => {
           if (!usuarioId) {
             console.log('Usuário não logado - não verificando favoritos');
@@ -265,15 +253,12 @@ export default function PetDetailsScreen() {
           }
         };
 
-        // Função otimizada para buscar doenças de um pet
         const getDoencas = async (): Promise<Array<{ id: number; nome: string }>> => {
           try {
             console.log(`Buscando doenças para o pet ID ${petId}...`);
 
-            // Passo 1: Verificar se o pet tem doenças registradas
             const doencasResponse = await getDoencasPorPetId(petId);
 
-            // Verificar se retornou algo válido
             if (!doencasResponse || !Array.isArray(doencasResponse) || doencasResponse.length === 0) {
               console.log(`Pet ID ${petId} não possui doenças registradas`);
               return [];
@@ -283,11 +268,9 @@ export default function PetDetailsScreen() {
               `Encontradas ${doencasResponse.length} doenças para o pet ID ${petId}: ${JSON.stringify(doencasResponse)}`
             );
 
-            // Passo 2: Para cada doença na resposta, buscar os detalhes corretos
             const doencasDetalhes = await Promise.all(
               doencasResponse.map(async (doencaItem: number | Doenca) => {
                 try {
-                  // Usar a chave correta para o ID da doença
                   const doencaId =
                     typeof doencaItem === 'number'
                       ? doencaItem
@@ -300,7 +283,6 @@ export default function PetDetailsScreen() {
 
                   if (!doencaDetalhes) {
                     console.warn(`Doença ID ${doencaId} não encontrada no banco de dados`);
-                    // Verificar se temos o nome da doença diretamente na resposta original
                     return {
                       id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
                       nome:
@@ -341,7 +323,6 @@ export default function PetDetailsScreen() {
           }
         };
 
-        // Buscar informações adicionais em paralelo para melhor desempenho - adicionado faixaEtariaInfo e verificação de favorito
         const [racaInfo, usuarioInfo, statusInfo, sexoInfo, doencas, faixaEtariaInfo, isFavorite] = await Promise.all([
           getRaca(),
           getUsuario(),
@@ -352,48 +333,35 @@ export default function PetDetailsScreen() {
           checkIfFavorite(),
         ]);
 
-        // Combinar todos os dados
-        // Garantir que o motivoDoacao seja explicitamente incluído e logado
         const motivoDoacao = petData.motivoDoacao || petData.motivo_doacao || 'Não informado';
         console.log('Motivo de doação antes de definir pet:', motivoDoacao);
 
-        // Extrair nomes da cidade e estado do usuário, se disponíveis
         let cidade_nome = 'Não informado';
         let estado_nome = 'Não informado';
-        let usuario_foto = null; // ✅ ADICIONADO: Variável para foto do usuário
+        let usuario_foto = null;
 
-        // Verifica se temos informações de cidade e estado do usuário
         if (usuarioInfo) {
           console.log('Informações do usuário para localização:', usuarioInfo);
 
-          // ✅ ADICIONADO: Extrair foto do usuário
           usuario_foto = usuarioInfo.foto || null;
           console.log('Foto do usuário extraída para o pet:', usuario_foto);
 
-          // Verificar se há propriedade cidade_nome diretamente no usuário
           if (usuarioInfo.cidade_nome) {
             cidade_nome = usuarioInfo.cidade_nome;
-          }
-          // Verificar se há propriedade cidade com objeto aninhado
-          else if (usuarioInfo.cidade && usuarioInfo.cidade.nome) {
+          } else if (usuarioInfo.cidade && usuarioInfo.cidade.nome) {
             cidade_nome = usuarioInfo.cidade.nome;
           }
 
-          // Verificar se há propriedade estado_nome diretamente no usuário
           if (usuarioInfo.estado_nome) {
             estado_nome = usuarioInfo.estado_nome;
-          }
-          // Verificar se há propriedade estado com objeto aninhado
-          else if (usuarioInfo.estado && usuarioInfo.estado.nome) {
+          } else if (usuarioInfo.estado && usuarioInfo.estado.nome) {
             estado_nome = usuarioInfo.estado.nome;
           }
         }
 
-        // Extrair unidade da faixa etária, se disponível
         const faixaEtariaUnidade = faixaEtariaInfo?.unidade || '';
         console.log('Faixa etária unidade:', faixaEtariaUnidade);
 
-        // Preservar o rgPet do pet, se disponível
         const rgPet = petData.rgPet || petData.rg_Pet || '';
         console.log('RG do Pet a ser definido:', rgPet);
 
@@ -401,17 +369,17 @@ export default function PetDetailsScreen() {
           ...petData,
           raca_nome: petData.raca_nome || racaInfo?.nome || 'Desconhecido',
           usuario_nome: petData.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
-          usuario_foto: usuario_foto, // ✅ ADICIONADO: Incluir foto do usuário
+          usuario_foto: usuario_foto,
           status_nome: petData.status_nome || statusInfo?.nome || 'Disponível para adoção',
           sexo_nome: petData.sexo_nome || sexoInfo?.descricao || 'Não informado',
           doencas: doencas || [],
-          motivo_doacao: motivoDoacao, // Mantendo para compatibilidade com snake_case
-          motivoDoacao: motivoDoacao, // Mantendo para compatibilidade com camelCase
-          favorito: isFavorite, // Definir o estado real de favorito
+          motivo_doacao: motivoDoacao,
+          motivoDoacao: motivoDoacao,
+          favorito: isFavorite,
           faixa_etaria_unidade: faixaEtariaUnidade,
           cidade_nome: cidade_nome,
           estado_nome: estado_nome,
-          rgPet: rgPet, // Adicionar o RG do Pet
+          rgPet: rgPet,
         });
 
         console.log('Pet carregado com status de favorito:', isFavorite);
@@ -425,7 +393,7 @@ export default function PetDetailsScreen() {
     };
 
     fetchPetDetails();
-  }, [petId, usuarioId]); // Adicionar usuarioId como dependência
+  }, [petId, usuarioId]);
 
   // Função atualizada para gerenciar favoritos
   const toggleFavorite = async () => {
@@ -435,21 +403,17 @@ export default function PetDetailsScreen() {
       console.log(`Alternando favorito para pet ID ${pet.id}${usuarioId ? `, usuário ID ${usuarioId}` : ' (usuário não logado)'}`);
       
       if (usuarioId) {
-        // Se usuário está logado, usar as APIs
         if (pet.favorito) {
-          // Se já é favorito, remove dos favoritos
           console.log('Removendo dos favoritos...');
           await deleteFavorito(usuarioId, pet.id);
           console.log('Pet removido dos favoritos com sucesso');
         } else {
-          // Se não é favorito, adiciona aos favoritos
           console.log('Adicionando aos favoritos...');
           await getFavorito(usuarioId, pet.id);
           console.log('Pet adicionado aos favoritos com sucesso');
         }
       }
 
-      // Atualizar o estado local do pet
       setPet(prevPet => ({
         ...prevPet!,
         favorito: !prevPet!.favorito
@@ -466,10 +430,45 @@ export default function PetDetailsScreen() {
     }
   };
 
-  const handleAdopt = () => {
-    if (pet) {
-      console.log(`Iniciar processo de adoção para o pet ID: ${pet.id}`);
-      // Navegação para tela de formulário de adoção
+  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção
+  const handleAdopt = async () => {
+    if (!pet) return;
+
+    if (!usuarioId) {
+      Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
+      return;
+    }
+
+    // Verificar se o usuário logado é o mesmo dono do pet
+    if (pet.usuario_id === usuarioId) {
+      Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
+      return;
+    }
+
+    try {
+      console.log(`Adicionando pet ID ${pet.id} aos pets do usuário ${usuarioId}`);
+      
+      // Chamar a API para criar a associação
+      await createMyPet(pet.id, usuarioId);
+      
+      // Mostrar mensagem de sucesso e voltar para PetAdoptionScreen
+      Alert.alert(
+        'Sucesso!', 
+        'Pet adicionado aos seus pets com sucesso!',
+        [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Voltar para a tela PetAdoptionScreen
+              router.push('/pages/PetAdoptionScreen');
+            }
+          }
+        ]
+      );
+      
+    } catch (error) {
+      console.error('Erro ao adicionar pet:', error);
+      Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
     }
   };
 
@@ -505,7 +504,7 @@ export default function PetDetailsScreen() {
               onPress={() => {
                 setLoading(true);
                 setError(null);
-                // Recarregar os dados do pet usando a mesma lógica do useEffect
+                // Recarregar os dados do pet
                 const fetchPetDetails = async () => {
                   try {
                     console.log(`Tentando buscar pet novamente com ID: ${petId}`);
@@ -523,7 +522,6 @@ export default function PetDetailsScreen() {
                       return;
                     }
 
-                    // Buscar informações adicionais
                     try {
                         const [racaInfo, usuarioInfoCompleto, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo, isFavorite] =
                         await Promise.all([
@@ -536,7 +534,6 @@ export default function PetDetailsScreen() {
                           usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
                         ]);
 
-                      // ✅ ADICIONADO: Buscar foto do usuário separadamente
                       let usuarioFoto = null;
                       try {
                         const usuarioBasico = await getUsuarioById(petData.usuario_id);
@@ -545,34 +542,25 @@ export default function PetDetailsScreen() {
                         console.error(`Erro ao buscar foto do usuário:`, err);
                       }
 
-                      // Extrair nomes da cidade e estado do usuário, se disponíveis
                       let cidade_nome = 'Não informado';
                       let estado_nome = 'Não informado';
 
                       if (usuarioInfoCompleto) {
-                        // Verificar se há propriedade cidade_nome diretamente no usuário
                         if ((usuarioInfoCompleto as Usuario).cidade_nome) {
                           cidade_nome = (usuarioInfoCompleto as Usuario).cidade_nome as string;
-                        }
-                        // Verificar se há propriedade cidade com objeto aninhado
-                        else if ((usuarioInfoCompleto as Usuario).cidade && (usuarioInfoCompleto as Usuario).cidade!.nome) {
+                        } else if ((usuarioInfoCompleto as Usuario).cidade && (usuarioInfoCompleto as Usuario).cidade!.nome) {
                           cidade_nome = (usuarioInfoCompleto as Usuario).cidade!.nome;
                         }
 
-                        // Verificar se há propriedade estado_nome diretamente no usuário
                         if ((usuarioInfoCompleto as Usuario).estado_nome) {
                           estado_nome = (usuarioInfoCompleto as Usuario).estado_nome as string;
-                        }
-                        // Verificar se há propriedade estado com objeto aninhado
-                        else if ((usuarioInfoCompleto as Usuario).estado && (usuarioInfoCompleto as Usuario).estado!.nome) {
+                        } else if ((usuarioInfoCompleto as Usuario).estado && (usuarioInfoCompleto as Usuario).estado!.nome) {
                           estado_nome = (usuarioInfoCompleto as Usuario).estado!.nome;
                         }
                       }
 
-                      // Não formatar a idade aqui, apenas armazenar a unidade
                       const faixaEtariaUnidade = faixaEtariaInfo?.unidade || '';
 
-                      // Buscar detalhes das doenças se houver alguma
                       let doencas: Array<{ id: number; nome: string }> = [];
                       if (doencasIds && Array.isArray(doencasIds) && doencasIds.length > 0) {
                         doencas = await Promise.all(
@@ -593,47 +581,42 @@ export default function PetDetailsScreen() {
                         );
                       }
 
-                      // Obter o motivoDoacao, considerando ambos os formatos
                       const motivoDoacao = petData.motivoDoacao || petData.motivo_doacao || 'Não informado';
-
-                      // Preservar o rgPet, se disponível
                       const rgPet = petData.rgPet || '';
 
-                      // Combinar todos os dados
                       setPet({
                         ...petData,
                         raca_nome: racaInfo?.nome || 'Desconhecido',
                         usuario_nome: usuarioInfoCompleto?.nome || 'Desconhecido',
-                        usuario_foto: usuarioFoto, // ✅ ADICIONADO: Incluir foto do usuário
+                        usuario_foto: usuarioFoto,
                         status_nome: statusInfo?.nome || 'Disponível para adoção',
                         sexo_nome: sexoInfo?.descricao || 'Não informado',
                         doencas: doencas,
                         motivo_doacao: motivoDoacao,
                         motivoDoacao: motivoDoacao,
-                        favorito: isFavorite, // Usar o status real de favorito
+                        favorito: isFavorite,
                         faixa_etaria_unidade: faixaEtariaUnidade,
                         cidade_nome: cidade_nome,
                         estado_nome: estado_nome,
-                        rgPet: rgPet, // Adicionar o RG do Pet
+                        rgPet: rgPet,
                       });
                     } catch (err) {
                       console.error('Erro ao buscar detalhes adicionais:', err);
-                      // Ainda definir o pet com os dados básicos disponíveis
                       setPet({
                         ...petData,
                         raca_nome: 'Desconhecido',
                         usuario_nome: 'Desconhecido',
-                        usuario_foto: null, // ✅ ADICIONADO
+                        usuario_foto: null,
                         status_nome: 'Disponível para adoção',
                         sexo_nome: 'Não informado',
                         doencas: [],
                         motivo_doacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
                         motivoDoacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
-                        favorito: false, // Padrão como não favorito se não conseguir verificar
+                        favorito: false,
                         faixa_etaria_unidade: '',
                         cidade_nome: 'Não informado',
                         estado_nome: 'Não informado',
-                        rgPet: petData.rgPet || '', // Adicionar o RG do Pet
+                        rgPet: petData.rgPet || '',
                       });
                     }
 
@@ -651,7 +634,6 @@ export default function PetDetailsScreen() {
             </TouchableOpacity>
           </View>
         ) : pet ? (
-          // ScrollView para permitir rolagem da tela
           <ScrollView
             style={styles.scrollView}
             showsVerticalScrollIndicator={true}
@@ -663,6 +645,7 @@ export default function PetDetailsScreen() {
                 onFavoriteToggle={toggleFavorite}
                 onAdoptPress={handleAdopt}
                 onBackPress={handleBack}
+                usuarioLogadoId={usuarioId} // ✅ ADICIONADO: Passar ID do usuário logado
               />
             </View>
           </ScrollView>
@@ -753,7 +736,7 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
-    paddingBottom: 20, // Espaço na parte inferior para garantir que todo o conteúdo seja rolável
+    paddingBottom: 20,
   },
   petCardContainer: {
     flex: 1,
@@ -793,7 +776,6 @@ const styles = StyleSheet.create({
     borderRadius: 20,
     padding: 5,
   },
-  // Estilos para o motivo da doação
   motivoContainer: {
     backgroundColor: '#FFFFFF',
     borderRadius: 10,

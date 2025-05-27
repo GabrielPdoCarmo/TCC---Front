@@ -1,8 +1,8 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native';
 
 // Interface PetCardProps atualizada
-interface PetCardProps {
+interface MyPetCardProps {
   pet: {
     id: number;
     nome: string;
@@ -18,14 +18,16 @@ interface PetCardProps {
     status_id: number;
     status_nome?: string;
     favorito?: boolean;
+    usuario_telefone?: string;
+    usuario_email?: string;
   };
-  onAdopt?: () => void;
-  OnDetalhes?: () => void;
+  onCommunicate?: () => void;
+  onRemove?: () => void;
   onFavorite?: (id: number) => void;
-  usuarioLogadoId?: number | null; // ✅ ADICIONADO: ID do usuário logado
+  isRemoving?: boolean; // ✅ ADICIONADO: Indicar se está removendo
 }
 
-const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: PetCardProps) => {
+const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = false }: MyPetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
@@ -37,14 +39,13 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
     setIsFavorite(pet.favorito || false);
   }, [pet.favorito]);
 
-  // Verifica se o pet está disponível para adoção (status_id === 2)
-  const isAvailableForAdoption = pet.status_id === 2;
-
-  // ✅ ADICIONADO: Verificar se o usuário logado é o dono do pet
-  const isOwnPet = usuarioLogadoId !== null && pet.usuario_id === usuarioLogadoId;
-
   // Função para alternar o estado do favorito
   const handleToggleFavorite = () => {
+    // ✅ PROTEÇÃO: Não permitir favoritar se estiver removendo
+    if (isRemoving) {
+      return;
+    }
+
     // Atualizar o estado local imediatamente para feedback visual rápido
     setIsFavorite(!isFavorite);
 
@@ -54,36 +55,50 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
-  const handleAdoptPress = () => {
-    if (!usuarioLogadoId) {
-      Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
+  // ✅ FUNÇÃO ATUALIZADA: Proteção contra múltiplas remoções
+  const handleRemovePress = () => {
+    if (isRemoving) {
+      console.log('Operação de remoção já em andamento, ignorando');
       return;
     }
 
-    if (isOwnPet) {
-      Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
+    if (onRemove) {
+      onRemove();
+    }
+  };
+
+  // ✅ FUNÇÃO ATUALIZADA: Proteção durante remoção
+  const handleCommunicatePress = () => {
+    if (isRemoving) {
+      Alert.alert('Aguarde', 'Operação em andamento. Aguarde a conclusão.');
       return;
     }
 
-    // Chamar a função de adoção
-    if (onAdopt) {
-      onAdopt();
+    if (onCommunicate) {
+      onCommunicate();
     }
   };
 
   // Função para expandir a foto do usuário
   const handleExpandUserPhoto = () => {
-    if (pet.usuario_foto) {
+    if (pet.usuario_foto && !isRemoving) {
       setShowExpandedPhoto(true);
     }
   };
 
-  console.log('PetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
-  console.log('PetsCard - É próprio pet:', isOwnPet, 'Usuario logado:', usuarioLogadoId, 'Dono do pet:', pet.usuario_id);
+  console.log('MyPetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
+  console.log('MyPetsCard - Removendo:', isRemoving);
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isRemoving && styles.containerRemoving]}>
+      {/* ✅ INDICADOR de remoção */}
+      {isRemoving && (
+        <View style={styles.removingOverlay}>
+          <ActivityIndicator size="small" color="#FF6B6B" />
+          <Text style={styles.removingText}>Removendo...</Text>
+        </View>
+      )}
+
       {/* Parte esquerda - Imagem do pet */}
       <View style={styles.imageContainer}>
         {pet.foto ? (
@@ -104,14 +119,18 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
           </Text>
 
           {/* Botão de favorito único */}
-          <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
+          <TouchableOpacity
+            style={[styles.favoriteButton, isRemoving && styles.disabledButton]}
+            onPress={handleToggleFavorite}
+            disabled={isRemoving}
+          >
             <Image
               source={
                 isFavorite
                   ? require('../../assets/images/Icone/star-icon-open.png')
                   : require('../../assets/images/Icone/star-icon.png')
               }
-              style={styles.favoriteIcon}
+              style={[styles.favoriteIcon, isRemoving && styles.disabledIcon]}
             />
           </TouchableOpacity>
 
@@ -130,7 +149,8 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
           <TouchableOpacity
             style={styles.userInfoContainer}
             onPress={handleExpandUserPhoto}
-            activeOpacity={pet.usuario_foto ? 0.7 : 1}
+            activeOpacity={pet.usuario_foto && !isRemoving ? 0.7 : 1}
+            disabled={isRemoving}
           >
             {pet.usuario_foto ? (
               <Image source={{ uri: pet.usuario_foto }} style={styles.userPhoto} />
@@ -144,38 +164,32 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
             <Text style={styles.value}>{pet.usuario_nome}</Text>
           </TouchableOpacity>
 
-          <Text style={[styles.label, isAvailableForAdoption ? styles.statusAdoption : null]}>
-            Status:{' '}
-            <Text style={[styles.value, isAvailableForAdoption ? styles.statusAdoptionText : null]}>
-              {pet.status_nome}
-            </Text>
+          <Text style={styles.label}>
+            Status: <Text style={styles.value}>{pet.status_nome}</Text>
           </Text>
         </View>
 
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
-            {/* ✅ BOTÃO ATUALIZADO com validação */}
-            <TouchableOpacity 
-              style={[
-                styles.editButton, 
-                isOwnPet && styles.disabledButton // Aplicar estilo desabilitado se for próprio pet
-              ]} 
-              onPress={handleAdoptPress}
-              disabled={isOwnPet} // Desabilitar se for próprio pet
+            {/* ✅ BOTÃO ATUALIZADO com proteção */}
+            <TouchableOpacity
+              style={[styles.communicateButton, isRemoving && styles.disabledButton]}
+              onPress={handleCommunicatePress}
+              disabled={isRemoving}
             >
-              <Text 
-                numberOfLines={1} 
-                style={[
-                  styles.buttonText,
-                  isOwnPet && styles.disabledText // Aplicar estilo de texto desabilitado
-                ]}
-              >
-                {isOwnPet ? 'Adicionar aos meus Pets' : 'Adicionar aos meus Pets'}
-              </Text>
+              <Text style={[styles.buttonText, isRemoving && styles.disabledText]}>Comunicar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.detalhesButton} onPress={OnDetalhes}>
-              <Text style={styles.buttonText}>Detalhes</Text>
+
+            {/* ✅ BOTÃO ATUALIZADO com proteção */}
+            <TouchableOpacity
+              style={[styles.removeButton, isRemoving && styles.disabledButton]}
+              onPress={handleRemovePress}
+              disabled={isRemoving}
+            >
+              <Text numberOfLines={1} style={[styles.buttonText, isRemoving && styles.disabledText]}>
+                {isRemoving ? 'Removendo...' : 'Remover Pet'}
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -183,7 +197,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
 
       {/* Modal para foto ampliada */}
       <Modal
-        visible={showExpandedPhoto}
+        visible={showExpandedPhoto && !isRemoving}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowExpandedPhoto(false)}
@@ -221,6 +235,30 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+  },
+  // ✅ NOVO: Estilo para container durante remoção
+  containerRemoving: {
+    opacity: 0.7,
+    backgroundColor: '#F8F8F8',
+  },
+  // ✅ NOVO: Overlay de remoção
+  removingOverlay: {
+    position: 'absolute',
+    top: 10,
+    right: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 107, 107, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  removingText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
   imageContainer: {
     width: '50%',
@@ -299,39 +337,27 @@ const styles = StyleSheet.create({
   actionContainer: {
     marginTop: 'auto',
   },
-  adoptButton: {
-    backgroundColor: '#4682B4',
-    borderRadius: 25,
-    paddingVertical: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  adoptButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
-    fontWeight: 'bold',
-  },
   editDeleteContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     alignItems: 'center',
   },
-  editButton: {
-    backgroundColor: '#2E5BFF',
+  communicateButton: {
+    backgroundColor: '#25D366',
     borderRadius: 25,
     paddingVertical: 6,
     paddingHorizontal: 12,
     marginRight: 10,
     alignItems: 'center',
     flexShrink: 0,
-    width: 200,
+    width: 100,
   },
-  detalhesButton: {
-    backgroundColor: '#468CB4FF',
+  removeButton: {
+    backgroundColor: '#FF6B6B',
     borderRadius: 25,
     paddingVertical: 6,
     paddingHorizontal: 12,
-    width: 100,
+    width: 140,
     alignItems: 'center',
   },
   buttonText: {
@@ -339,7 +365,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
-  // ✅ ESTILOS ATUALIZADOS para dispositivos desabilitados
+  // ✅ NOVOS: Estilos para elementos desabilitados
   disabledButton: {
     backgroundColor: '#E0E0E0',
     opacity: 0.6,
@@ -347,12 +373,8 @@ const styles = StyleSheet.create({
   disabledText: {
     color: '#A0A0A0',
   },
-  // Estilo para destacar status de adoção
-  statusAdoption: {
-    fontWeight: 'bold',
-  },
-  statusAdoptionText: {
-    color: '#4CAF50',
+  disabledIcon: {
+    opacity: 0.5,
   },
   // Estilos para o modal da foto ampliada
   modalOverlay: {
@@ -404,4 +426,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PetsCard;
+export default MyPetsCard;

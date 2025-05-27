@@ -16,20 +16,21 @@ interface Pet {
   nome: string;
   raca_nome?: string;
   idade: string;
+  usuario_id: number; // ✅ ADICIONADO: Garantir que usuario_id está presente
   usuario_nome?: string;
-  usuario_foto?: string | null;  // ✅ CORRIGIDO: Aceita null para foto do usuário responsável
+  usuario_foto?: string | null;
   cidade_id?: number;
   estado_id?: number;
-  cidade_nome?: string;  // Added city name property
-  estado_nome?: string;  // Added state name property
-  rgPet?: string;        // Added RG do Pet property
+  cidade_nome?: string;
+  estado_nome?: string;
+  rgPet?: string;
   foto?: string;
   faixa_etaria_unidade?: string;
   status_nome?: string;
   sexo_nome?: string;
   favorito?: boolean;
-  motivo_doacao?: string;  // Propriedade para compatibilidade com nome snake_case
-  motivoDoacao?: string;   // Propriedade para compatibilidade com nome camelCase
+  motivo_doacao?: string;
+  motivoDoacao?: string;
   doencas?: { id: number; nome: string }[];
 }
 
@@ -39,23 +40,28 @@ interface PetCardProps {
   onAdoptPress: (petId: number) => void;
   onBackPress: () => void;
   loading?: boolean;
+  usuarioLogadoId?: number | null; // ✅ ADICIONADO: ID do usuário logado
 }
 
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
-const PetDetalhesCard: React.FC<PetCardProps> = ({
+const PetsDetalhesCard: React.FC<PetCardProps> = ({
   pet,
   onFavoriteToggle,
   onAdoptPress,
   onBackPress,
-  loading = false
+  loading = false,
+  usuarioLogadoId // ✅ ADICIONADO: Receber ID do usuário logado
 }) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
   
-  // ✅ ADICIONADO: Estado para controlar a exibição da foto ampliada
+  // Estado para controlar a exibição da foto ampliada
   const [showExpandedPhoto, setShowExpandedPhoto] = useState(false);
+
+  // ✅ ADICIONADO: Verificar se o usuário logado é o dono do pet
+  const isOwnPet = usuarioLogadoId !== null && pet.usuario_id === usuarioLogadoId;
 
   // Atualizar o estado local quando o prop pet.favorito mudar
   useEffect(() => {
@@ -73,10 +79,17 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
     }
   };
 
-  // ✅ ADICIONADO: Função para expandir a foto do usuário
+  // Função para expandir a foto do usuário
   const handleExpandUserPhoto = () => {
     if (pet.usuario_foto) {
       setShowExpandedPhoto(true);
+    }
+  };
+
+  // ✅ FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
+  const handleAdoptPress = () => {
+    if (onAdoptPress) {
+      onAdoptPress(pet.id);
     }
   };
 
@@ -90,7 +103,6 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
 
   // Função para obter o motivo da doação independente do formato usado (camelCase ou snake_case)
   const getMotivo = () => {
-    // Verificar qual propriedade está disponível e não vazia
     if (pet.motivoDoacao) {
       return pet.motivoDoacao;
     } else if (pet.motivo_doacao) {
@@ -112,28 +124,20 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
   const formatRG = (text?: string): string => {
     if (!text) return 'Não informado';
     
-    // Remove todos os caracteres não numéricos
     const digits = text.replace(/\D/g, '');
-
-    // Limita a 9 dígitos (padrão RG)
     const limitedDigits = digits.slice(0, 9);
 
-    // Aplica a formatação 00.000.000-0
     let formatted = '';
 
     if (limitedDigits.length > 0) {
-      // Primeiros 2 dígitos
       formatted = limitedDigits.slice(0, 2);
 
-      // Adiciona um ponto após os primeiros 2 dígitos
       if (limitedDigits.length > 2) {
         formatted += '.' + limitedDigits.slice(2, 5);
 
-        // Adiciona outro ponto após o 5º dígito
         if (limitedDigits.length > 5) {
           formatted += '.' + limitedDigits.slice(5, 8);
 
-          // Adiciona hífen e o último dígito
           if (limitedDigits.length > 8) {
             formatted += '-' + limitedDigits.slice(8, 9);
           }
@@ -144,16 +148,14 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
     return formatted;
   };
 
-  // Verificar se há algum motivo disponível
   const motivoDoacao = getMotivo();
   console.log('Motivo de doação no componente:', motivoDoacao);
   
-  // Verificar se existem doenças para mostrar
   const doencasParaMostrar = getDiseaseNames();
 
-  // Log para verificar o valor do rgPet
   console.log('RG do Pet no componente:', pet.rgPet);
   console.log('Estado de favorito atual:', isFavorite);
+  console.log('PetsDetalhesCard - É próprio pet:', isOwnPet, 'Usuario logado:', usuarioLogadoId, 'Dono do pet:', pet.usuario_id);
   
   return (
     <View style={styles.petCardContainer}>
@@ -201,7 +203,7 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.infoValue}>{formatRG(pet.rgPet)}</Text>
           </View>
 
-          {/* ✅ MODIFICADO: Responsável em linhas separadas */}
+          {/* Responsável em linhas separadas */}
           <Text style={[styles.infoLabel, { marginBottom: 3 }]}>Responsável:</Text>
           <TouchableOpacity 
             style={styles.userInfoContainer}
@@ -253,16 +255,28 @@ const PetDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.buttonText}>Voltar</Text>
           </TouchableOpacity>
 
+          {/* ✅ BOTÃO ATUALIZADO com validação */}
           <TouchableOpacity 
-            style={styles.adoptButton} 
-            onPress={() => onAdoptPress(pet.id)}
+            style={[
+              styles.adoptButton,
+              isOwnPet && styles.disabledButton // Aplicar estilo desabilitado se for próprio pet
+            ]} 
+            onPress={handleAdoptPress}
+            disabled={isOwnPet} // Desabilitar se for próprio pet
           >
-            <Text style={styles.buttonText}>Adicionar ao meus Pets</Text>
+            <Text 
+              style={[
+                styles.buttonText,
+                isOwnPet && styles.disabledText // Aplicar estilo de texto desabilitado
+              ]}
+            >
+              {isOwnPet ? 'Adicionar ao meus Pets' : 'Adicionar ao meus Pets'}
+            </Text>
           </TouchableOpacity>
         </View>
       </View>
 
-      {/* ✅ ADICIONADO: Modal para foto ampliada */}
+      {/* Modal para foto ampliada */}
       <Modal
         visible={showExpandedPhoto}
         transparent={true}
@@ -354,8 +368,6 @@ const styles = StyleSheet.create({
     height: 25,
     tintColor: '#FFD700',
   },
-  
-  // ✅ ADICIONADO: Estilos para foto do usuário
   userInfoContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -389,7 +401,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#000',
   },
-  
   motiveSection: {
     marginTop: 8,
   },
@@ -427,8 +438,15 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-
-  // ✅ ADICIONADO: Estilos para o modal da foto ampliada
+  // ✅ ADICIONADO: Estilos para botão desabilitado
+  disabledButton: {
+    backgroundColor: '#E0E0E0',
+    opacity: 0.6,
+  },
+  disabledText: {
+    color: '#A0A0A0',
+  },
+  // Estilos para o modal da foto ampliada
   modalOverlay: {
     flex: 1,
     backgroundColor: 'rgba(0, 0, 0, 0.8)',
@@ -478,4 +496,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default PetDetalhesCard;
+export default PetsDetalhesCard;

@@ -1,4 +1,4 @@
-// FilterScreen.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO
+// MypetsFilter.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - CORRIGIDO
 import { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -27,7 +27,7 @@ import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID'
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
 import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
-import getPetByName from '@/services/api/Pets/getPetByName';
+import getByNomePet_StatusId from '@/services/api/Pets/getByNomePet_StatusId';
 
 // Interfaces para os tipos
 interface Especie {
@@ -96,7 +96,7 @@ interface FilterParams {
   searchResults?: Pet[];
 }
 
-export default function FilterScreen() {
+export default function MypetsFilter() {
   // Estados para armazenar dados dos filtros
   const [especies, setEspecies] = useState<Especie[]>([]);
   const [faixasEtarias, setFaixasEtarias] = useState<FaixaEtaria[]>([]);
@@ -179,7 +179,7 @@ export default function FilterScreen() {
 
       console.log('Buscando pets por nome no FilterScreen:', name);
 
-      const response = await getPetByName(name);
+      const response = await getByNomePet_StatusId(name, 3);
       console.log('Resposta da API getPetByName:', response);
 
       const petsArray = normalizeApiResponse(response);
@@ -586,7 +586,7 @@ export default function FilterScreen() {
     setExpandedState(!expandedState);
   };
 
-  // Aplicar filtros e voltar para a tela anterior
+  // Aplicar filtros e voltar para a tela anterior - CORRIGIDO
   const applyFilters = async () => {
     const faixasComErro = faixasEtarias.filter((faixa: FaixaEtaria) => faixa.selected && faixa.idadeErro);
 
@@ -667,14 +667,28 @@ export default function FilterScreen() {
       return;
     }
 
-    await AsyncStorage.setItem('@App:petFilters', JSON.stringify(filters));
+    // CORREÇÃO: Determinar a chave do AsyncStorage baseada na origem
+    const origin = params.origin as string;
+    const storageKey = origin === 'mypets' ? '@App:myPetsFilters' : '@App:petFilters';
+    
+    await AsyncStorage.setItem(storageKey, JSON.stringify(filters));
 
     console.log('Filtros aplicados:', filters);
+    console.log('Origem:', origin);
+    console.log('Chave do storage usada:', storageKey);
 
-    router.push({
-      pathname: '/pages/PetAdoptionScreen',
-      params: { applyFilters: 'true' },
-    });
+    // CORREÇÃO: Navegar de volta para a tela correta
+    if (origin === 'mypets') {
+      router.push({
+        pathname: '/pages/MyPetsScreen',
+        params: { applyFilters: 'true' },
+      });
+    } else {
+      router.push({
+        pathname: '/pages/PetAdoptionScreen',
+        params: { applyFilters: 'true' },
+      });
+    }
   };
 
   // Renderizar divisor de categoria
@@ -1231,10 +1245,12 @@ export default function FilterScreen() {
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
         <ScrollView style={styles.scrollView}>
-          {/* Botão Voltar */}
+          {/* Botão Voltar - CORRIGIDO com texto dinâmico */}
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Image source={require('../../assets/images/Icone/close-icon.png')} style={styles.backIcon} />
-            <Text style={styles.backButtonText}>Voltar a Página</Text>
+            <Text style={styles.backButtonText}>
+              {params.origin === 'mypets' ? 'Voltar aos Meus Pets' : 'Voltar a Página'}
+            </Text>
           </TouchableOpacity>
 
           {/* Seção: Busca por Nome */}
