@@ -1,4 +1,4 @@
-// MyPetsScreen.tsx - Tela para listar pets associados ao usuário - CORRIGIDA COM ROTAS CORRETAS
+// MyPetsScreen.tsx - Tela para listar pets associados ao usuário - CORRIGIDA COM BOTÃO VOLTAR FUNCIONANDO
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -16,8 +16,8 @@ import {
   Linking,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import getByUsuarioId from '@/services/api/MyPets/getByUsuarioId'; // ✅ ROTA CORRETA PARA BUSCAR PETS DO USUÁRIO
-import deleteMyPet from '@/services/api/MyPets/deleteMyPet'; // ✅ ROTA CORRETA PARA REMOVER PET
+import getByUsuarioId from '@/services/api/MyPets/getByUsuarioId';
+import deleteMyPet from '@/services/api/MyPets/deleteMyPet';
 import MyPetsCard from '@/components/modal_Pet/MyPetCard';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
@@ -48,15 +48,13 @@ interface Pet {
   sexo_id?: number;
   favorito?: boolean;
   especie_id?: number;
-  // Campos adicionais para contato
   usuario_telefone?: string;
   usuario_email?: string;
-  // Campos adicionais do backend
   rgPet?: string;
-  rg_Pet?: string; // Nome do campo no backend
+  rg_Pet?: string;
   motivoDoacao?: string;
-  estado_id?: number; // Nome do campo no backend
-  cidade_id?: number; // Nome do campo no backend
+  estado_id?: number;
+  cidade_id?: number;
 }
 
 // Interface para o usuário
@@ -76,16 +74,18 @@ interface Usuario {
   };
 }
 
-// Interface para os filtros (simplificada para MyPets)
+// Interface para os filtros (completa para MyPets)
 interface FilterParams {
   especieIds?: number[];
   faixaEtariaIds?: number[];
+  faixasEtariaIdades?: { [key: number]: number };
   racaIds?: number[];
   estadoIds?: number[];
   cidadeIds?: number[];
   onlyFavorites?: boolean;
   searchQuery?: string;
   searchResults?: Pet[];
+  statusIds?: number[];
 }
 
 // Obter dimensões da tela
@@ -104,6 +104,35 @@ export default function MyPetsScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
+  // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
+  const handleGoBack = () => {
+    console.log('🔄 Botão voltar clicado - navegando para tela anterior');
+    router.back();
+  };
+
+  // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
+  const handleAdvancedFilter = () => {
+    console.log('🔍 Botão filtro avançado clicado');
+    
+    let currentFiltersToPass = activeFilters ? { ...activeFilters } : {};
+
+    if (hasActiveSearch && searchQuery.trim() !== '') {
+      currentFiltersToPass.searchQuery = searchQuery.trim();
+      currentFiltersToPass.searchResults = searchResults;
+    }
+
+    const currentFiltersStr =
+      Object.keys(currentFiltersToPass).length > 0 ? encodeURIComponent(JSON.stringify(currentFiltersToPass)) : '';
+
+    router.push({
+      pathname: '/pages/MypetsFilter',
+      params: {
+        filters: currentFiltersStr,
+        origin: 'mypets',
+      },
+    });
+  };
+
   // Função auxiliar para normalizar pets da API
   const normalizePetFromAPI = (pet: any): Pet | null => {
     if (!pet || typeof pet !== 'object' || !pet.id) {
@@ -112,11 +141,9 @@ export default function MyPetsScreen() {
     
     return {
       ...pet,
-      // Normalizar nomes de campos se necessário
       rgPet: pet.rgPet || pet.rg_Pet || '',
       usuario_estado_id: pet.usuario_estado_id || pet.estado_id,
       usuario_cidade_id: pet.usuario_cidade_id || pet.cidade_id,
-      // Garantir que campos obrigatórios existam
       nome: pet.nome || 'Pet sem nome',
       idade: pet.idade?.toString() || '0',
       usuario_id: pet.usuario_id || 0,
@@ -303,22 +330,60 @@ export default function MyPetsScreen() {
       }
 
       if (activeFilters) {
-        // Aplicar filtros básicos
         let filteredData = baseData;
 
         if (activeFilters.onlyFavorites && usuarioId) {
           filteredData = filteredData.filter((pet) => pet.favorito === true);
+          console.log('Após filtro de favoritos:', filteredData.length, 'pets');
         }
 
         if (activeFilters.especieIds && activeFilters.especieIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.especieIds?.includes(pet.especie_id || 0));
+          console.log('Após filtro de espécies:', filteredData.length, 'pets');
         }
 
         if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.racaIds?.includes(pet.raca_id));
+          console.log('Após filtro de raças:', filteredData.length, 'pets');
         }
 
-        console.log('Pets após aplicar filtros:', filteredData.length);
+        if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
+          filteredData = filteredData.filter((pet) => activeFilters.faixaEtariaIds?.includes(pet.faixa_etaria_id));
+          console.log('Após filtro de faixa etária:', filteredData.length, 'pets');
+        }
+
+        if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
+          filteredData = filteredData.filter((pet) => {
+            const petEstadoId = pet.usuario_estado_id || pet.estado_id;
+            return activeFilters.estadoIds?.includes(petEstadoId || 0);
+          });
+          console.log('Após filtro de estados:', filteredData.length, 'pets');
+        }
+
+        if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
+          filteredData = filteredData.filter((pet) => {
+            const petCidadeId = pet.usuario_cidade_id || pet.cidade_id;
+            return activeFilters.cidadeIds?.includes(petCidadeId || 0);
+          });
+          console.log('Após filtro de cidades:', filteredData.length, 'pets');
+        }
+
+        if (activeFilters.faixasEtariaIdades && Object.keys(activeFilters.faixasEtariaIdades).length > 0) {
+          filteredData = filteredData.filter((pet) => {
+            const faixaEtariaId = pet.faixa_etaria_id;
+            const idadeEspecifica = activeFilters.faixasEtariaIdades?.[faixaEtariaId];
+            
+            if (idadeEspecifica !== undefined) {
+              const petIdade = parseInt(pet.idade) || 0;
+              return petIdade === idadeEspecifica;
+            }
+            
+            return true;
+          });
+          console.log('Após filtro de idades específicas:', filteredData.length, 'pets');
+        }
+
+        console.log('Pets após aplicar TODOS os filtros:', filteredData.length);
         setFilteredMyPets(filteredData);
       } else {
         console.log('Nenhum filtro ativo, usando dados base');
@@ -334,7 +399,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA: Carregar os meus pets usando getByUsuarioId
+  // Carregar os meus pets usando getByUsuarioId
   useEffect(() => {
     const fetchMyPets = async () => {
       if (!usuarioId) {
@@ -349,20 +414,14 @@ export default function MyPetsScreen() {
 
         console.log(`Carregando meus pets do usuário ID: ${usuarioId}...`);
 
-        // ✅ USAR A ROTA CORRETA: getByUsuarioId para buscar pets associados ao usuário
         const response = await getByUsuarioId(usuarioId);
         console.log('Resposta da API getByUsuarioId:', response);
-        console.log('Tipo da resposta:', typeof response);
-        console.log('É array:', Array.isArray(response));
 
-        // ✅ ESTRUTURA CORRETA: A resposta vem com { message, data }
         let pets: Pet[] = [];
         
         if (response && response.data && Array.isArray(response.data)) {
-          // Os pets vêm diretamente no array 'data'
           pets = response.data.map(normalizePetFromAPI).filter(Boolean);
         } else if (response && response.data && typeof response.data === 'object') {
-          // Se é um objeto único no data
           const normalizedPet = normalizePetFromAPI(response.data);
           if (normalizedPet) {
             pets = [normalizedPet];
@@ -370,7 +429,6 @@ export default function MyPetsScreen() {
         }
 
         console.log('Meus pets extraídos:', pets.length);
-        console.log('Pets extraídos detalhes:', pets.map(p => ({ id: p?.id, nome: p?.nome })));
 
         if (!pets || pets.length === 0) {
           console.log('Nenhum pet associado ao usuário encontrado');
@@ -380,12 +438,9 @@ export default function MyPetsScreen() {
           return;
         }
 
-        // Carregar detalhes completos dos pets
         const petsWithDetails = await loadPetsWithDetails(pets);
         console.log('Meus pets com detalhes carregados:', petsWithDetails.length);
-        console.log('Pets com detalhes IDs:', petsWithDetails.map(p => ({ id: p?.id, nome: p?.nome })));
 
-        // Filtrar apenas pets válidos antes de definir no estado
         const validPets = petsWithDetails.filter(pet => pet && pet.id);
         console.log('Pets válidos para o estado:', validPets.length);
 
@@ -413,7 +468,7 @@ export default function MyPetsScreen() {
     }
   }, [activeFilters, hasActiveSearch, searchResults, allMyPets, loading]);
 
-  // ✅ FUNÇÃO ATUALIZADA: Recarregar os dados
+  // Recarregar os dados
   const refreshData = async () => {
     if (!usuarioId) {
       console.log('Usuário não logado, não é possível recarregar pets');
@@ -429,10 +484,8 @@ export default function MyPetsScreen() {
       let pets: Pet[] = [];
       
       if (response && response.data && Array.isArray(response.data)) {
-        // Os pets vêm diretamente no array 'data'
         pets = response.data.map(normalizePetFromAPI).filter(Boolean);
       } else if (response && response.data && typeof response.data === 'object') {
-        // Se é um objeto único no data
         const normalizedPet = normalizePetFromAPI(response.data);
         if (normalizedPet) {
           pets = [normalizedPet];
@@ -447,8 +500,6 @@ export default function MyPetsScreen() {
       }
 
       const petsWithDetails = await loadPetsWithDetails(pets);
-      
-      // Filtrar apenas pets válidos antes de definir no estado
       const validPets = petsWithDetails.filter(pet => pet && pet.id);
       
       setAllMyPets(validPets);
@@ -465,7 +516,6 @@ export default function MyPetsScreen() {
     try {
       console.log('Comunicando com o dono do pet:', pet.nome);
 
-      // Buscar informações completas do usuário se necessário
       let userInfo = pet;
       if (!pet.usuario_telefone) {
         const fullUserInfo = await getUsuarioById(pet.usuario_id);
@@ -478,7 +528,7 @@ export default function MyPetsScreen() {
           text: 'WhatsApp',
           onPress: () => {
             if (userInfo.usuario_telefone) {
-              const phoneNumber = userInfo.usuario_telefone.replace(/\D/g, ''); // Remove caracteres não numéricos
+              const phoneNumber = userInfo.usuario_telefone.replace(/\D/g, '');
               const message = `Olá! Tenho interesse no pet ${pet.nome} que está disponível para adoção.`;
               const whatsappUrl = `whatsapp://send?phone=55${phoneNumber}&text=${encodeURIComponent(message)}`;
 
@@ -516,7 +566,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA: Remover pet dos meus pets usando deleteMyPet
+  // Remover pet dos meus pets usando deleteMyPet
   const handleRemovePet = async (pet: Pet) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
@@ -524,7 +574,6 @@ export default function MyPetsScreen() {
     }
 
     try {
-      // Confirmar a remoção
       Alert.alert(
         'Confirmar Remoção',
         `Deseja realmente remover ${pet.nome} dos seus pets?`,
@@ -537,14 +586,11 @@ export default function MyPetsScreen() {
               try {
                 console.log(`Removendo pet ${pet.nome} (ID: ${pet.id}) dos pets do usuário ${usuarioId}`);
 
-                // ✅ USAR A ROTA CORRETA: deleteMyPet para remover a associação
                 await deleteMyPet(pet.id, usuarioId);
 
-                // Remover da lista local
                 setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
                 setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
 
-                // Também remover dos resultados de busca se existir
                 if (hasActiveSearch) {
                   setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
                 }
@@ -613,30 +659,8 @@ export default function MyPetsScreen() {
     }
   };
 
-  // Função para abrir filtros avançados
-  const handleAdvancedFilter = () => {
-    let currentFiltersToPass = activeFilters ? { ...activeFilters } : {};
-
-    if (hasActiveSearch && searchQuery.trim() !== '') {
-      currentFiltersToPass.searchQuery = searchQuery.trim();
-      currentFiltersToPass.searchResults = searchResults;
-    }
-
-    const currentFiltersStr =
-      Object.keys(currentFiltersToPass).length > 0 ? encodeURIComponent(JSON.stringify(currentFiltersToPass)) : '';
-
-    router.push({
-      pathname: '/pages/MypetsFilter',
-      params: {
-        filters: currentFiltersStr,
-        origin: 'mypets',
-      },
-    });
-  };
-
   // Renderizar cada item da lista de pets
   const renderMyPetItem = ({ item }: { item: Pet }) => {
-    // Validar se o item tem as propriedades necessárias
     if (!item || !item.id) {
       console.warn('Item de pet inválido encontrado:', item);
       return null;
@@ -666,6 +690,18 @@ export default function MyPetsScreen() {
 
     if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
       filterCount += activeFilters.racaIds.length;
+    }
+
+    if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
+      filterCount += activeFilters.faixaEtariaIds.length;
+    }
+
+    if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
+      filterCount += activeFilters.estadoIds.length;
+    }
+
+    if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
+      filterCount += activeFilters.cidadeIds.length;
     }
 
     if (activeFilters.onlyFavorites) {
@@ -713,22 +749,33 @@ export default function MyPetsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
-        {/* Header com título e botão voltar */}
+        {/* 🔧 HEADER CORRIGIDO - com melhor separação dos botões */}
         <View style={styles.headerContainer}>
-          <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
+          <TouchableOpacity 
+            style={styles.backButton} 
+            onPress={handleGoBack}
+            activeOpacity={0.7}
+          >
             <Image source={require('../../assets/images/Icone/arrow-left.png')} style={styles.backIcon} />
           </TouchableOpacity>
+          
           <Text style={styles.headerTitle}>Meus Pets</Text>
-          <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
+          
+          <TouchableOpacity 
+            style={styles.settingsButton} 
+            onPress={() => router.push('/pages/ConfigScreen')}
+            activeOpacity={0.7}
+          >
             <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
           </TouchableOpacity>
         </View>
 
-        {/* Botões de filtro */}
+        {/* 🔧 CONTAINER DE FILTROS CORRIGIDO - com melhor espaçamento */}
         <View style={styles.filterContainer}>
           <TouchableOpacity
             style={[styles.filterButton, activeFilters && styles.activeFilterButton]}
             onPress={handleAdvancedFilter}
+            activeOpacity={0.7}
           >
             <Text style={[styles.filterButtonText, activeFilters && styles.activeFilterText]}>
               {activeFilters ? getFilterInfo() : 'Filtro Avançado'}
@@ -839,6 +886,7 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
+  // 🔧 HEADER CONTAINER CORRIGIDO - melhor espaçamento e separação
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -846,15 +894,28 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     marginTop: 10,
+    minHeight: 60, // Garante altura mínima
   },
+  // 🔧 BOTÃO VOLTAR CORRIGIDO - com z-index maior e melhor área de toque
   backButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
-    padding: 8,
+    padding: 12, // Aumentado para melhor área de toque
+    zIndex: 10, // Garante que ficará por cima de outros elementos
+    elevation: 5, // Para Android
+    shadowColor: '#000', // Para iOS
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    minWidth: 48, // Área mínima de toque recomendada
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   backIcon: {
     width: 24,
     height: 24,
+    tintColor: '#4682B4', // Cor mais visível
   },
   headerTitle: {
     fontSize: 24,
@@ -863,21 +924,37 @@ const styles = StyleSheet.create({
     textShadowColor: 'rgba(0, 0, 0, 0.3)',
     textShadowOffset: { width: 1, height: 1 },
     textShadowRadius: 2,
+    flex: 1,
+    textAlign: 'center',
   },
+  // 🔧 BOTÃO CONFIGURAÇÕES CORRIGIDO - similar ao botão voltar
   settingsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
-    padding: 8,
+    padding: 12,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.25,
+    shadowRadius: 3.84,
+    minWidth: 48,
+    minHeight: 48,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   settingsIcon: {
     width: 24,
     height: 24,
+    tintColor: '#4682B4',
   },
+  // 🔧 CONTAINER DE FILTROS CORRIGIDO - melhor espaçamento
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    marginVertical: 10,
-    paddingHorizontal: 10,
+    marginVertical: 15, // Aumentado para melhor separação
+    paddingHorizontal: 15, // Alinhado com o header
+    zIndex: 1, // Menor que os botões do header
   },
   filterButton: {
     flexDirection: 'row',
@@ -885,7 +962,12 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 15,
-    paddingVertical: 8,
+    paddingVertical: 10, // Aumentado ligeiramente
+    elevation: 2, // Sombra menor que os botões do header
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.2,
+    shadowRadius: 2,
   },
   activeFilterButton: {
     backgroundColor: '#E8F1F8',
@@ -893,8 +975,9 @@ const styles = StyleSheet.create({
     borderColor: '#4682B4',
   },
   filterButtonText: {
-    marginRight: 5,
+    marginRight: 8, // Aumentado ligeiramente
     fontWeight: 'bold',
+    color: '#333',
   },
   activeFilterText: {
     color: '#4682B4',
@@ -916,10 +999,11 @@ const styles = StyleSheet.create({
   arrowIcon: {
     width: 12,
     height: 12,
+    tintColor: '#666',
   },
   statusContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
-    marginHorizontal: 10,
+    marginHorizontal: 15,
     paddingHorizontal: 15,
     paddingVertical: 8,
     borderRadius: 15,
@@ -1009,22 +1093,5 @@ const styles = StyleSheet.create({
   goToPetsButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-  },
-  bottomNavigation: {
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 15,
-    borderTopRightRadius: 15,
-    paddingVertical: 10,
-  },
-  navItem: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 5,
-  },
-  navIcon: {
-    width: 30,
-    height: 30,
   },
 });

@@ -1,4 +1,4 @@
-// MypetsFilter.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - CORRIGIDO
+// MypetsFilter.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - STATUS_ID = 3 e 4
 import { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -27,7 +27,7 @@ import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID'
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
 import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
-import getByNomePet_StatusId from '@/services/api/Pets/getByNomePet_StatusId';
+import getByNomePet_StatusId from '@/services/api/Pets/getByNomePet_StatusId'; // Esta API filtra por status_id específico
 
 // Interfaces para os tipos
 interface Especie {
@@ -94,6 +94,8 @@ interface FilterParams {
   // Parâmetros para busca por nome
   searchQuery?: string;
   searchResults?: Pet[];
+  // NOVO: Adicionar status_id
+  statusIds?: number[];
 }
 
 export default function MypetsFilter() {
@@ -167,7 +169,7 @@ export default function MypetsFilter() {
     return [];
   };
 
-  // Buscar pets por nome - SIMPLIFICADO
+  // Buscar pets por nome - A API já filtra por status_id = 3 e 4 automaticamente
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
       clearSearch();
@@ -177,20 +179,20 @@ export default function MypetsFilter() {
     try {
       setSearchLoading(true);
 
-      console.log('Buscando pets por nome no FilterScreen:', name);
+      console.log('Buscando pets por nome no MypetsFilter (API já filtra status_id 3 e 4):', name);
 
-      const response = await getByNomePet_StatusId(name, 3);
-      console.log('Resposta da API getPetByName:', response);
+      // A API getByNomePet_StatusId já filtra automaticamente por status_id = 3 e 4
+      const response = await getByNomePet_StatusId(name);
+      console.log('Resposta da API getByNomePet_StatusId (status 3 e 4):', response);
 
       const petsArray = normalizeApiResponse(response);
-      console.log('Pets encontrados na busca:', petsArray.length);
+      console.log('Pets encontrados (status 3 e 4):', petsArray.length);
 
       setSearchResults(petsArray);
       setHasActiveSearch(true);
-
       setSearchLoading(false);
     } catch (err) {
-      console.error('Erro ao buscar pets por nome:', err);
+      console.error('Erro ao buscar pets por nome (status 3 e 4):', err);
 
       const errorMessage = err?.toString() || '';
       if (
@@ -198,7 +200,7 @@ export default function MypetsFilter() {
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
       ) {
-        console.log('Pet não encontrado na API:', name);
+        console.log('Pet não encontrado na API (status 3 e 4):', name);
       }
 
       setSearchResults([]);
@@ -586,7 +588,7 @@ export default function MypetsFilter() {
     setExpandedState(!expandedState);
   };
 
-  // Aplicar filtros e voltar para a tela anterior - CORRIGIDO
+  // Aplicar filtros e voltar para a tela anterior - MODIFICADO PARA STATUS_ID = 3 e 4
   const applyFilters = async () => {
     const faixasComErro = faixasEtarias.filter((faixa: FaixaEtaria) => faixa.selected && faixa.idadeErro);
 
@@ -600,6 +602,9 @@ export default function MypetsFilter() {
     }
 
     const filters: FilterParams = {};
+
+    // NOVO: Sempre incluir status_id = 3 e 4 para "meus pets"
+    filters.statusIds = [3, 4];
 
     const selectedEspecieIds = especies.filter((item: Especie) => item.selected).map((item: Especie) => item.id);
     if (selectedEspecieIds.length > 0) {
@@ -642,10 +647,14 @@ export default function MypetsFilter() {
       filters.favoritePetIds = favoritePetIds;
     }
 
-    // Incluir busca por nome se existir
+    // Incluir busca por nome se existir (garantindo status_id = 3 e 4)
     if (hasActiveSearch && searchQuery.trim() !== '') {
       filters.searchQuery = searchQuery.trim();
-      filters.searchResults = searchResults;
+      // Filtrar apenas pets com status_id = 3 ou 4 (redundante mas garante)
+      const filteredResults = searchResults.filter(pet => 
+        pet.status_id === 3 || pet.status_id === 4
+      );
+      filters.searchResults = filteredResults;
     }
 
     // VALIDAÇÃO: Verificar se pelo menos um filtro foi aplicado
@@ -667,17 +676,17 @@ export default function MypetsFilter() {
       return;
     }
 
-    // CORREÇÃO: Determinar a chave do AsyncStorage baseada na origem
+    // Determinar a chave do AsyncStorage baseada na origem
     const origin = params.origin as string;
     const storageKey = origin === 'mypets' ? '@App:myPetsFilters' : '@App:petFilters';
     
     await AsyncStorage.setItem(storageKey, JSON.stringify(filters));
 
-    console.log('Filtros aplicados:', filters);
+    console.log('Filtros aplicados (com status_id = 3 e 4):', filters);
     console.log('Origem:', origin);
     console.log('Chave do storage usada:', storageKey);
 
-    // CORREÇÃO: Navegar de volta para a tela correta
+    // Navegar de volta para a tela correta
     if (origin === 'mypets') {
       router.push({
         pathname: '/pages/MyPetsScreen',
@@ -1245,7 +1254,7 @@ export default function MypetsFilter() {
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
         <ScrollView style={styles.scrollView}>
-          {/* Botão Voltar - CORRIGIDO com texto dinâmico */}
+          {/* Botão Voltar - com texto dinâmico */}
           <TouchableOpacity style={styles.backButton} onPress={() => router.back()}>
             <Image source={require('../../assets/images/Icone/close-icon.png')} style={styles.backIcon} />
             <Text style={styles.backButtonText}>

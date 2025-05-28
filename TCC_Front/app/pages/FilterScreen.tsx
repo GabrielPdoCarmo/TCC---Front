@@ -1,4 +1,4 @@
-// FilterScreen.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO
+// FilterScreen.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - STATUS_ID = 2
 import { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -27,7 +27,7 @@ import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID'
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
 import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
-import getPetByName from '@/services/api/Pets/getPetByName';
+import getPetByName from '@/services/api/Pets/getPetByName'; // Esta API já filtra por status_id = 2
 
 // Interfaces para os tipos
 interface Especie {
@@ -94,6 +94,8 @@ interface FilterParams {
   // Parâmetros para busca por nome
   searchQuery?: string;
   searchResults?: Pet[];
+  // NOVO: Adicionar status_id
+  statusIds?: number[];
 }
 
 export default function FilterScreen() {
@@ -167,7 +169,7 @@ export default function FilterScreen() {
     return [];
   };
 
-  // Buscar pets por nome - SIMPLIFICADO
+  // Buscar pets por nome - SIMPLIFICADO (já filtra por status_id = 2)
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
       clearSearch();
@@ -177,20 +179,21 @@ export default function FilterScreen() {
     try {
       setSearchLoading(true);
 
-      console.log('Buscando pets por nome no FilterScreen:', name);
+      console.log('Buscando pets por nome no FilterScreen (status_id = 2):', name);
 
+      // getPetByName já filtra automaticamente por status_id = 2
       const response = await getPetByName(name);
-      console.log('Resposta da API getPetByName:', response);
+      console.log('Resposta da API getPetByName (status 2):', response);
 
       const petsArray = normalizeApiResponse(response);
-      console.log('Pets encontrados na busca:', petsArray.length);
+      console.log('Pets encontrados na busca (status 2):', petsArray.length);
 
       setSearchResults(petsArray);
       setHasActiveSearch(true);
 
       setSearchLoading(false);
     } catch (err) {
-      console.error('Erro ao buscar pets por nome:', err);
+      console.error('Erro ao buscar pets por nome (status 2):', err);
 
       const errorMessage = err?.toString() || '';
       if (
@@ -198,7 +201,7 @@ export default function FilterScreen() {
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
       ) {
-        console.log('Pet não encontrado na API:', name);
+        console.log('Pet não encontrado na API (status 2):', name);
       }
 
       setSearchResults([]);
@@ -586,7 +589,7 @@ export default function FilterScreen() {
     setExpandedState(!expandedState);
   };
 
-  // Aplicar filtros e voltar para a tela anterior
+  // Aplicar filtros e voltar para a tela anterior - MODIFICADO PARA STATUS_ID = 2
   const applyFilters = async () => {
     const faixasComErro = faixasEtarias.filter((faixa: FaixaEtaria) => faixa.selected && faixa.idadeErro);
 
@@ -600,6 +603,9 @@ export default function FilterScreen() {
     }
 
     const filters: FilterParams = {};
+
+    // NOVO: Sempre incluir status_id = 2 para pets de adoção
+    filters.statusIds = [2];
 
     const selectedEspecieIds = especies.filter((item: Especie) => item.selected).map((item: Especie) => item.id);
     if (selectedEspecieIds.length > 0) {
@@ -642,10 +648,12 @@ export default function FilterScreen() {
       filters.favoritePetIds = favoritePetIds;
     }
 
-    // Incluir busca por nome se existir
+    // Incluir busca por nome se existir (garantindo status_id = 2)
     if (hasActiveSearch && searchQuery.trim() !== '') {
       filters.searchQuery = searchQuery.trim();
-      filters.searchResults = searchResults;
+      // Filtrar apenas pets com status_id = 2 (redundante mas garante)
+      const filteredResults = searchResults.filter(pet => pet.status_id === 2);
+      filters.searchResults = filteredResults;
     }
 
     // VALIDAÇÃO: Verificar se pelo menos um filtro foi aplicado
@@ -669,7 +677,7 @@ export default function FilterScreen() {
 
     await AsyncStorage.setItem('@App:petFilters', JSON.stringify(filters));
 
-    console.log('Filtros aplicados:', filters);
+    console.log('Filtros aplicados (com status_id = 2):', filters);
 
     router.push({
       pathname: '/pages/PetAdoptionScreen',
