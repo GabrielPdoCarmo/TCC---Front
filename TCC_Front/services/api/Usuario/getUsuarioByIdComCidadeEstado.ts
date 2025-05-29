@@ -1,5 +1,5 @@
-import api from "../api";
-import { getEstados } from "../Estados/getEstados";
+import api from '../api';
+import { getEstados } from '../Estados/getEstados';
 export const getUsuarioByIdComCidadeEstado = async (id: number) => {
   try {
     // 1. Buscar o usuário
@@ -13,6 +13,7 @@ export const getUsuarioByIdComCidadeEstado = async (id: number) => {
       return {
         id: userId,
         nome,
+        email: usuario.email ?? '', // <- campo adicionado aqui
         cidade: { id: cidade_id || null, nome: cidade_id ? 'Cidade não identificada' : 'Não informada' },
         estado: { id: estado_id || null, nome: estado_id ? 'Estado não identificado' : 'Não informado' },
       };

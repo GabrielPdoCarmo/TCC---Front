@@ -60,6 +60,18 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
   } catch (error: unknown) {
     console.error('Erro de login:', error);
 
+    api.interceptors.request.use(
+      async (config) => {
+        const token = await AsyncStorage.getItem('@App:token');
+        if (token && config.headers) {
+          config.headers.Authorization = `Bearer ${token}`;
+        }
+        return config;
+      },
+      (error) => {
+        return Promise.reject(error);
+      }
+    );
     // Verifica se é um erro com resposta do servidor
     if (
       error &&

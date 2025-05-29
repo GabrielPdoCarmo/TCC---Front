@@ -1,4 +1,4 @@
-// MyPetsScreen.tsx - Tela para listar pets associados ao usuário - CORRIGIDA COM BOTÃO VOLTAR FUNCIONANDO
+// MyPetsScreen.tsx - Tela para listar pets associados ao usuário - COM MODAL DO TERMO
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -27,6 +27,9 @@ import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getFavorito from '@/services/api/Favoritos/getFavorito';
 import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
+import getTermoByPet from '@/services/api/Termo/getTermoByPet';
+// 🆕 IMPORTS PARA O MODAL DO TERMO
+import TermoModal from '@/components/Termo/TermoModal';
 
 // Definindo uma interface para o tipo Pet
 interface Pet {
@@ -55,6 +58,8 @@ interface Pet {
   motivoDoacao?: string;
   estado_id?: number;
   cidade_id?: number;
+  pet_especie_nome?: string;
+  pet_sexo_nome?: string;
 }
 
 // Interface para o usuário
@@ -104,6 +109,10 @@ export default function MyPetsScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
+  // 🆕 ESTADOS PARA O MODAL DO TERMO
+  const [termoModalVisible, setTermoModalVisible] = useState(false);
+  const [selectedPetForTermo, setSelectedPetForTermo] = useState<Pet | null>(null);
+
   // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
     console.log('🔄 Botão voltar clicado - navegando para tela anterior');
@@ -113,7 +122,7 @@ export default function MyPetsScreen() {
   // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
   const handleAdvancedFilter = () => {
     console.log('🔍 Botão filtro avançado clicado');
-    
+
     let currentFiltersToPass = activeFilters ? { ...activeFilters } : {};
 
     if (hasActiveSearch && searchQuery.trim() !== '') {
@@ -138,7 +147,7 @@ export default function MyPetsScreen() {
     if (!pet || typeof pet !== 'object' || !pet.id) {
       return null;
     }
-    
+
     return {
       ...pet,
       rgPet: pet.rgPet || pet.rg_Pet || '',
@@ -151,7 +160,7 @@ export default function MyPetsScreen() {
       status_id: pet.status_id || 3,
       faixa_etaria_id: pet.faixa_etaria_id || 0,
       especie_id: pet.especie_id || 0,
-      sexo_id: pet.sexo_id || 0
+      sexo_id: pet.sexo_id || 0,
     };
   };
 
@@ -372,12 +381,12 @@ export default function MyPetsScreen() {
           filteredData = filteredData.filter((pet) => {
             const faixaEtariaId = pet.faixa_etaria_id;
             const idadeEspecifica = activeFilters.faixasEtariaIdades?.[faixaEtariaId];
-            
+
             if (idadeEspecifica !== undefined) {
               const petIdade = parseInt(pet.idade) || 0;
               return petIdade === idadeEspecifica;
             }
-            
+
             return true;
           });
           console.log('Após filtro de idades específicas:', filteredData.length, 'pets');
@@ -418,7 +427,7 @@ export default function MyPetsScreen() {
         console.log('Resposta da API getByUsuarioId:', response);
 
         let pets: Pet[] = [];
-        
+
         if (response && response.data && Array.isArray(response.data)) {
           pets = response.data.map(normalizePetFromAPI).filter(Boolean);
         } else if (response && response.data && typeof response.data === 'object') {
@@ -441,7 +450,7 @@ export default function MyPetsScreen() {
         const petsWithDetails = await loadPetsWithDetails(pets);
         console.log('Meus pets com detalhes carregados:', petsWithDetails.length);
 
-        const validPets = petsWithDetails.filter(pet => pet && pet.id);
+        const validPets = petsWithDetails.filter((pet) => pet && pet.id);
         console.log('Pets válidos para o estado:', validPets.length);
 
         setAllMyPets(validPets);
@@ -480,9 +489,9 @@ export default function MyPetsScreen() {
       setError(null);
 
       const response = await getByUsuarioId(usuarioId);
-      
+
       let pets: Pet[] = [];
-      
+
       if (response && response.data && Array.isArray(response.data)) {
         pets = response.data.map(normalizePetFromAPI).filter(Boolean);
       } else if (response && response.data && typeof response.data === 'object') {
@@ -500,8 +509,8 @@ export default function MyPetsScreen() {
       }
 
       const petsWithDetails = await loadPetsWithDetails(pets);
-      const validPets = petsWithDetails.filter(pet => pet && pet.id);
-      
+      const validPets = petsWithDetails.filter((pet) => pet && pet.id);
+
       setAllMyPets(validPets);
       setLoading(false);
     } catch (err) {
@@ -511,59 +520,64 @@ export default function MyPetsScreen() {
     }
   };
 
-  // Função para comunicar com o dono do pet
+  // 🔧 FUNÇÃO MODIFICADA: handleCommunicate agora abre o modal do termo
   const handleCommunicate = async (pet: Pet) => {
     try {
-      console.log('Comunicando com o dono do pet:', pet.nome);
+      console.log('📋 Verificando termo para o pet:', pet.nome);
 
-      let userInfo = pet;
-      if (!pet.usuario_telefone) {
-        const fullUserInfo = await getUsuarioById(pet.usuario_id);
-        userInfo = { ...pet, ...fullUserInfo };
+      // Verificar se o usuário está logado
+      if (!usuarioId || !usuario) {
+        Alert.alert('Erro', 'Você precisa estar logado para visualizar o termo de compromisso.');
+        return;
       }
 
-      Alert.alert('Comunicar com o Dono', `Deseja entrar em contato com ${pet.usuario_nome} sobre ${pet.nome}?`, [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'WhatsApp',
-          onPress: () => {
-            if (userInfo.usuario_telefone) {
-              const phoneNumber = userInfo.usuario_telefone.replace(/\D/g, '');
-              const message = `Olá! Tenho interesse no pet ${pet.nome} que está disponível para adoção.`;
-              const whatsappUrl = `whatsapp://send?phone=55${phoneNumber}&text=${encodeURIComponent(message)}`;
+      // Verificar se não é o próprio pet do usuário
+      if (pet.usuario_id === usuarioId) {
+        Alert.alert(
+          'Informação',
+          'Este é seu próprio pet. Você pode ver as informações dele, mas não precisa de termo de adoção.'
+        );
+        return;
+      }
 
-              Linking.canOpenURL(whatsappUrl).then((supported) => {
-                if (supported) {
-                  Linking.openURL(whatsappUrl);
-                } else {
-                  Alert.alert('Erro', 'WhatsApp não está instalado no dispositivo.');
-                }
-              });
-            } else {
-              Alert.alert('Erro', 'Número de telefone não disponível.');
-            }
-          },
-        },
-        {
-          text: 'Email',
-          onPress: () => {
-            if (userInfo.usuario_email) {
-              const emailUrl = `mailto:${userInfo.usuario_email}?subject=${encodeURIComponent(
-                `Interesse no pet ${pet.nome}`
-              )}&body=${encodeURIComponent(
-                `Olá! Tenho interesse no pet ${pet.nome} que está disponível para adoção.`
-              )}`;
-              Linking.openURL(emailUrl);
-            } else {
-              Alert.alert('Erro', 'Email não disponível.');
-            }
-          },
-        },
-      ]);
-    } catch (error) {
-      console.error('Erro ao comunicar com o dono:', error);
-      Alert.alert('Erro', 'Não foi possível obter informações de contato.');
+      // 🆕 Verificar silenciosamente se já existe um termo para este pet
+      const termoResponse = await getTermoByPet(pet.id);
+
+      if (termoResponse && termoResponse.data) {
+        // Já existe termo - mostrar informação
+        console.log('✅ Termo já existe para este pet');
+        Alert.alert(
+          'Termo Já Existe',
+          `Este pet já possui um termo de compromisso assinado.\n\nSe você é o adotante e precisa receber o termo por email, entre em contato com o suporte.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Se termoResponse é null, significa que não existe termo (404 tratado silenciosamente)
+      console.log('ℹ️ Nenhum termo encontrado, abrindo modal para criar');
+      setSelectedPetForTermo(pet);
+      setTermoModalVisible(true);
+    } catch (error: any) {
+      // Apenas tratar erros reais (401, 500, etc. - não 404)
+
+      if (error.message?.includes('Sessão expirada')) {
+        Alert.alert('Erro', 'Sessão expirada. Faça login novamente.');
+        return;
+      }
+
+      // Para outros erros, permitir criar termo
+
+      setSelectedPetForTermo(pet);
+      setTermoModalVisible(true);
     }
+  };
+
+  // 🆕 FUNÇÃO PARA FECHAR O MODAL DO TERMO
+  const handleCloseTermoModal = () => {
+    console.log('📋 Fechando modal do termo');
+    setTermoModalVisible(false);
+    setSelectedPetForTermo(null);
   };
 
   // Remover pet dos meus pets usando deleteMyPet
@@ -574,36 +588,32 @@ export default function MyPetsScreen() {
     }
 
     try {
-      Alert.alert(
-        'Confirmar Remoção',
-        `Deseja realmente remover ${pet.nome} dos seus pets?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Remover',
-            style: 'destructive',
-            onPress: async () => {
-              try {
-                console.log(`Removendo pet ${pet.nome} (ID: ${pet.id}) dos pets do usuário ${usuarioId}`);
+      Alert.alert('Confirmar Remoção', `Deseja realmente remover ${pet.nome} dos seus pets?`, [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            try {
+              console.log(`Removendo pet ${pet.nome} (ID: ${pet.id}) dos pets do usuário ${usuarioId}`);
 
-                await deleteMyPet(pet.id, usuarioId);
+              await deleteMyPet(pet.id, usuarioId);
 
-                setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-                setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
+              setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
+              setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
 
-                if (hasActiveSearch) {
-                  setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
-                }
-
-                Alert.alert('Sucesso', `${pet.nome} foi removido dos seus pets.`);
-              } catch (error) {
-                console.error('Erro ao remover pet:', error);
-                Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
+              if (hasActiveSearch) {
+                setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
               }
+
+              Alert.alert('Sucesso', `${pet.nome} foi removido dos seus pets.`);
+            } catch (error) {
+              console.error('Erro ao remover pet:', error);
+              Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
             }
-          }
-        ]
-      );
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao tentar remover pet:', error);
       Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
@@ -665,7 +675,7 @@ export default function MyPetsScreen() {
       console.warn('Item de pet inválido encontrado:', item);
       return null;
     }
-    
+
     return (
       <View style={styles.petCardWrapper}>
         <MyPetsCard
@@ -749,20 +759,16 @@ export default function MyPetsScreen() {
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
-        {/* 🔧 HEADER CORRIGIDO - com melhor separação dos botões */}
+        {/* HEADER */}
         <View style={styles.headerContainer}>
-          <TouchableOpacity 
-            style={styles.backButton} 
-            onPress={handleGoBack}
-            activeOpacity={0.7}
-          >
+          <TouchableOpacity style={styles.backButton} onPress={handleGoBack} activeOpacity={0.7}>
             <Image source={require('../../assets/images/Icone/arrow-left.png')} style={styles.backIcon} />
           </TouchableOpacity>
-          
+
           <Text style={styles.headerTitle}>Meus Pets</Text>
-          
-          <TouchableOpacity 
-            style={styles.settingsButton} 
+
+          <TouchableOpacity
+            style={styles.settingsButton}
             onPress={() => router.push('/pages/ConfigScreen')}
             activeOpacity={0.7}
           >
@@ -770,7 +776,7 @@ export default function MyPetsScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* 🔧 CONTAINER DE FILTROS CORRIGIDO - com melhor espaçamento */}
+        {/* CONTAINER DE FILTROS */}
         <View style={styles.filterContainer}>
           <TouchableOpacity
             style={[styles.filterButton, activeFilters && styles.activeFilterButton]}
@@ -849,6 +855,21 @@ export default function MyPetsScreen() {
             />
           )}
         </View>
+
+        {/* 🆕 MODAL DO TERMO DE COMPROMISSO */}
+        {selectedPetForTermo && usuario && (
+          <TermoModal
+            visible={termoModalVisible}
+            onClose={handleCloseTermoModal}
+            pet={selectedPetForTermo}
+            usuarioLogado={{
+              id: usuario.id,
+              nome: usuario.nome,
+              email: usuario.email || '',
+              telefone: usuario.telefone,
+            }}
+          />
+        )}
       </ImageBackground>
     </SafeAreaView>
   );
@@ -886,7 +907,6 @@ const styles = StyleSheet.create({
     height: '100%',
     resizeMode: 'cover',
   },
-  // 🔧 HEADER CONTAINER CORRIGIDO - melhor espaçamento e separação
   headerContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
@@ -894,20 +914,19 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     marginTop: 10,
-    minHeight: 60, // Garante altura mínima
+    minHeight: 60,
   },
-  // 🔧 BOTÃO VOLTAR CORRIGIDO - com z-index maior e melhor área de toque
   backButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
-    padding: 12, // Aumentado para melhor área de toque
-    zIndex: 10, // Garante que ficará por cima de outros elementos
-    elevation: 5, // Para Android
-    shadowColor: '#000', // Para iOS
+    padding: 12,
+    zIndex: 10,
+    elevation: 5,
+    shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.25,
     shadowRadius: 3.84,
-    minWidth: 48, // Área mínima de toque recomendada
+    minWidth: 48,
     minHeight: 48,
     justifyContent: 'center',
     alignItems: 'center',
@@ -915,7 +934,7 @@ const styles = StyleSheet.create({
   backIcon: {
     width: 24,
     height: 24,
-    tintColor: '#4682B4', // Cor mais visível
+    tintColor: '#4682B4',
   },
   headerTitle: {
     fontSize: 24,
@@ -927,7 +946,6 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  // 🔧 BOTÃO CONFIGURAÇÕES CORRIGIDO - similar ao botão voltar
   settingsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
@@ -948,13 +966,12 @@ const styles = StyleSheet.create({
     height: 24,
     tintColor: '#4682B4',
   },
-  // 🔧 CONTAINER DE FILTROS CORRIGIDO - melhor espaçamento
   filterContainer: {
     flexDirection: 'row',
     justifyContent: 'flex-start',
-    marginVertical: 15, // Aumentado para melhor separação
-    paddingHorizontal: 15, // Alinhado com o header
-    zIndex: 1, // Menor que os botões do header
+    marginVertical: 15,
+    paddingHorizontal: 15,
+    zIndex: 1,
   },
   filterButton: {
     flexDirection: 'row',
@@ -962,8 +979,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#FFFFFF',
     borderRadius: 20,
     paddingHorizontal: 15,
-    paddingVertical: 10, // Aumentado ligeiramente
-    elevation: 2, // Sombra menor que os botões do header
+    paddingVertical: 10,
+    elevation: 2,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 1 },
     shadowOpacity: 0.2,
@@ -975,7 +992,7 @@ const styles = StyleSheet.create({
     borderColor: '#4682B4',
   },
   filterButtonText: {
-    marginRight: 8, // Aumentado ligeiramente
+    marginRight: 8,
     fontWeight: 'bold',
     color: '#333',
   },

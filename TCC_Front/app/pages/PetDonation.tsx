@@ -13,6 +13,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
+import TermoDoacaoModalAuto from '@/components/Termo/TermoDoacaoModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/modal_Pet/PetCard';
@@ -24,6 +25,8 @@ import getRacaById from '@/services/api/Raca/getRacaById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
+import { checkCanCreatePets } from '@/services/api/TermoDoacao/checkCanCreatePets';
+
 // Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;
@@ -45,6 +48,8 @@ interface Pet {
 interface Usuario {
   id: number;
   nome: string;
+  email: string;
+  telefone?: string;
   cidade: {
     id: number;
     nome: string;
@@ -55,26 +60,17 @@ interface Usuario {
   };
 }
 
-// Define a interface Raca
-interface Raca {
-  id: number;
-  nome: string;
-}
-
-// Define a interface FaixaEtaria
-interface FaixaEtaria {
-  id: number;
-  nome: string;
-  unidade: string;
-}
-
 export default function PetDonationScreen() {
-  // Estado para controlar a visibilidade do modal
-  const [modalVisible, setModalVisible] = useState(false);
+  // Estado para controlar a visibilidade do modal de pet
+  const [petModalVisible, setPetModalVisible] = useState(false);
+  // Estado para controlar a visibilidade do modal de termo
+  const [termoModalVisible, setTermoModalVisible] = useState(false);
   // Estado para armazenar a lista de pets
   const [pets, setPets] = useState<Pet[]>([]);
   // Estado para indicar carregamento
   const [loading, setLoading] = useState(true);
+  // Estado para carregamento do termo
+  const [termoLoading, setTermoLoading] = useState(true);
   // Estado para armazenar o usuário atual
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   // Estado para controlar erros
@@ -83,9 +79,81 @@ export default function PetDonationScreen() {
   const [currentPet, setCurrentPet] = useState<Pet | null>(null);
   // Estado para controlar se o modal está no modo de edição
   const [isEditMode, setIsEditMode] = useState(false);
+  // Estado para controlar se usuário pode cadastrar pets
+  const [canCreatePets, setCanCreatePets] = useState(false);
+
+  // 🔍 Função para verificar se usuário pode cadastrar pets
+  const checkUserPermissions = async () => {
+    try {
+      setTermoLoading(true);
+      console.log('🔍 Verificando permissões do usuário...');
+
+      const result = await checkCanCreatePets();
+      const podecastrar = result.data.podecastrar;
+
+      console.log('✅ Verificação de permissões:', {
+        podecastrar,
+        temTermo: result.data.temTermo,
+      });
+
+      setCanCreatePets(podecastrar);
+
+      // Se não pode cadastrar, mostrar modal do termo
+      if (!podecastrar) {
+        console.log('⚠️ Usuário precisa assinar termo, mostrando modal...');
+        setTermoModalVisible(true);
+      }
+    } catch (error: any) {
+      console.error('❌ Erro ao verificar permissões:', error);
+
+      // Em caso de erro, assumir que precisa do termo
+      setCanCreatePets(false);
+      setTermoModalVisible(true);
+
+      if (error.message.includes('Sessão expirada')) {
+        Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
+          { text: 'OK', onPress: () => router.back() },
+        ]);
+      }
+    } finally {
+      setTermoLoading(false);
+    }
+  };
+
+  // 🔄 Carregar dados do usuário
+  const loadUserData = async () => {
+    try {
+      const userId = await AsyncStorage.getItem('@App:userId');
+
+      if (!userId) {
+        setError('Usuário não encontrado. Por favor, faça login novamente.');
+        return;
+      }
+
+      const userData = await getUsuarioByIdComCidadeEstado(parseInt(userId, 10));
+      setCurrentUser(userData);
+      console.log('👤 Dados do usuário carregados:', userData);
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados do usuário:', error);
+      setCurrentUser({
+        id: 0,
+        nome: 'Usuário',
+        email: 'email@exemplo.com',
+        cidade: { id: 0, nome: 'Cidade' },
+        estado: { id: 0, nome: 'Estado' },
+      });
+    }
+  };
 
   // Função para buscar os pets do usuário logado com dados de faixa etária
   const fetchUserPets = async () => {
+    // Só buscar pets se o usuário tem permissão
+    if (!canCreatePets) {
+      console.log('⚠️ Usuário não tem permissão para ver pets ainda');
+      setLoading(false);
+      return;
+    }
+
     try {
       setLoading(true);
       setError('');
@@ -101,16 +169,11 @@ export default function PetDonationScreen() {
 
       // Converter o ID para número
       const userIdNumber = parseInt(userId, 10);
-      console.log('Buscando pets para o usuário ID:', userIdNumber);
-
-      // Obter informações do usuário
-      const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
-      setCurrentUser(userData);
-      console.log('Dados do usuário carregados:', userData);
+      console.log('🔍 Buscando pets para o usuário ID:', userIdNumber);
 
       // Obter os pets do usuário
       const userPets = await getPetsByUsuarioId(userIdNumber);
-      console.log('Pets do usuário carregados:', userPets);
+      console.log('🐾 Pets do usuário carregados:', userPets);
 
       // Enriquecer os dados dos pets com nomes de raças, responsáveis e faixa etária
       const enrichedPets = await Promise.all(
@@ -126,7 +189,7 @@ export default function PetDonationScreen() {
             const statusData = await getstatusById(pet.status_id);
 
             // Obter informações do usuário responsável (se diferente do usuário atual)
-            let usuarioNome = userData?.nome || 'Usuário não identificado';
+            let usuarioNome = currentUser?.nome || 'Usuário não identificado';
 
             if (pet.usuario_id !== userIdNumber) {
               const petUsuario = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
@@ -160,43 +223,84 @@ export default function PetDonationScreen() {
         })
       );
 
-      console.log('Pets enriquecidos:', enrichedPets);
+      console.log('✅ Pets enriquecidos:', enrichedPets);
       setPets(enrichedPets);
     } catch (error) {
-      console.error('Erro ao buscar pets:', error);
+      console.error('❌ Erro ao buscar pets:', error);
       setError('Ocorreu um erro ao carregar seus pets. Por favor, tente novamente.');
     } finally {
       setLoading(false);
     }
   };
 
-  // Carregar a lista de pets quando o componente montar
+  // 🚀 Inicialização da tela
   useEffect(() => {
-    fetchUserPets();
+    const initializeScreen = async () => {
+      console.log('🚀 Inicializando tela de doação de pets...');
+
+      // Carregar dados do usuário primeiro
+      await loadUserData();
+
+      // Verificar permissões
+      await checkUserPermissions();
+    };
+
+    initializeScreen();
   }, []);
+
+  // 🔄 Recarregar pets quando permissões mudarem
+  useEffect(() => {
+    if (canCreatePets) {
+      console.log('✅ Usuário tem permissão, carregando pets...');
+      fetchUserPets();
+    }
+  }, [canCreatePets, currentUser]);
 
   // Usar useFocusEffect para recarregar os dados quando a tela receber foco
   useFocusEffect(
     useCallback(() => {
-      console.log('Tela recebeu foco - atualizando dados');
-      fetchUserPets();
+      console.log('👀 Tela recebeu foco - verificando permissões');
+
+      // Só recarregar se já passou pela verificação inicial
+      if (!termoLoading) {
+        checkUserPermissions();
+      }
+
       return () => {
-        // Cleanup function (opcional)
-        console.log('Tela perdeu foco');
+        console.log('👋 Tela perdeu foco');
       };
-    }, [])
+    }, [termoLoading])
   );
+
+  // 🎉 Callback quando termo for concluído
+  const handleTermoCompleted = () => {
+    console.log('🎉 Termo concluído! Liberando acesso à tela...');
+    setTermoModalVisible(false);
+    setCanCreatePets(true);
+
+    // Recarregar verificação para ter certeza
+    setTimeout(() => {
+      checkUserPermissions();
+    }, 1000);
+  };
 
   // Função para abrir o modal no modo de adição
   const handleOpenModal = () => {
+    if (!canCreatePets) {
+      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade antes de cadastrar pets.', [
+        { text: 'OK' },
+      ]);
+      return;
+    }
+
     setCurrentPet(null);
     setIsEditMode(false);
-    setModalVisible(true);
+    setPetModalVisible(true);
   };
 
   // Função para fechar o modal e atualizar a lista de pets
   const handleCloseModal = () => {
-    setModalVisible(false);
+    setPetModalVisible(false);
     setCurrentPet(null);
     setIsEditMode(false);
     // Recarrega a lista de pets após fechar o modal
@@ -207,7 +311,7 @@ export default function PetDonationScreen() {
   const handleSubmitForm = async (formData: any) => {
     try {
       if (isEditMode && currentPet) {
-        console.log('Atualizando dados do pet:', formData);
+        console.log('📝 Atualizando dados do pet:', formData);
         // Atualizar o pet existente usando updatePet
         await updatePet({ ...formData, id: currentPet.id });
         Alert.alert('Sucesso!', 'Os dados do pet foram atualizados com sucesso.', [
@@ -217,7 +321,7 @@ export default function PetDonationScreen() {
           },
         ]);
       } else {
-        console.log('Cadastrando novo pet:', formData);
+        console.log('🆕 Cadastrando novo pet:', formData);
         // Lógica para salvar um novo pet
         // Por exemplo: await createPet(formData);
         Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
@@ -228,13 +332,18 @@ export default function PetDonationScreen() {
         ]);
       }
     } catch (error) {
-      console.error('Erro ao salvar/atualizar pet:', error);
+      console.error('❌ Erro ao salvar/atualizar pet:', error);
       Alert.alert('Erro', 'Ocorreu um erro ao salvar os dados do pet. Por favor, tente novamente.');
     }
   };
 
   // Função para enviar pet para adoção
   const handleAdoptPet = (petId: number) => {
+    if (!canCreatePets) {
+      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+      return;
+    }
+
     Alert.alert('Enviar para Adoção', 'Deseja realmente disponibilizar este pet para ser adotado?', [
       {
         text: 'Cancelar',
@@ -245,7 +354,7 @@ export default function PetDonationScreen() {
         onPress: async () => {
           try {
             // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
-            await updateStatus(petId); // Assumindo que 2 é o ID para "Disponível para adoção"
+            await updateStatus(petId);
 
             // Atualizando o pet na lista local para refletir a mudança de status
             const updatedPets = pets.map((pet) => {
@@ -266,7 +375,7 @@ export default function PetDonationScreen() {
             // Recarregar a lista de pets para exibir as atualizações
             fetchUserPets();
           } catch (error) {
-            console.error('Erro ao disponibilizar pet para adoção:', error);
+            console.error('❌ Erro ao disponibilizar pet para adoção:', error);
             Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
           }
         },
@@ -276,27 +385,27 @@ export default function PetDonationScreen() {
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
+    if (!canCreatePets) {
+      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+      return;
+    }
+
     // Encontrar o pet pelo ID
     const petToEdit = pets.find((pet) => pet.id === petId);
 
     if (petToEdit) {
-      console.log(`Editando pet com ID: ${petId}`, petToEdit);
-
-      // Verificar se há dados de sexo e foto
-      console.log('Foto do pet:', petToEdit.foto);
-      console.log('Sexo do pet:', petToEdit.sexo_id);
+      console.log(`✏️ Editando pet com ID: ${petId}`, petToEdit);
 
       // Definir o pet atual para edição com todos os dados necessários
       setCurrentPet({
         ...petToEdit,
-        // Garantir que estes campos existam para o modal
         foto: petToEdit.foto,
       });
 
       // Ativar o modo de edição
       setIsEditMode(true);
       // Abrir o modal
-      setModalVisible(true);
+      setPetModalVisible(true);
     } else {
       Alert.alert('Erro', 'Pet não encontrado para edição.');
     }
@@ -304,6 +413,11 @@ export default function PetDonationScreen() {
 
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
+    if (!canCreatePets) {
+      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+      return;
+    }
+
     Alert.alert('Excluir Pet', 'Tem certeza que deseja excluir este pet?', [
       {
         text: 'Cancelar',
@@ -323,7 +437,7 @@ export default function PetDonationScreen() {
             // Atualizar a lista de pets após a exclusão
             fetchUserPets();
           } catch (error) {
-            console.error('Erro ao excluir pet:', error);
+            console.error('❌ Erro ao excluir pet:', error);
             Alert.alert('Erro', 'Não foi possível excluir o pet. Por favor, tente novamente.');
           }
         },
@@ -334,12 +448,10 @@ export default function PetDonationScreen() {
   // Função para favoritar um pet
   const handleFavoritePet = (petId: number) => {
     // Implementar lógica para favoritar/desfavoritar
-    console.log(`Favoritar/desfavoritar pet com ID: ${petId}`);
+    console.log(`⭐ Favoritar/desfavoritar pet com ID: ${petId}`);
     // Após favoritar, atualizar a lista
     // fetchUserPets(); // Descomente quando implementar a lógica de favoritar
   };
-
-  // Removida a função isPetEditableByStatus, já que não vamos mais restringir a edição
 
   // Renderizar um item da lista de pets usando o componente PetCard
   const renderPetItem = ({ item }: { item: Pet }) => (
@@ -349,8 +461,31 @@ export default function PetDonationScreen() {
       onEdit={() => handleEditPet(item.id)}
       onDelete={() => handleDeletePet(item.id)}
       onFavorite={() => handleFavoritePet(item.id)}
-      // Removido o prop disableEdit, para que o botão de edição esteja sempre habilitado
     />
+  );
+
+  // 🚫 Renderizar tela bloqueada enquanto termo não for assinado
+  const renderBlockedScreen = () => (
+    <View style={styles.blockedContainer}>
+      <View style={styles.blockedContent}>
+        <Text style={styles.blockedIcon}>📋</Text>
+        <Text style={styles.blockedTitle}>Termo de Responsabilidade</Text>
+        <Text style={styles.blockedMessage}>
+          Para cadastrar e gerenciar pets para doação, você precisa assinar um termo de responsabilidade.
+        </Text>
+
+        {termoLoading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#FFFFFF" />
+            <Text style={styles.loadingText}>Verificando termo...</Text>
+          </View>
+        ) : (
+          <TouchableOpacity style={styles.blockedButton} onPress={() => setTermoModalVisible(true)}>
+            <Text style={styles.blockedButtonText}>✍️ Assinar Termo</Text>
+          </TouchableOpacity>
+        )}
+      </View>
+    </View>
   );
 
   return (
@@ -368,35 +503,42 @@ export default function PetDonationScreen() {
             </View>
           </View>
 
-          {/* Lista de Pets */}
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4682B4" />
-              <Text style={styles.loadingText}>Carregando seus pets...</Text>
-            </View>
-          ) : error ? (
-            <View style={styles.errorContainer}>
-              <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
-                <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-              </TouchableOpacity>
-            </View>
+          {/* Content - Bloqueado ou Normal */}
+          {!canCreatePets ? (
+            renderBlockedScreen()
           ) : (
-            <FlatList
-              data={pets}
-              renderItem={renderPetItem}
-              keyExtractor={(item) => item.id.toString()}
-              contentContainerStyle={styles.petList}
-              showsVerticalScrollIndicator={false}
-              onRefresh={fetchUserPets}
-              refreshing={loading}
-            />
-          )}
+            <>
+              {/* Lista de Pets */}
+              {loading ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="large" color="#4682B4" />
+                  <Text style={styles.loadingText}>Carregando seus pets...</Text>
+                </View>
+              ) : error ? (
+                <View style={styles.errorContainer}>
+                  <Text style={styles.errorText}>{error}</Text>
+                  <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
+                    <Text style={styles.retryButtonText}>Tentar Novamente</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                <FlatList
+                  data={pets}
+                  renderItem={renderPetItem}
+                  keyExtractor={(item) => item.id.toString()}
+                  contentContainerStyle={styles.petList}
+                  showsVerticalScrollIndicator={false}
+                  onRefresh={fetchUserPets}
+                  refreshing={loading}
+                />
+              )}
 
-          {/* Add button - Abre o modal quando pressionado */}
-          <TouchableOpacity style={styles.addButton} onPress={handleOpenModal}>
-            <Image source={require('../../assets/images/Icone/add-icon.png')} style={styles.addIcon} />
-          </TouchableOpacity>
+              {/* Add button - Abre o modal quando pressionado */}
+              <TouchableOpacity style={styles.addButton} onPress={handleOpenModal}>
+                <Image source={require('../../assets/images/Icone/add-icon.png')} style={styles.addIcon} />
+              </TouchableOpacity>
+            </>
+          )}
         </View>
 
         {/* Bottom navigation */}
@@ -420,13 +562,29 @@ export default function PetDonationScreen() {
         </View>
 
         {/* Modal de Doação de Pet */}
-        <PetDonationModal
-          visible={modalVisible}
-          onClose={handleCloseModal}
-          onSubmit={handleSubmitForm}
-          pet={currentPet}
-          isEditMode={isEditMode}
-        />
+        {canCreatePets && (
+          <PetDonationModal
+            visible={petModalVisible}
+            onClose={handleCloseModal}
+            onSubmit={handleSubmitForm}
+            pet={currentPet}
+            isEditMode={isEditMode}
+          />
+        )}
+
+        {/* Modal de Termo de Doação - Automático */}
+        {currentUser && (
+          <TermoDoacaoModalAuto
+            visible={termoModalVisible}
+            usuarioLogado={{
+              id: currentUser.id,
+              nome: currentUser.nome,
+              email: currentUser.email,
+              telefone: currentUser.telefone,
+            }}
+            onTermoCompleted={handleTermoCompleted}
+          />
+        )}
       </ImageBackground>
     </SafeAreaView>
   );
@@ -477,6 +635,51 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
   },
+  // Estilos para tela bloqueada
+  blockedContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 40,
+  },
+  blockedContent: {
+    backgroundColor: 'rgba(255, 255, 255, 0.95)',
+    padding: 30,
+    borderRadius: 20,
+    alignItems: 'center',
+    minWidth: '90%',
+  },
+  blockedIcon: {
+    fontSize: 60,
+    marginBottom: 20,
+  },
+  blockedTitle: {
+    fontSize: 22,
+    fontWeight: 'bold',
+    color: '#2E8B57',
+    textAlign: 'center',
+    marginBottom: 15,
+  },
+  blockedMessage: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 22,
+    marginBottom: 25,
+  },
+  blockedButton: {
+    backgroundColor: '#2E8B57',
+    paddingHorizontal: 30,
+    paddingVertical: 15,
+    borderRadius: 10,
+    minWidth: 200,
+  },
+  blockedButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+    textAlign: 'center',
+  },
   refreshButton: {
     backgroundColor: '#4682B4',
     paddingVertical: 8,
@@ -500,8 +703,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     elevation: 5,
-    borderWidth: 2, // Adicione esta linha
-    borderColor: '#000000', // Adicione esta linha
+    borderWidth: 2,
+    borderColor: '#000000',
   },
   addIcon: {
     width: 24,
