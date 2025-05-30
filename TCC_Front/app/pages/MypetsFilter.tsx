@@ -372,9 +372,6 @@ export default function MypetsFilter() {
 
   // 🆕 FUNÇÃO DE NORMALIZAÇÃO MELHORADA com debug detalhado
   const normalizeApiResponseWithDebug = (response: any): Pet[] => {
-    console.log('🔄 Iniciando normalização da resposta...');
-    console.log('🔄 Resposta recebida:', response);
-
     if (!response) {
       console.log('❌ Resposta é null/undefined');
       return [];

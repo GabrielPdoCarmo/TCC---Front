@@ -1,3 +1,5 @@
+// PetDonationScreen.tsx - com ícone de configuração igual ao PetAdoptionScreen
+
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -92,20 +94,17 @@ export default function PetDonationScreen() {
       // Evitar verificações muito frequentes (debounce de 2 segundos)
       const now = Date.now();
       if (!force && now - lastCheckTimeRef.current < 2000) {
-        console.log('⏱️ Verificação muito recente, pulando...');
         return;
       }
 
       // Evitar múltiplas verificações simultâneas
       if (isCheckingPermissions && !force) {
-        console.log('🔄 Verificação já em andamento, pulando...');
         return;
       }
 
       // Limite de verificações para evitar loops
       checkCountRef.current += 1;
       if (checkCountRef.current > 10 && !force) {
-        console.log('🚫 Muitas verificações, parando para evitar loop');
         return;
       }
 
@@ -114,35 +113,20 @@ export default function PetDonationScreen() {
         setTermoLoading(true);
         lastCheckTimeRef.current = now;
 
-        console.log(`🔍 Verificação #${checkCountRef.current} - Verificando permissões...`);
-
         const result = await checkCanCreatePets();
 
         if (result && result.data) {
           const podecastrar = result.data.podecastrar || false;
           const temTermo = result.data.temTermo || false;
 
-          console.log('✅ Verificação de permissões:', {
-            podecastrar,
-            temTermo,
-            checkCount: checkCountRef.current,
-          });
-
           setCanCreatePets(podecastrar);
           setInitialCheckDone(true);
 
           if (!podecastrar) {
-            console.log('ℹ️ Usuário precisa assinar termo, mostrando modal...');
             setTermoModalVisible(true);
           } else {
-            console.log('✅ Usuário já pode cadastrar pets');
             setTermoModalVisible(false);
           }
-        } else {
-          console.log('ℹ️ Resposta sem dados - primeira vez do usuário');
-          setCanCreatePets(false);
-          setTermoModalVisible(true);
-          setInitialCheckDone(true);
         }
       } catch (error: any) {
         console.error('❌ Erro ao verificar permissões:', error);
@@ -178,7 +162,6 @@ export default function PetDonationScreen() {
 
       const userData = await getUsuarioByIdComCidadeEstado(parseInt(userId, 10));
       setCurrentUser(userData);
-      console.log('👤 Dados do usuário carregados:', userData);
     } catch (error) {
       console.error('❌ Erro ao carregar dados do usuário:', error);
       setCurrentUser({
@@ -215,11 +198,9 @@ export default function PetDonationScreen() {
 
       // Converter o ID para número
       const userIdNumber = parseInt(userId, 10);
-      console.log('🔍 Buscando pets para o usuário ID:', userIdNumber);
 
       // Obter os pets do usuário
       const userPets = await getPetsByUsuarioId(userIdNumber);
-      console.log('🐾 Pets do usuário carregados:', userPets);
 
       // Enriquecer os dados dos pets com nomes de raças, responsáveis e faixa etária
       const enrichedPets = await Promise.all(
@@ -269,7 +250,6 @@ export default function PetDonationScreen() {
         })
       );
 
-      console.log('✅ Pets enriquecidos:', enrichedPets);
       setPets(enrichedPets);
     } catch (error) {
       console.error('❌ Erro ao buscar pets:', error);
@@ -283,11 +263,9 @@ export default function PetDonationScreen() {
   useEffect(() => {
     const initializeScreen = async () => {
       if (initialCheckDone) {
-        console.log('⏭️ Inicialização já feita, pulando...');
         return;
       }
 
-      console.log('🚀 Inicializando tela de doação de pets...');
       checkCountRef.current = 0; // Reset contador
 
       try {
@@ -308,10 +286,8 @@ export default function PetDonationScreen() {
   // 🔄 Recarregar pets quando permissões mudarem (CONTROLADO)
   useEffect(() => {
     if (canCreatePets && initialCheckDone) {
-      console.log('✅ Usuário tem permissão, carregando pets...');
       fetchUserPets();
     } else if (initialCheckDone && !canCreatePets) {
-      console.log('ℹ️ Usuário ainda não tem permissão');
       setLoading(false);
     }
   }, [canCreatePets, initialCheckDone]); // Adicionado initialCheckDone para controle
@@ -319,15 +295,11 @@ export default function PetDonationScreen() {
   // 👀 Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
     useCallback(() => {
-      console.log('👀 Tela recebeu foco - verificação controlada');
-
       // Só verificar se:
       // 1. Verificação inicial já foi feita
       // 2. Não está carregando termo
       // 3. Não está verificando permissões
       if (initialCheckDone && !termoLoading && !isCheckingPermissions) {
-        console.log('🔄 Verificação de foco permitida');
-
         // Usar timeout para evitar verificações muito frequentes
         const timeoutId = setTimeout(() => {
           checkUserPermissions(false);
@@ -335,19 +307,8 @@ export default function PetDonationScreen() {
 
         return () => {
           clearTimeout(timeoutId);
-          console.log('👋 Limpando timeout de verificação');
         };
-      } else {
-        console.log('⏸️ Verificação de foco bloqueada:', {
-          initialCheckDone,
-          termoLoading,
-          isCheckingPermissions,
-        });
       }
-
-      return () => {
-        console.log('👋 Tela perdeu foco');
-      };
     }, [initialCheckDone, termoLoading, isCheckingPermissions, checkUserPermissions])
   );
 
@@ -556,8 +517,8 @@ export default function PetDonationScreen() {
             <View style={{ width: 60 }} />
             <Text style={styles.headerTitle}>Doação</Text>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/pages/ConfigScreen')}>
-                <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
+              <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
+                <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
               </TouchableOpacity>
             </View>
           </View>
@@ -678,10 +639,13 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: 'row',
   },
-  iconButton: {
-    marginLeft: 15,
+  // ✅ ESTILO CORRIGIDO - igual ao PetAdoptionScreen
+  settingsButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 25,
+    padding: 8,
   },
-  headerIcon: {
+  settingsIcon: {
     width: 24,
     height: 24,
   },

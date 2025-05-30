@@ -15,16 +15,12 @@ console.log('Base URL:', api.defaults.baseURL);
 api.interceptors.request.use(
   async (config) => {
     try {
-      console.log('🔄 Interceptor de request para:', config.url);
-
       // Buscar token da chave que sabemos que funciona (baseado nos seus logs)
       const token = await AsyncStorage.getItem('@App:token');
 
       if (token) {
         // Adicionar token no header Authorization
         config.headers.Authorization = `Bearer ${token}`;
-        console.log('✅ Token adicionado automaticamente');
-        console.log('🔑 Token preview:', token.substring(0, 30) + '...');
       } else {
         console.warn('⚠️ Token não encontrado no AsyncStorage');
       }
@@ -44,7 +40,6 @@ api.interceptors.request.use(
 // ✅ INTERCEPTOR DE RESPONSE - Seu interceptor original + limpeza de token expirado
 api.interceptors.response.use(
   (response) => {
-    console.log('✅ Resposta bem-sucedida para:', response.config.url);
     return response;
   },
   async (error) => {

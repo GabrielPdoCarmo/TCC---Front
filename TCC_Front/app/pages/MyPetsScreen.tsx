@@ -254,7 +254,6 @@ export default function MyPetsScreen() {
         return;
       }
 
-      console.log('Dados do usuário carregados:', userData);
       setUsuario(userData);
 
       await AsyncStorage.setItem('@App:userData', JSON.stringify(userData));
@@ -1284,7 +1283,6 @@ const styles = StyleSheet.create({
   backIcon: {
     width: 24,
     height: 24,
-    tintColor: '#4682B4',
   },
   headerTitle: {
     fontSize: 24,
@@ -1314,7 +1312,6 @@ const styles = StyleSheet.create({
   settingsIcon: {
     width: 24,
     height: 24,
-    tintColor: '#4682B4',
   },
   filterContainer: {
     flexDirection: 'row',

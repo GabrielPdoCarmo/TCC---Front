@@ -1,3 +1,4 @@
+// pages/LoginScreen.tsx - com AuthProvider próprio
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -14,13 +15,15 @@ import {
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Link, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import login from '../../services/api/auth'; // Importando a função de login
-import getUsuarioById from '../../services/api/Usuario/getUsuarioById'; // Importando a função de buscar usuário
+import login from '../../services/api/auth';
+import getUsuarioById from '../../services/api/Usuario/getUsuarioById';
+import { AuthProvider, useAuth } from '../../contexts/AuthContext';
 
 // Interface para tipagem de erros da API
 interface ApiError {
   error?: string;
   message?: string;
+  status?: number;
 }
 
 // Interface para as props do WelcomeModal
@@ -33,8 +36,17 @@ interface WelcomeModalProps {
 
 // Componente para o modal de boas-vindas com foto
 const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName, photoUrl }) => {
+  // Debug: Log quando o modal for renderizado
+  console.log('🎭 WelcomeModal renderizado:', { visible, userName, photoUrl });
+
   return (
-    <Modal animationType="fade" transparent={true} visible={visible} onRequestClose={onClose}>
+    <Modal 
+      animationType="fade" 
+      transparent={true} 
+      visible={visible} 
+      onRequestClose={onClose}
+      statusBarTranslucent={true} // Adiciona suporte para status bar
+    >
       <View style={styles.modalOverlay}>
         <View style={styles.modalContent}>
           <Text style={styles.modalTitle}>Bem-vindo!</Text>
@@ -45,7 +57,12 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName,
                 source={{ uri: photoUrl }}
                 style={styles.userPhoto}
                 resizeMode="cover"
-                onError={(e) => console.error('Erro ao carregar imagem:', e.nativeEvent.error)}
+                onError={(e) => {
+                  console.error('❌ Erro ao carregar imagem:', e.nativeEvent.error);
+                }}
+                onLoad={() => {
+                  console.log('✅ Imagem carregada com sucesso:', photoUrl);
+                }}
               />
             </View>
           ) : (
@@ -64,7 +81,8 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName,
   );
 };
 
-export default function App() {
+// Componente de conteúdo do Login que usa o AuthContext
+function LoginScreenContent() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
@@ -77,6 +95,28 @@ export default function App() {
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
 
+  // Hook do contexto de autenticação
+  const { login: setAuthLogin, isAuthenticated, loading: authLoading } = useAuth();
+
+  // Debug: Log dos estados do modal
+  useEffect(() => {
+    console.log('🎭 Estado do modal mudou:', { 
+      welcomeModalVisible, 
+      userName, 
+      userPhoto 
+    });
+  }, [welcomeModalVisible, userName, userPhoto]);
+
+  // Se já estiver autenticado, redirecionar
+  useEffect(() => {
+    console.log('🔍 LoginScreen: authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
+    
+    if (!authLoading && isAuthenticated) {
+      console.log('✅ Usuário já autenticado, redirecionando...');
+      router.replace('/pages/PetAdoptionScreen');
+    }
+  }, [isAuthenticated, authLoading]);
+
   // Limpar erros conforme o campo é alterado
   useEffect(() => {
     if (email) setEmailErro('');
@@ -88,23 +128,63 @@ export default function App() {
 
   // Função para tratar mensagens de erro da API
   const getErrorMessage = (error: unknown): string => {
-    // [manter código existente]
+    console.log('🔍 Analisando erro:', error);
+
     const apiError = error as ApiError;
 
-    if (apiError?.message?.includes('Email e senha são obrigatórios')) {
-      return 'Por favor, preencha todos os campos de login.';
+    if (apiError?.status === 401) {
+      return 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
     }
 
-    if (apiError?.error?.includes('Erro ao fazer login')) {
-      return 'Não foi possível fazer login. Verifique sua conexão.';
+    if (apiError?.message) {
+      if (
+        apiError.message.toLowerCase().includes('credenciais inválidas') ||
+        apiError.message.toLowerCase().includes('senha incorreta') ||
+        apiError.message.toLowerCase().includes('email incorreto') ||
+        apiError.message.toLowerCase().includes('usuário não encontrado')
+      ) {
+        return 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+      }
+
+      if (apiError.message.includes('Email e senha são obrigatórios')) {
+        return 'Por favor, preencha todos os campos de login.';
+      }
+
+      if (
+        apiError.message.includes('timeout') ||
+        apiError.message.includes('network') ||
+        apiError.message.includes('ECONNREFUSED')
+      ) {
+        return 'Problema de conexão. Verifique sua internet e tente novamente.';
+      }
+
+      return apiError.message;
     }
 
-    if (JSON.stringify(error).includes('NOBRIDGE') || JSON.stringify(error).includes('ERROR')) {
-      return 'Não foi possível completar sua solicitação. Tente novamente mais tarde.';
+    if (apiError?.error) {
+      if (
+        apiError.error.toLowerCase().includes('credenciais') ||
+        apiError.error.toLowerCase().includes('senha') ||
+        apiError.error.toLowerCase().includes('email') ||
+        apiError.error.toLowerCase().includes('incorret')
+      ) {
+        return 'Email ou senha incorretos. Verifique suas credenciais e tente novamente.';
+      }
+
+      return apiError.error;
     }
 
-    return apiError?.error || apiError?.message || 'Ocorreu um erro inesperado. Tente novamente.';
+    const errorString = JSON.stringify(error);
+    if (errorString.includes('NOBRIDGE') || errorString.includes('Network Error') || errorString.includes('timeout')) {
+      return 'Problema de conexão. Verifique sua internet e tente novamente.';
+    }
+
+    console.log('⚠️ Erro não tratado especificamente:', error);
+    return 'Ocorreu um erro inesperado. Tente novamente.';
   };
+
+  // Estado para armazenar dados de login temporariamente
+  const [tempLoginData, setTempLoginData] = useState<any>(null);
 
   const handleLogin = async () => {
     setEmailErro('');
@@ -113,7 +193,6 @@ export default function App() {
     // Validações
     let temErros = false;
 
-    // [manter código de validação existente]
     if (!email) {
       setEmailErro('O e-mail é obrigatório');
       temErros = true;
@@ -137,73 +216,127 @@ export default function App() {
     // Iniciar o processo de login
     setLoading(true);
     try {
+      console.log('🚀 Iniciando login para:', email);
+
       // Executa o login e aguarda a resposta
       const data = await login(email, senha);
+      console.log('✅ Login bem-sucedido:', data);
 
-      // Importante: Dar um pequeno tempo para garantir que o AsyncStorage
-      // tenha concluído as operações assíncronas
-      await new Promise((resolve) => setTimeout(resolve, 500));
-
-      // Agora verificamos se os dados foram salvos
-      const userId = await AsyncStorage.getItem('@App:userId');
-      const userJson = await AsyncStorage.getItem('@App:user');
-
-      console.log('Dados salvos no AsyncStorage:', { userId, userJson });
-
-      if (!userId || !userJson) {
-        throw { error: 'Falha ao finalizar login' };
+      // Buscar detalhes completos do usuário para obter a foto
+      let userDetails = null;
+      try {
+        userDetails = await getUsuarioById(data.usuario.id);
+        console.log('👤 Detalhes completos do usuário:', userDetails);
+      } catch (userError) {
+        console.log('⚠️ Erro ao buscar detalhes do usuário:', userError);
+        // Continue mesmo se não conseguir buscar detalhes
+        userDetails = data.usuario;
       }
-
-      // NOVA ETAPA: Buscar detalhes completos do usuário para obter a foto
-      const userDetails = await getUsuarioById(parseInt(userId));
-      console.log('Detalhes completos do usuário:', userDetails);
 
       // Verificar se temos uma URL de foto nos detalhes do usuário
       let photoUrlToUse = null;
 
       if (userDetails && userDetails.foto) {
-        // Verificar se a URL já tem http/https. Se não tiver, adicionar
         photoUrlToUse = userDetails.foto;
         if (!photoUrlToUse.startsWith('http://') && !photoUrlToUse.startsWith('https://')) {
-          // Assumindo que a API retorna caminhos relativos a uma URL base
-          const apiBaseUrl = 'https://petsup-api.onrender.com'; // Substitua pela URL base da sua API
+          const apiBaseUrl = 'https://petsup-api.onrender.com';
           photoUrlToUse = `${apiBaseUrl}${photoUrlToUse}`;
         }
-        console.log('URL da foto ajustada:', photoUrlToUse);
+        console.log('📸 URL da foto ajustada:', photoUrlToUse);
       }
 
+      const userDataForContext = userDetails || data.usuario;
+      
       // Preparar dados para o modal de boas-vindas
-      setUserName(userDetails?.nome || data.usuario?.nome || 'usuário');
+      const displayName = userDataForContext?.nome || 'usuário';
+      console.log('🎭 Preparando modal com:', { displayName, photoUrlToUse });
+      
+      setUserName(displayName);
       setUserPhoto(photoUrlToUse);
-
-      // Mostrar o modal de boas-vindas
+      
+      // Salvar dados temporariamente para usar depois no modal
+      setTempLoginData({
+        userDataForContext,
+        token: data.token
+      });
+      
+      // Mostrar o modal SEM atualizar o contexto ainda
+      console.log('🎭 Mostrando modal de boas-vindas...');
       setWelcomeModalVisible(true);
+
     } catch (error: unknown) {
-      // Ao invés de exibir o erro técnico, exibimos uma mensagem amigável
-      if (__DEV__) {
-        console.error('Erro original:', error);
-      }
+      console.error('❌ Erro no login:', error);
 
       const userFriendlyMessage = getErrorMessage(error);
-      Alert.alert('Erro ao fazer login', userFriendlyMessage);
+
+      Alert.alert('Erro no Login', userFriendlyMessage, [
+        {
+          text: 'OK',
+          onPress: () => {
+            if (userFriendlyMessage.includes('Email ou senha incorretos')) {
+              setSenha('');
+            }
+          },
+        },
+      ]);
     } finally {
       setLoading(false);
     }
   };
 
-  // Função para fechar o modal e navegar para a próxima tela
-  const handleCloseWelcomeModal = () => {
+  // Função para fechar o modal e navegar
+  const handleCloseWelcomeModal = async () => {
+    console.log('🎭 Fechando modal de boas-vindas');
     setWelcomeModalVisible(false);
-    router.push('/pages/PetAdoptionScreen');
+    
+    // Agora sim, atualizar o contexto de autenticação
+    if (tempLoginData) {
+      try {
+        console.log('✅ Atualizando contexto de autenticação...');
+        await setAuthLogin(tempLoginData.userDataForContext, tempLoginData.token);
+        console.log('✅ Contexto atualizado, navegando...');
+        
+        // Limpar dados temporários
+        setTempLoginData(null);
+        
+        // Navegar para a próxima página
+        router.replace('/pages/PetAdoptionScreen');
+      } catch (authError) {
+        console.error('❌ Erro ao atualizar contexto:', authError);
+        Alert.alert('Erro', 'Houve um problema ao finalizar o login. Tente novamente.');
+      }
+    }
   };
+
+  // Função de teste para o modal (remover em produção)
+  const testModal = () => {
+    console.log('🧪 Testando modal...');
+    setUserName('Usuário Teste');
+    setUserPhoto(null);
+    setWelcomeModalVisible(true);
+  };
+
+  // Se ainda está verificando autenticação, mostrar loading
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <Image 
+          source={require('../../assets/images/Icone/Pets_Up.png')} 
+          style={styles.logoImage}
+          resizeMode="contain"
+        />
+        <Text style={{ color: '#fff', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
 
   return (
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
-      {/* [manter JSX existente] */}
       <SafeAreaView style={styles.container}>
         <View style={styles.mainContent}>
           <Image source={require('../../assets/images/Icone/Pets_Up.png')} style={styles.logoImage} />
           <Text style={styles.loginText}>Login:</Text>
+
           {/* Campo de E-mail */}
           <TextInput
             style={[styles.input, emailErro ? { borderColor: 'red' } : {}]}
@@ -215,6 +348,7 @@ export default function App() {
             autoCapitalize="none"
           />
           {emailErro ? <Text style={styles.errorTextEmail}>{emailErro}</Text> : null}
+
           {/* Campo de Senha */}
           <View style={[styles.senhaContainer, senhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
             <TextInput
@@ -230,15 +364,22 @@ export default function App() {
             </TouchableOpacity>
           </View>
           <Text style={styles.errorTextSenha}>{senhaErro}</Text>
+
           <TouchableOpacity
             onPress={() => router.push('/pages/ForgotPasswordScreen')}
             style={[styles.forgotPasswordContainer, (emailErro || senhaErro) && { marginTop: 0 }]}
           >
             <Text style={styles.forgotPasswordText}>Esqueceu sua senha?</Text>
           </TouchableOpacity>
-          <TouchableOpacity style={styles.loginButton} onPress={handleLogin} disabled={loading}>
-            <Text style={styles.loginButtonText}>{loading ? 'Carregando...' : 'Entrar'}</Text>
+
+          <TouchableOpacity
+            style={[styles.loginButton, loading && styles.buttonDisabled]}
+            onPress={handleLogin}
+            disabled={loading}
+          >
+            <Text style={styles.loginButtonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
           </TouchableOpacity>
+
           <View style={styles.registerContainer}>
             <Text style={styles.noAccountText}>Não possui cadastro?</Text>
             <Link href="/pages/userCadastro">
@@ -259,6 +400,18 @@ export default function App() {
   );
 }
 
+// Componente principal que envolve com AuthProvider
+export default function LoginScreen() {
+  console.log('🎯 LoginScreen montado');
+  
+  return (
+    <AuthProvider>
+      <LoginScreenContent />
+    </AuthProvider>
+  );
+}
+
+// Estilos
 const styles = StyleSheet.create({
   forgotPasswordContainer: {
     alignSelf: 'flex-start',
@@ -272,24 +425,26 @@ const styles = StyleSheet.create({
   },
   modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    backgroundColor: 'rgba(0, 0, 0, 0.7)', // Aumentei a opacidade
     justifyContent: 'center',
     alignItems: 'center',
+    zIndex: 1000, // Adicionei z-index alto
   },
   modalContent: {
     backgroundColor: 'white',
     borderRadius: 20,
-    padding: 20,
-    width: '80%',
+    padding: 30, // Aumentei o padding
+    width: '85%', // Aumentei a largura
     alignItems: 'center',
-    elevation: 5,
+    elevation: 10, // Aumentei a elevação
     shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.25,
-    shadowRadius: 3.84,
+    shadowOffset: { width: 0, height: 5 }, // Aumentei a sombra
+    shadowOpacity: 0.35,
+    shadowRadius: 6,
+    zIndex: 1001, // Z-index ainda maior para o conteúdo
   },
   modalTitle: {
-    fontSize: 22,
+    fontSize: 24, // Aumentei o tamanho
     fontWeight: 'bold',
     marginBottom: 20,
     color: '#333',
@@ -302,10 +457,11 @@ const styles = StyleSheet.create({
   },
   modalButton: {
     backgroundColor: '#4285F4',
-    paddingVertical: 10,
-    paddingHorizontal: 30,
+    paddingVertical: 12, // Aumentei o padding
+    paddingHorizontal: 40, // Aumentei o padding horizontal
     borderRadius: 25,
-    marginTop: 10,
+    marginTop: 15,
+    elevation: 3, // Adicionei elevação ao botão
   },
   modalButtonText: {
     color: 'white',
@@ -319,6 +475,7 @@ const styles = StyleSheet.create({
     overflow: 'hidden',
     borderWidth: 3,
     borderColor: '#4285F4',
+    marginBottom: 10, // Adicionei margem
   },
   userPhoto: {
     width: '100%',
@@ -335,8 +492,6 @@ const styles = StyleSheet.create({
     borderWidth: 3,
     borderColor: '#ccc',
   },
-
-  // [Manter todos os outros estilos existentes]
   backgroundImage: {
     flex: 1,
     width: '100%',
@@ -365,7 +520,7 @@ const styles = StyleSheet.create({
   loginText: {
     fontSize: 30,
     fontWeight: 'bold',
-    color: '#000',
+    color: '#000000',
     alignSelf: 'center',
     marginLeft: 0,
     marginTop: 10,
@@ -411,6 +566,9 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     marginBottom: 20,
+  },
+  buttonDisabled: {
+    opacity: 0.7,
   },
   loginButtonText: {
     fontSize: 18,

@@ -1,9 +1,8 @@
-import api from "../api";
+import api from '../api';
 
 export const getDoencasPorPetId = async (petId: number) => {
   try {
     const response = await api.get(`/pets-doencas/pets/${petId}`);
-    console.log('Resposta da API:', response.data); // Para debug
 
     return response.data.map((item: any) => {
       return {

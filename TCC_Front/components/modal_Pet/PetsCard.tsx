@@ -79,8 +79,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
     }
   };
 
-  console.log('PetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
-  console.log('PetsCard - É próprio pet:', isOwnPet, 'Usuario logado:', usuarioLogadoId, 'Dono do pet:', pet.usuario_id);
+
 
   return (
     <View style={styles.container}>

@@ -154,7 +154,7 @@ export default function CadastroUsuario() {
 
   // Função para voltar à tela de login
   const handleVoltarLogin = () => {
-    router.push('/pages/login');
+    router.push('/pages/LoginScreen');
   };
 
   // Função para selecionar uma imagem
@@ -493,7 +493,7 @@ export default function CadastroUsuario() {
           text: 'OK',
           onPress: () => {
             // Quando o usuário apertar OK no alerta, volta para a tela de login
-            router.push('/pages/login');
+            router.push('/pages/LoginScreen');
           },
         },
       ]);

@@ -1,9 +1,7 @@
-import api from "../api";
+import api from '../api';
 export const getSexoPet = async () => {
   try {
-    console.log('Fazendo requisição para /sexoPet');
     const response = await api.get('/sexoPet');
-    console.log('Resposta recebida:', response.data);
 
     return response.data.map((sexo: { id: number; descricao: string }) => ({
       id: sexo.id,
@@ -13,5 +11,5 @@ export const getSexoPet = async () => {
     console.error('Erro completo:', error);
     return [];
   }
-};  
+};
 export default getSexoPet;

@@ -4,7 +4,7 @@ import { getEstados } from '../Estados/getEstados';
 export const getUsuarioByIdComCidadeEstado = async (id: number) => {
   try {
     // 1. Buscar o usuário
-    console.log(`Buscando usuário com ID: ${id}`);
+
     const response = await api.get(`/usuarios/${id}`);
     const usuario = response.data;
 

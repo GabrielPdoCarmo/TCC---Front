@@ -16,34 +16,20 @@ interface CheckCanCreatePetsResponse {
  */
 export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> => {
   try {
-    console.log('✅ Verificando se usuário pode cadastrar pets (suporte a primeira vez)...');
-
     const response = await api.get<CheckCanCreatePetsResponse>('/termos-doacao/pode-cadastrar-pets');
-
-    console.log('✅ Verificação concluída:', {
-      podecastrar: response.data.data.podecastrar,
-      temTermo: response.data.data.temTermo,
-      status: response.status
-    });
 
     return response.data;
   } catch (error: any) {
-    console.log('⚠️ Erro na verificação do termo:', error);
-
     if (error.response) {
       const status = error.response.status;
-      
-      console.log('📊 Status HTTP:', status);
 
       // Tratar apenas sessão expirada como erro crítico
       if (status === 401) {
-        console.log('🔐 Sessão expirada');
         throw new Error('Sessão expirada. Faça login novamente.');
       }
 
       // 404, 403, e outros erros = primeira vez ou sem termo (NORMAL)
       if (status === 404 || status === 403) {
-        console.log('ℹ️ Status 404/403 - usuário provavelmente de primeira vez ou sem termo');
         return {
           message: 'Usuário de primeira vez ou sem termo',
           data: {
@@ -54,7 +40,7 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
       }
 
       // Outros erros HTTP também são tratados como primeira vez
-      console.log('ℹ️ Outros erros HTTP tratados como primeira vez:', status);
+
       return {
         message: 'Assumindo primeira vez devido a erro HTTP',
         data: {
@@ -66,7 +52,6 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
 
     // Erro de rede
     if (error.request) {
-      console.log('🌐 Erro de conexão - mas permitindo continuar');
       throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
     }
 
@@ -89,10 +74,10 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
 export const isFirstTimeUser = async (): Promise<boolean> => {
   try {
     console.log('🔍 Verificando se é primeira vez do usuário...');
-    
+
     // Tentar buscar termo existente diretamente
     const response = await api.get('/termos-doacao/meu-termo');
-    
+
     // Se chegou até aqui, usuário tem termo
     console.log('ℹ️ Usuário já possui termo, não é primeira vez');
     return false;
@@ -102,12 +87,12 @@ export const isFirstTimeUser = async (): Promise<boolean> => {
       console.log('✅ Confirmado: primeira vez do usuário (404)');
       return true;
     }
-    
+
     if (error.response?.status === 401) {
       // Sessão expirada
       throw new Error('Sessão expirada. Faça login novamente.');
     }
-    
+
     // Outros erros = assumir primeira vez por segurança
     console.log('ℹ️ Assumindo primeira vez devido a erro:', error.message);
     return true;

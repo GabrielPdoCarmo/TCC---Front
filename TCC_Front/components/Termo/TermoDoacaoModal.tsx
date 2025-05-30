@@ -447,7 +447,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.confirmaResponsavelLegal}
                   onValueChange={(value) => updateFormField('confirmaResponsavelLegal', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>Confirmo que sou responsável legal pelos pets que cadastrar</Text>
               </View>
@@ -456,7 +456,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.autorizaVisitas}
                   onValueChange={(value) => updateFormField('autorizaVisitas', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>Autorizo visitas de potenciais adotantes</Text>
               </View>
@@ -465,7 +465,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.aceitaAcompanhamento}
                   onValueChange={(value) => updateFormField('aceitaAcompanhamento', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>Aceito acompanhamento pós-adoção</Text>
               </View>
@@ -474,7 +474,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.confirmaSaude}
                   onValueChange={(value) => updateFormField('confirmaSaude', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>
                   Confirmo que fornecerei informações verdadeiras sobre saúde dos pets
@@ -485,7 +485,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.autorizaVerificacao}
                   onValueChange={(value) => updateFormField('autorizaVerificacao', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>Autorizo verificação de antecedentes dos adotantes</Text>
               </View>
@@ -494,7 +494,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 <Switch
                   value={formData.compromesteContato}
                   onValueChange={(value) => updateFormField('compromesteContato', value)}
-                  trackColor={{ false: '#DDD', true: '#2E8B57' }}
+                  trackColor={{ false: '#DDD', true: '#4682B4' }}
                 />
                 <Text style={styles.switchLabel}>Comprometo-me a manter contato durante processo de adoção</Text>
               </View>
@@ -509,12 +509,12 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.createButtonText}>✍️ Assinar Termo</Text>
+                  <Text style={styles.createButtonText}>Assinar Termo</Text>
                 )}
               </TouchableOpacity>
 
               <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
-                <Text style={styles.backButtonText}>← Voltar</Text>
+                <Text style={styles.backButtonText}>Voltar</Text>
               </TouchableOpacity>
             </View>
           </ScrollView>
@@ -817,7 +817,7 @@ const styles = StyleSheet.create({
   timerText: {
     marginLeft: 10,
     fontSize: 14,
-    color: '#2E8B57',
+    color: '#4682B4',
   },
 });
 

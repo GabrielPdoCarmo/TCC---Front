@@ -196,8 +196,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         return;
       }
 
-      console.log('Dados do usuário carregados:', userData);
-
       setUserData(userData);
 
       setFormData((prevState) => ({
@@ -252,10 +250,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           // Encontrar o sexo do pet
           const sexoData = sexoOpcoes.find((s) => s.id === pet.sexo_id);
 
-          console.log('Espécie encontrada:', especieData);
-          console.log('Faixa etária encontrada:', faixaEtaria);
-          console.log('Sexo encontrado:', sexoData);
-
           // Buscar doenças do pet da API
           let possuiDoenca = 'Não';
           let doencaDescricao = '';
@@ -263,7 +257,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           try {
             // Buscar as doenças do pet usando a API getDoencasPorPetId
             const doencasResponse = await getDoencasPorPetId(pet.id);
-            console.log('Possui Doença:', doencasResponse);
 
             // Modificação no trecho onde verifica as doenças:
             if (doencasResponse && Array.isArray(doencasResponse) && doencasResponse.length > 0) {
@@ -274,9 +267,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
               if (doencaId) {
                 try {
-                  console.log('Tentando buscar doença com ID:', doencaId);
                   const doencaDetalhes = await getDoencaPorId(doencaId);
-                  console.log('Detalhes da doença:', doencaDetalhes);
 
                   // Se a API retornou detalhes válidos da doença
                   if (doencaDetalhes && (doencaDetalhes.nome || doencaDetalhes.descricao)) {
@@ -291,7 +282,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                   doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
                 }
               } else {
-                console.log('Doença sem ID válido, usando dados disponíveis');
                 // Se não houver ID válido, veja se temos o nome diretamente na resposta
                 doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
               }
@@ -300,8 +290,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             console.error('Erro ao buscar doenças do pet:', doencasError);
             Alert.alert('Erro', 'Falha ao carregar doenças do pet.');
           }
-
-          console.log('Status doença final:', { possuiDoenca, doencaDescricao });
 
           // Atualizar o formulário com os dados do pet
           setFormData({
@@ -342,11 +330,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   }, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
 
   // Adicione esta função para depurar os valores do formulário quando eles mudam
-  useEffect(() => {
-    if (isEditMode) {
-      console.log('Valores atuais do formulário:', formData);
-    }
-  }, [formData]);
+  useEffect(() => {}, [formData]);
 
   // Fetch data from APIs when component mounts
   useEffect(() => {
@@ -359,7 +343,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
         // Fetch species
         const especiesData = await getEspecies();
-        console.log('especiesData:', especiesData);
 
         // Important: Check the structure of returned data
         if (Array.isArray(especiesData)) {
@@ -381,7 +364,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
         // Get age ranges
         const faixasEtariasData = await getFaixaEtaria();
-        console.log('faixasEtariasData:', faixasEtariasData);
 
         // Same treatment for age ranges
         if (Array.isArray(faixasEtariasData)) {
@@ -404,7 +386,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
         // Get pet sex options
         const sexoPetData = await getSexoPet();
-        console.log('sexoPetData:', sexoPetData);
 
         // Same treatment for sex options
         if (Array.isArray(sexoPetData)) {
@@ -433,25 +414,17 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   }, []);
 
   // Debug useEffect to check values after loading
-  useEffect(() => {
-    console.log('Espécies carregadas:', especies);
-    console.log('Faixas etárias carregadas', faixasEtarias);
-    console.log('Opções de sexo carregadas:', sexoOpcoes);
-    console.log('Dados do usuário carregados:', userData);
-  }, [especies, faixasEtarias, sexoOpcoes, userData]);
+  useEffect(() => {}, [especies, faixasEtarias, sexoOpcoes, userData]);
 
   // Function to load races based on selected species
   const loadRacasByEspecie = async (especieId: number) => {
     try {
-      console.log('Carregando raças para ID de espécies:', especieId);
-
       // Reset race state in form
       setFormData((prev) => ({ ...prev, raca: '' }));
       setRacasFiltradas([]);
 
       // Get races by species
       const racasData = await getRacasPorEspecie(especieId);
-      console.log('racasData:', racasData);
 
       // Process race data with proper type handling
       if (Array.isArray(racasData)) {

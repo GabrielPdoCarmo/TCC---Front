@@ -255,7 +255,7 @@ export default function ProfileScreen() {
     estadoId: null,
     cidadeId: null,
     estadoNome: '',
-    cidadeNome: ''
+    cidadeNome: '',
   });
 
   // Campos editáveis
@@ -271,7 +271,7 @@ export default function ProfileScreen() {
   const [sexoId, setSexoId] = useState<number>(1);
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoErro, setFotoErro] = useState<string>('');
-  
+
   // Campos de erro
   const [nomeErro, setNomeErro] = useState<string>('');
   const [emailErro, setEmailErro] = useState<string>('');
@@ -283,7 +283,7 @@ export default function ProfileScreen() {
   const [senhaErro, setSenhaErro] = useState<string>('');
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState<string>('');
   const [sexoErro, setSexoErro] = useState<string>('');
-  
+
   // Estado para toggle de senha
   const [showSenha, setShowSenha] = useState<boolean>(false);
   const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
@@ -332,15 +332,9 @@ export default function ProfileScreen() {
     const estadoKey = estadoId.toString();
 
     // Log para depuração
-    console.log('Tentando buscar cidades para estadoId:', estadoId);
-    console.log(
-      'Estados disponíveis:',
-      estados.map((e) => `${e.id} - ${e.nome}`)
-    );
 
     // Verificar se já existe no cache
     if (cidadesCache.current[estadoKey]) {
-      console.log('Encontrado no cache, usando cidades em cache');
       setCidades(cidadesCache.current[estadoKey]);
       return;
     }
@@ -348,10 +342,9 @@ export default function ProfileScreen() {
     setLoadingCidades(true);
     try {
       // Chamar a API diretamente com o ID, sem tentar encontrar o estado
-      console.log('Chamando API diretamente com ID:', estadoId);
+
       const data = await getCidadesPorEstadoID(estadoId);
 
-      console.log(`Recebidas ${data.length} cidades para o estado ID ${estadoId}`);
       setCidades(data);
       // Salvar no cache
       cidadesCache.current[estadoKey] = data;
@@ -385,8 +378,6 @@ export default function ProfileScreen() {
         setError('Não foi possível carregar os dados do usuário.');
         return;
       }
-
-      console.log('Dados do usuário carregados:', userData);
 
       // Atualizar o estado do usuário com os dados recebidos
       setUsuario(userData);
@@ -452,7 +443,6 @@ export default function ProfileScreen() {
     const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
 
     if (estadoDiferente || cidadeDiferente) {
-      console.log('Estado ou cidade diferente do CEP, limpando CEP...');
       setCep('');
       setCepErro('');
       // Limpar dados do CEP já que foi alterado manualmente
@@ -460,7 +450,7 @@ export default function ProfileScreen() {
         estadoId: null,
         cidadeId: null,
         estadoNome: '',
-        cidadeNome: ''
+        cidadeNome: '',
       });
     }
   };
@@ -600,28 +590,14 @@ export default function ProfileScreen() {
               if (cidadeEncontrada) {
                 setCidadeSelecionada(cidadeEncontrada.id);
                 setCidade(cidadeEncontrada.nome);
-                console.log('Cidade selecionada:', cidadeEncontrada.nome);
 
                 // NOVO: Armazenar dados do CEP para validação futura
                 setDadosDoCep({
                   estadoId: estadoEncontrado.id,
                   cidadeId: cidadeEncontrada.id,
                   estadoNome: estadoEncontrado.nome,
-                  cidadeNome: cidadeEncontrada.nome
+                  cidadeNome: cidadeEncontrada.nome,
                 });
-
-                console.log('Dados do CEP armazenados:', {
-                  estadoId: estadoEncontrado.id,
-                  cidadeId: cidadeEncontrada.id,
-                  estadoNome: estadoEncontrado.nome,
-                  cidadeNome: cidadeEncontrada.nome
-                });
-              } else {
-                console.log('Cidade não encontrada:', cidadeAlvo);
-                console.log(
-                  'Cidades disponíveis:',
-                  cidadesDoEstado.map((c) => c.nome)
-                );
               }
             }
           } catch (cidadeError) {
@@ -742,14 +718,9 @@ export default function ProfileScreen() {
       // IMPORTANTE: Adiciona senha apenas se for preenchida
       if (senha && senha.length >= 8) {
         dadosUsuario.senha = senha;
-        console.log('Enviando nova senha para atualização');
       }
 
       // Logs para debug
-      console.log('Enviando dados para API:', {
-        ...dadosUsuario,
-        senha: dadosUsuario.senha ? '[SENHA INFORMADA]' : undefined,
-      });
 
       // Formatação da foto usando a mesma abordagem da tela de pet
       if (foto && foto.startsWith('file://')) {
@@ -764,13 +735,9 @@ export default function ProfileScreen() {
           type: type,
           name: `${nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
         };
-
-        console.log('Enviando nova foto no formato:', dadosUsuario.foto);
       }
 
       const resultado = await updateUsuario(dadosUsuario);
-
-      console.log('Resposta completa da API:', JSON.stringify(resultado, null, 2));
 
       // Verificar o resultado com mais detalhes
       if (resultado && resultado.id) {
@@ -831,26 +798,22 @@ export default function ProfileScreen() {
   const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(selectedEstado.id, cidadeSelecionada);
-    
+
     setEstadoSelecionado(selectedEstado.id);
     setEstado(selectedEstado.nome);
     setCidadeSelecionada(null);
     setCidade('');
     setEstadoErro('');
-
-    console.log(`Estado selecionado manualmente: ${selectedEstado.nome} (ID: ${selectedEstado.id})`);
   };
 
   // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: { id: number; nome: string }) => {
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estadoSelecionado, selectedCidade.id);
-    
+
     setCidadeSelecionada(selectedCidade.id);
     setCidade(selectedCidade.nome);
     setCidadeErro('');
-
-    console.log(`Cidade selecionada manualmente: ${selectedCidade.nome} (ID: ${selectedCidade.id})`);
   };
 
   const pickImage = async () => {
@@ -874,7 +837,7 @@ export default function ProfileScreen() {
       if (!result.canceled) {
         // Atualizar o estado com a URI da imagem selecionada
         setFoto(result.assets[0].uri);
-        console.log('Imagem selecionada:', result.assets[0].uri);
+
         setFotoErro(''); // Limpar qualquer erro anterior
       }
     } catch (error) {
@@ -949,7 +912,6 @@ export default function ProfileScreen() {
                         onPress={() => {
                           setSexoId(item.id);
                           setSexoErro('');
-                          console.log('Sexo', item);
                         }}
                       >
                         <View style={styles.checkboxCustom}>
