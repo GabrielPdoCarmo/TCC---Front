@@ -92,7 +92,7 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
     }
 
     // Erro genérico ou de rede
-    throw { error: 'Erro ao fazer login. Verifique sua conexão.' } as CustomError;
+    throw { error: 'Erro ao fazer login. Verifique se seu E-mail ou senha estão corretos' } as CustomError;
   }
 };
 
