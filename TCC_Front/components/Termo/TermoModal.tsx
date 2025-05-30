@@ -147,25 +147,6 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
   };
 
   // 🔧 Função para verificar termo existente (agora mais específica)
-  const checkExistingTermo = async () => {
-    try {
-      console.log('🔍 Verificando termo existente para pet ID:', pet.id);
-      await loadTermoCompleto();
-    } catch (error: any) {
-      console.error('❌ Erro ao verificar termo existente:', error);
-
-      if (error.response?.status === 401) {
-        Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
-          { text: 'OK', onPress: handleClose },
-        ]);
-        return;
-      }
-
-      // Para outros erros, assumir que não existe termo
-      console.log('ℹ️ Erro na verificação, assumindo que não existe termo');
-      setStep('form');
-    }
-  };
 
   // 🔧 Função para criar termo (com melhor tratamento pós-criação)
   const handleCreateTermo = async () => {

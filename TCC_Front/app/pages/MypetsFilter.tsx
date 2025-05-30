@@ -22,12 +22,16 @@ import getEspecies from '@/services/api/Especies/getEspecies';
 import getFaixaEtaria from '@/services/api/Faixa-etaria/getFaixaEtaria';
 import getRacasPorEspecie from '@/services/api/Raca/getRacasPorEspecie';
 import getEstados from '@/services/api/Estados/getEstados';
-import getEstadoID from '@/services/api/Estados/getEstadoID';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
-import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
 import getByNomePet_StatusId from '@/services/api/Pets/getByNomePet_StatusId'; // Esta API filtra por status_id específico
+import getRacaById from '@/services/api/Raca/getRacaById';
+import getstatusById from '@/services/api/Status/getstatusById';
+import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
+import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
+import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 
 // Interfaces para os tipos
 interface Especie {
@@ -69,17 +73,30 @@ interface Cidade {
 }
 
 // Interface para Pet (para busca por nome)
+// 🆕 IMPORTS ADICIONAIS necessários para carregar detalhes dos pets
+
+// 🔧 INTERFACE ATUALIZADA: Pet com campos adicionais para dados completos
 interface Pet {
   id: number;
   nome: string;
   raca_id: number;
+  raca_nome?: string; // Campo adicional
   idade: string;
   usuario_id: number;
+  usuario_nome?: string; // Campo adicional
+  usuario_foto?: string | null; // Campo adicional
+  usuario_telefone?: string; // Campo adicional
+  usuario_email?: string; // Campo adicional
+  usuario_cidade_id?: number; // Campo adicional
+  usuario_estado_id?: number; // Campo adicional
   foto?: string;
   faixa_etaria_id: number;
+  faixa_etaria_unidade?: string; // Campo adicional
   status_id: number;
+  status_nome?: string; // Campo adicional
   sexo_id?: number;
   especie_id?: number;
+  favorito?: boolean; // Campo adicional
 }
 
 interface FilterParams {
@@ -170,6 +187,8 @@ export default function MypetsFilter() {
   };
 
   // Buscar pets por nome - A API já filtra por status_id = 3 e 4 automaticamente
+  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName com debugging melhorado
+  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName com carregamento de detalhes completos
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
       clearSearch();
@@ -179,20 +198,36 @@ export default function MypetsFilter() {
     try {
       setSearchLoading(true);
 
-      console.log('Buscando pets por nome no MypetsFilter (API já filtra status_id 3 e 4):', name);
+      console.log('🔍 Buscando pets por nome (status_id 3 e 4):', name);
 
-      // A API getByNomePet_StatusId já filtra automaticamente por status_id = 3 e 4
+      // Chamar a API
       const response = await getByNomePet_StatusId(name);
-      console.log('Resposta da API getByNomePet_StatusId (status 3 e 4):', response);
 
-      const petsArray = normalizeApiResponse(response);
-      console.log('Pets encontrados (status 3 e 4):', petsArray.length);
+      console.log('📋 Resposta COMPLETA da API getByNomePet_StatusId:', response);
 
-      setSearchResults(petsArray);
+      // Normalizar resposta
+      const petsArray = normalizeApiResponseWithDebug(response);
+
+      console.log('✅ Pets normalizados (status 3 e 4):', petsArray);
+
+      if (petsArray.length > 0) {
+        // 🆕 CARREGAR DETALHES COMPLETOS DOS PETS ENCONTRADOS
+        console.log('🔄 Carregando detalhes completos dos pets...');
+        const petsWithDetails = await loadPetsWithDetailsForSearch(petsArray);
+
+        console.log('✅ Pets com detalhes completos carregados:', petsWithDetails);
+
+        setSearchResults(petsWithDetails);
+      } else {
+        setSearchResults([]);
+      }
+
       setHasActiveSearch(true);
       setSearchLoading(false);
+
+      console.log('🎯 Estado atualizado - searchResults definido com', petsArray.length, 'pets');
     } catch (err) {
-      console.error('Erro ao buscar pets por nome (status 3 e 4):', err);
+      console.error('❌ Erro ao buscar pets por nome (status 3 e 4):', err);
 
       const errorMessage = err?.toString() || '';
       if (
@@ -200,13 +235,203 @@ export default function MypetsFilter() {
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
       ) {
-        console.log('Pet não encontrado na API (status 3 e 4):', name);
+        console.log('ℹ️ Pet não encontrado na API (status 3 e 4):', name);
       }
 
       setSearchResults([]);
       setHasActiveSearch(true);
       setSearchLoading(false);
     }
+  };
+
+  // 🆕 NOVA FUNÇÃO: Carregar detalhes dos pets para busca (adaptada do MyPetsScreen)
+  const loadPetsWithDetailsForSearch = async (pets: Pet[]): Promise<Pet[]> => {
+    if (!Array.isArray(pets) || pets.length === 0) {
+      console.log('Array de pets vazio ou inválido');
+      return [];
+    }
+
+    try {
+      // Obter usuarioId para favoritos
+      let usuarioId = null;
+      try {
+        const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
+        if (userIdFromStorage) {
+          usuarioId = parseInt(userIdFromStorage);
+        }
+      } catch (error) {
+        console.log('Erro ao obter usuarioId:', error);
+      }
+
+      return await Promise.all(
+        pets.map(async (pet: Pet) => {
+          try {
+            // Carregar informações da raça se não existir
+            let racaInfo = null;
+            if (!pet.raca_nome && pet.raca_id) {
+              try {
+                racaInfo = await getRacaById(pet.raca_id);
+              } catch (error) {
+                console.log(`Erro ao carregar raça ${pet.raca_id}:`, error);
+              }
+            }
+
+            // Carregar informações do status se não existir
+            let statusInfo = null;
+            if (!pet.status_nome && pet.status_id) {
+              try {
+                statusInfo = await getstatusById(pet.status_id);
+              } catch (error) {
+                console.log(`Erro ao carregar status ${pet.status_id}:`, error);
+              }
+            }
+
+            // Carregar informações da faixa etária se não existir
+            let faixaEtariaInfo = null;
+            if (!pet.faixa_etaria_unidade && pet.faixa_etaria_id) {
+              try {
+                faixaEtariaInfo = await getFaixaEtariaById(pet.faixa_etaria_id);
+              } catch (error) {
+                console.log(`Erro ao carregar faixa etária ${pet.faixa_etaria_id}:`, error);
+              }
+            }
+
+            // Carregar informações do usuário se não existir
+            let usuarioInfo = null;
+            let usuarioFotoInfo = null;
+
+            if (!pet.usuario_nome && pet.usuario_id) {
+              try {
+                usuarioInfo = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+              } catch (error) {
+                console.log(`Erro ao carregar usuário ${pet.usuario_id}:`, error);
+              }
+            }
+
+            if (!pet.usuario_foto && pet.usuario_id) {
+              try {
+                usuarioFotoInfo = await getUsuarioById(pet.usuario_id);
+              } catch (error) {
+                console.log(`Erro ao carregar foto do usuário ${pet.usuario_id}:`, error);
+              }
+            }
+
+            // Verificar se é favorito
+            let isFavorito = false;
+            if (usuarioId) {
+              try {
+                isFavorito = await checkFavorito(usuarioId, pet.id);
+              } catch (error) {
+                console.log(`Erro ao verificar favorito ${pet.id}:`, error);
+              }
+            }
+
+            // Retornar pet com dados completos
+            return {
+              ...pet,
+              raca_nome: pet.raca_nome || racaInfo?.nome || 'Desconhecido',
+              usuario_nome: pet.usuario_nome || usuarioInfo?.nome || 'Desconhecido',
+              usuario_foto: pet.usuario_foto || usuarioFotoInfo?.foto || null,
+              usuario_telefone: pet.usuario_telefone || usuarioFotoInfo?.telefone,
+              usuario_email: pet.usuario_email || usuarioFotoInfo?.email,
+              usuario_cidade_id: pet.usuario_cidade_id || usuarioInfo?.cidade?.id,
+              usuario_estado_id: pet.usuario_estado_id || usuarioInfo?.estado?.id,
+              status_nome: pet.status_nome || statusInfo?.nome || 'Em adoção',
+              faixa_etaria_unidade: pet.faixa_etaria_unidade || faixaEtariaInfo?.unidade || '',
+              favorito: isFavorito,
+            };
+          } catch (petError) {
+            console.error(`Erro ao carregar detalhes do pet ${pet.id}:`, petError);
+            // Retornar pet com dados básicos em caso de erro
+            return {
+              ...pet,
+              raca_nome: pet.raca_nome || 'Desconhecido',
+              usuario_nome: pet.usuario_nome || 'Desconhecido',
+              usuario_foto: pet.usuario_foto || null,
+              status_nome: pet.status_nome || 'Em adoção',
+              faixa_etaria_unidade: pet.faixa_etaria_unidade || '',
+              favorito: false,
+            };
+          }
+        })
+      );
+    } catch (error) {
+      console.error('Erro geral ao carregar detalhes dos pets para busca:', error);
+      // Retornar pets originais com dados básicos
+      return pets.map((pet) => ({
+        ...pet,
+        raca_nome: pet.raca_nome || 'Desconhecido',
+        usuario_nome: pet.usuario_nome || 'Desconhecido',
+        usuario_foto: pet.usuario_foto || null,
+        status_nome: pet.status_nome || 'Em adoção',
+        faixa_etaria_unidade: pet.faixa_etaria_unidade || '',
+        favorito: false,
+      }));
+    }
+  };
+
+  // 🆕 FUNÇÃO DE NORMALIZAÇÃO MELHORADA com debug detalhado
+  const normalizeApiResponseWithDebug = (response: any): Pet[] => {
+    console.log('🔄 Iniciando normalização da resposta...');
+    console.log('🔄 Resposta recebida:', response);
+
+    if (!response) {
+      console.log('❌ Resposta é null/undefined');
+      return [];
+    }
+
+    // Se a resposta já é um array de pets
+    if (Array.isArray(response)) {
+      console.log('✅ Resposta é um array direto com', response.length, 'itens');
+      // Verificar se os itens do array têm a estrutura de Pet
+      const validPets = response.filter((item) => item && typeof item === 'object' && item.id);
+      console.log('✅ Pets válidos no array:', validPets.length);
+      return validPets;
+    }
+
+    // Se é um objeto com ID (pet único)
+    if (typeof response === 'object' && response.id) {
+      console.log('✅ Resposta é um pet único');
+      return [response as Pet];
+    }
+
+    // Se é um objeto que pode conter o array em alguma propriedade
+    if (typeof response === 'object') {
+      console.log('🔍 Resposta é objeto, buscando array em propriedades...');
+
+      // Verificar propriedades específicas onde o array pode estar
+      const possibleArrays = ['data', 'pets', 'results', 'items'];
+
+      for (const prop of possibleArrays) {
+        if (response[prop]) {
+          console.log(`✅ Encontrado array em response.${prop}:`, response[prop]);
+          console.log(`✅ response.${prop} é array?`, Array.isArray(response[prop]));
+
+          if (Array.isArray(response[prop])) {
+            console.log(`✅ response.${prop} tem ${response[prop].length} itens`);
+            const validPets = response[prop].filter((item: any) => item && typeof item === 'object' && item.id);
+            console.log(`✅ Pets válidos em response.${prop}:`, validPets.length);
+            return validPets;
+          } else if (response[prop] && typeof response[prop] === 'object' && response[prop].id) {
+            console.log(`✅ response.${prop} é um pet único`);
+            return [response[prop] as Pet];
+          } else {
+            // Recursão para objetos aninhados
+            console.log(`🔄 Fazendo recursão em response.${prop}`);
+            const recursiveResult = normalizeApiResponseWithDebug(response[prop]);
+            if (recursiveResult.length > 0) {
+              return recursiveResult;
+            }
+          }
+        }
+      }
+
+      // Se nenhuma propriedade conhecida foi encontrada, listar todas as propriedades
+      console.log('🔍 Propriedades disponíveis na resposta:', Object.keys(response));
+    }
+
+    console.warn('⚠️ Formato de resposta não reconhecido:', response);
+    return [];
   };
 
   // Limpar busca por nome
@@ -651,14 +876,12 @@ export default function MypetsFilter() {
     if (hasActiveSearch && searchQuery.trim() !== '') {
       filters.searchQuery = searchQuery.trim();
       // Filtrar apenas pets com status_id = 3 ou 4 (redundante mas garante)
-      const filteredResults = searchResults.filter(pet => 
-        pet.status_id === 3 || pet.status_id === 4
-      );
+      const filteredResults = searchResults.filter((pet) => pet.status_id === 3 || pet.status_id === 4);
       filters.searchResults = filteredResults;
     }
 
     // VALIDAÇÃO: Verificar se pelo menos um filtro foi aplicado
-    const hasAnyFilter = 
+    const hasAnyFilter =
       selectedEspecieIds.length > 0 ||
       selectedFaixasEtarias.length > 0 ||
       selectedRacaIds.length > 0 ||
@@ -668,18 +891,16 @@ export default function MypetsFilter() {
       (hasActiveSearch && searchQuery.trim() !== '');
 
     if (!hasAnyFilter) {
-      Alert.alert(
-        'Nenhum Filtro Aplicado',
-        'Aplique pelo menos um dos filtros avançados para avançar',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Nenhum Filtro Aplicado', 'Aplique pelo menos um dos filtros avançados para avançar', [
+        { text: 'OK' },
+      ]);
       return;
     }
 
     // Determinar a chave do AsyncStorage baseada na origem
     const origin = params.origin as string;
     const storageKey = origin === 'mypets' ? '@App:myPetsFilters' : '@App:petFilters';
-    
+
     await AsyncStorage.setItem(storageKey, JSON.stringify(filters));
 
     console.log('Filtros aplicados (com status_id = 3 e 4):', filters);
@@ -734,8 +955,8 @@ export default function MypetsFilter() {
             {/* Botão X integrado com animação */}
             {searchQuery.length > 0 && (
               <Animated.View style={{ opacity: fadeAnim }}>
-                <TouchableOpacity 
-                  onPress={clearSearch} 
+                <TouchableOpacity
+                  onPress={clearSearch}
                   style={styles.clearSearchIconButtonNew}
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -943,9 +1164,7 @@ export default function MypetsFilter() {
           </View>
           <View style={[styles.emptyStateContainer, styles.emptyStateAttached]}>
             <Text style={styles.emptyStateText}>
-              {searchRaca.trim()
-                ? `Nenhuma raça encontrada para "${searchRaca}"`
-                : 'Nenhuma raça disponível'}
+              {searchRaca.trim() ? `Nenhuma raça encontrada para "${searchRaca}"` : 'Nenhuma raça disponível'}
             </Text>
           </View>
         </>
@@ -990,9 +1209,7 @@ export default function MypetsFilter() {
                       ]}
                       onPress={() => toggleSelection(raca.id, racas, setRacas, 'raca')}
                     >
-                      <Text style={[styles.filterItemText, raca.selected && styles.selectedItemText]}>
-                        {raca.nome}
-                      </Text>
+                      <Text style={[styles.filterItemText, raca.selected && styles.selectedItemText]}>{raca.nome}</Text>
                       {raca.selected && (
                         <View style={styles.checkmark}>
                           <Text style={styles.checkmarkText}>✓</Text>
@@ -1060,9 +1277,7 @@ export default function MypetsFilter() {
           </View>
           <View style={[styles.emptyStateContainer, styles.emptyStateAttached]}>
             <Text style={styles.emptyStateText}>
-              {searchCidade.trim()
-                ? `Nenhuma cidade encontrada para "${searchCidade}"`
-                : 'Nenhuma cidade disponível'}
+              {searchCidade.trim() ? `Nenhuma cidade encontrada para "${searchCidade}"` : 'Nenhuma cidade disponível'}
             </Text>
           </View>
         </>
@@ -1344,11 +1559,7 @@ export default function MypetsFilter() {
             </>
           )}
 
-          {racasExpanded && hasSelectedEspecies() && (
-            <View style={styles.expandedSection}>
-              {renderRacasItems()}
-            </View>
-          )}
+          {racasExpanded && hasSelectedEspecies() && <View style={styles.expandedSection}>{renderRacasItems()}</View>}
 
           {/* Seção Região */}
           <TouchableOpacity style={styles.filterSection} onPress={() => setRegiaoExpanded(!regiaoExpanded)}>
@@ -1404,9 +1615,7 @@ export default function MypetsFilter() {
               )}
 
               {cidadesExpanded && hasSelectedEstados() && (
-                <View style={styles.subExpandedSection}>
-                  {renderCidadesItems()}
-                </View>
+                <View style={styles.subExpandedSection}>{renderCidadesItems()}</View>
               )}
             </View>
           )}
@@ -1792,7 +2001,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
-  
+
   // ESTILOS ATUALIZADOS PARA BUSCA POR NOME COM BOTÃO X MELHORADO
   searchNameContainer: {
     backgroundColor: '#FFF',
@@ -1841,7 +2050,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  
+
   // NOVOS ESTILOS: Botão X melhorado
   clearSearchIconButtonNew: {
     width: 26,

@@ -71,11 +71,7 @@ interface FormData {
   compromesteContato: boolean;
 }
 
-const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ 
-  visible, 
-  usuarioLogado, 
-  onTermoCompleted 
-}) => {
+const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, usuarioLogado, onTermoCompleted }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -102,14 +98,10 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
     const backAction = () => {
       if (visible && !emailSent) {
         // Se email não foi enviado, mostrar alerta
-        Alert.alert(
-          'Termo Obrigatório',
-          'Você precisa assinar o termo de responsabilidade para cadastrar pets.',
-          [
-            { text: 'Continuar Assinando', style: 'cancel' },
-            { text: 'Voltar à Tela Anterior', onPress: handleGoBack }
-          ]
-        );
+        Alert.alert('Termo Obrigatório', 'Você precisa assinar o termo de responsabilidade para cadastrar pets.', [
+          { text: 'Continuar Assinando', style: 'cancel' },
+          { text: 'Voltar à Tela Anterior', onPress: handleGoBack },
+        ]);
         return true; // Bloqueia o back
       }
       return false; // Permite o back
@@ -173,14 +165,14 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
   const checkExistingTermo = async () => {
     try {
       console.log('🔍 Verificando se usuário já possui termo de doação...');
-      
+
       const response = await getTermoDoacao();
-      
+
       if (response && response.data) {
         console.log('✅ Usuário já possui termo, enviando PDF automaticamente...');
         setTermoData(response.data);
         setStep('termo');
-        
+
         // Enviar PDF automaticamente se ainda não foi enviado
         if (!response.data.data_envio_pdf) {
           await handleAutoSendEmail(response.data);
@@ -193,17 +185,13 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
         setStep('form');
       }
     } catch (error: any) {
-      console.error('❌ Erro ao verificar termo existente:', error);
-
       if (error.message.includes('não possui um termo')) {
         console.log('ℹ️ Confirmado: usuário não possui termo');
         setStep('form');
       } else if (error.message.includes('Sessão expirada')) {
-        Alert.alert(
-          'Sessão Expirada', 
-          'Sua sessão expirou. Você será redirecionado para a tela anterior.',
-          [{ text: 'OK', onPress: handleGoBack }]
-        );
+        Alert.alert('Sessão Expirada', 'Sua sessão expirou. Você será redirecionado para a tela anterior.', [
+          { text: 'OK', onPress: handleGoBack },
+        ]);
       } else {
         setStep('form');
       }
@@ -226,20 +214,20 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
     // Verificar se todos os compromissos foram aceitos
     const compromissosObrigatorios = [
       'confirmaResponsavelLegal',
-      'autorizaVisitas', 
+      'autorizaVisitas',
       'aceitaAcompanhamento',
       'confirmaSaude',
       'autorizaVerificacao',
-      'compromesteContato'
+      'compromesteContato',
     ];
 
     const compromissosNaoAceitos = compromissosObrigatorios.filter(
-      compromisso => !formData[compromisso as keyof FormData]
+      (compromisso) => !formData[compromisso as keyof FormData]
     );
 
     if (compromissosNaoAceitos.length > 0) {
       Alert.alert(
-        'Compromissos Obrigatórios', 
+        'Compromissos Obrigatórios',
         'Todos os compromissos devem ser aceitos para poder cadastrar pets para doação.'
       );
       return;
@@ -265,7 +253,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
 
       if (response && response.data) {
         console.log('✅ Termo criado com sucesso!');
-        
+
         setTermoData(response.data);
         setStep('termo');
 
@@ -278,11 +266,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
       let errorMessage = 'Erro ao criar termo de responsabilidade.';
 
       if (error.message.includes('Sessão expirada')) {
-        Alert.alert(
-          'Sessão Expirada', 
-          'Sua sessão expirou. Você será redirecionado para a tela anterior.',
-          [{ text: 'OK', onPress: handleGoBack }]
-        );
+        Alert.alert('Sessão Expirada', 'Sua sessão expirou. Você será redirecionado para a tela anterior.', [
+          { text: 'OK', onPress: handleGoBack },
+        ]);
         return;
       }
 
@@ -309,19 +295,18 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
       const response = await sendTermoDoacaoEmail(termo.id);
 
       console.log('✅ Email enviado com sucesso:', response.data);
-      
+
       handleEmailSentSuccess();
-      
     } catch (error: any) {
       console.error('❌ Erro ao enviar email:', error);
       setSendingEmail(false);
 
       Alert.alert(
-        'Erro no Envio', 
+        'Erro no Envio',
         'Não foi possível enviar o PDF por email, mas seu termo foi criado com sucesso. Você pode tentar reenviar mais tarde.',
         [
           { text: 'Continuar Mesmo Assim', onPress: handleEmailSentSuccess },
-          { text: 'Tentar Novamente', onPress: () => handleAutoSendEmail(termo) }
+          { text: 'Tentar Novamente', onPress: () => handleAutoSendEmail(termo) },
         ]
       );
     }
@@ -348,9 +333,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
 
   // Função para atualizar campo do formulário
   const updateFormField = (field: keyof FormData, value: any) => {
-    setFormData(prev => ({
+    setFormData((prev) => ({
       ...prev,
-      [field]: value
+      [field]: value,
     }));
   };
 
@@ -365,18 +350,14 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
   };
 
   return (
-    <Modal 
-      visible={visible} 
-      animationType="slide" 
+    <Modal
+      visible={visible}
+      animationType="slide"
       transparent={false}
       onRequestClose={() => {
         // Bloquear fechamento do modal no Android
         if (!emailSent) {
-          Alert.alert(
-            'Termo Obrigatório',
-            'Você precisa assinar o termo para continuar.',
-            [{ text: 'OK' }]
-          );
+          Alert.alert('Termo Obrigatório', 'Você precisa assinar o termo para continuar.', [{ text: 'OK' }]);
         }
       }}
     >
@@ -390,7 +371,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
         {/* Content */}
         {step === 'loading' && (
           <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#2E8B57" />
+            <ActivityIndicator size="large" color="#4682B4" />
             <Text style={styles.loadingText}>Verificando termo de responsabilidade...</Text>
           </View>
         )}
@@ -461,16 +442,14 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
             {/* Compromissos */}
             <View style={styles.compromissosContainer}>
               <Text style={styles.compromissosTitle}>Compromissos Obrigatórios:</Text>
-              
+
               <View style={styles.switchContainer}>
                 <Switch
                   value={formData.confirmaResponsavelLegal}
                   onValueChange={(value) => updateFormField('confirmaResponsavelLegal', value)}
                   trackColor={{ false: '#DDD', true: '#2E8B57' }}
                 />
-                <Text style={styles.switchLabel}>
-                  Confirmo que sou responsável legal pelos pets que cadastrar
-                </Text>
+                <Text style={styles.switchLabel}>Confirmo que sou responsável legal pelos pets que cadastrar</Text>
               </View>
 
               <View style={styles.switchContainer}>
@@ -479,9 +458,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                   onValueChange={(value) => updateFormField('autorizaVisitas', value)}
                   trackColor={{ false: '#DDD', true: '#2E8B57' }}
                 />
-                <Text style={styles.switchLabel}>
-                  Autorizo visitas de potenciais adotantes
-                </Text>
+                <Text style={styles.switchLabel}>Autorizo visitas de potenciais adotantes</Text>
               </View>
 
               <View style={styles.switchContainer}>
@@ -490,9 +467,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                   onValueChange={(value) => updateFormField('aceitaAcompanhamento', value)}
                   trackColor={{ false: '#DDD', true: '#2E8B57' }}
                 />
-                <Text style={styles.switchLabel}>
-                  Aceito acompanhamento pós-adoção
-                </Text>
+                <Text style={styles.switchLabel}>Aceito acompanhamento pós-adoção</Text>
               </View>
 
               <View style={styles.switchContainer}>
@@ -512,9 +487,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                   onValueChange={(value) => updateFormField('autorizaVerificacao', value)}
                   trackColor={{ false: '#DDD', true: '#2E8B57' }}
                 />
-                <Text style={styles.switchLabel}>
-                  Autorizo verificação de antecedentes dos adotantes
-                </Text>
+                <Text style={styles.switchLabel}>Autorizo verificação de antecedentes dos adotantes</Text>
               </View>
 
               <View style={styles.switchContainer}>
@@ -523,9 +496,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                   onValueChange={(value) => updateFormField('compromesteContato', value)}
                   trackColor={{ false: '#DDD', true: '#2E8B57' }}
                 />
-                <Text style={styles.switchLabel}>
-                  Comprometo-me a manter contato durante processo de adoção
-                </Text>
+                <Text style={styles.switchLabel}>Comprometo-me a manter contato durante processo de adoção</Text>
               </View>
             </View>
 
@@ -542,10 +513,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                 )}
               </TouchableOpacity>
 
-              <TouchableOpacity
-                style={styles.backButton}
-                onPress={handleGoBack}
-              >
+              <TouchableOpacity style={styles.backButton} onPress={handleGoBack}>
                 <Text style={styles.backButtonText}>← Voltar</Text>
               </TouchableOpacity>
             </View>
@@ -558,15 +526,10 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#1E88E5" />
                 <Text style={styles.loadingText}>Enviando PDF por email...</Text>
-                <Text style={styles.subLoadingText}>
-                  Seu termo está sendo enviado para {termoData.doador_email}
-                </Text>
+                <Text style={styles.subLoadingText}>Seu termo está sendo enviado para {termoData.doador_email}</Text>
               </View>
             ) : (
-              <ScrollView
-                contentContainerStyle={styles.termoContentContainer}
-                showsVerticalScrollIndicator={false}
-              >
+              <ScrollView contentContainerStyle={styles.termoContentContainer} showsVerticalScrollIndicator={false}>
                 <Text style={styles.termoTitle}>TERMO DE RESPONSABILIDADE DE DOAÇÃO</Text>
 
                 <View style={styles.termoHeader}>
@@ -591,12 +554,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>COMPROMISSOS ASSUMIDOS</Text>
                   <Text style={styles.commitmentText}>
-                    ✓ Responsabilidade legal pelos pets cadastrados{'\n'}
-                    ✓ Autorização para visitas de adotantes{'\n'}
-                    ✓ Aceite de acompanhamento pós-adoção{'\n'}
-                    ✓ Fornecimento de informações verdadeiras sobre saúde{'\n'}
-                    ✓ Autorização para verificação de adotantes{'\n'}
-                    ✓ Manutenção de contato durante processo
+                    ✓ Responsabilidade legal pelos pets cadastrados{'\n'}✓ Autorização para visitas de adotantes{'\n'}✓
+                    Aceite de acompanhamento pós-adoção{'\n'}✓ Fornecimento de informações verdadeiras sobre saúde{'\n'}
+                    ✓ Autorização para verificação de adotantes{'\n'}✓ Manutenção de contato durante processo
                   </Text>
                 </View>
 
@@ -614,12 +574,8 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
           <View style={styles.successContainer}>
             <Text style={styles.successIcon}>✅</Text>
             <Text style={styles.successTitle}>Termo Assinado com Sucesso!</Text>
-            <Text style={styles.successMessage}>
-              Seu termo de responsabilidade foi criado e enviado por email.
-            </Text>
-            <Text style={styles.successSubMessage}>
-              📧 Verifique sua caixa de entrada: {usuarioLogado.email}
-            </Text>
+            <Text style={styles.successMessage}>Seu termo de responsabilidade foi criado e enviado por email.</Text>
+            <Text style={styles.successSubMessage}>📧 Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
             <View style={styles.successTimer}>
               <ActivityIndicator size="small" color="#2E8B57" />
               <Text style={styles.timerText}>Liberando acesso em alguns segundos...</Text>
@@ -637,7 +593,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F5F5',
   },
   header: {
-    backgroundColor: '#2E8B57',
+    backgroundColor: '#4682B4',
     paddingHorizontal: 20,
     paddingVertical: 20,
     paddingTop: 50, // Status bar
@@ -732,7 +688,7 @@ const styles = StyleSheet.create({
   compromissosTitle: {
     fontSize: 16,
     fontWeight: 'bold',
-    color: '#2E8B57',
+    color: '#4682B4',
     marginBottom: 15,
     textAlign: 'center',
   },
@@ -753,7 +709,7 @@ const styles = StyleSheet.create({
     marginTop: 20,
   },
   createButton: {
-    backgroundColor: '#2E8B57',
+    backgroundColor: '#4682B4',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',

@@ -16,7 +16,6 @@ interface GetTermoDoacaoResponse {
     assinatura_digital: string;
     data_assinatura: string;
     hash_documento: string;
-    caminho_pdf?: string;
     data_envio_pdf?: string;
     estado?: {
       id: number;
@@ -44,21 +43,17 @@ export const getTermoDoacao = async (): Promise<GetTermoDoacaoResponse> => {
   try {
     console.log('📄 Buscando termo de doação do usuário...');
 
-    const response = await api.get<GetTermoDoacaoResponse>(
-      '/termos-doacao/meu-termo'
-    );
+    const response = await api.get<GetTermoDoacaoResponse>('/termos-doacao/meu-termo');
 
     console.log('✅ Termo de doação encontrado:', {
       id: response.data.data.id,
       doador: response.data.data.doador_nome,
       dataAssinatura: response.data.data.data_assinatura,
-      canCreatePets: response.data.canCreatePets
+      canCreatePets: response.data.canCreatePets,
     });
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar termo de doação:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -95,13 +90,11 @@ export const getTermoDoacaoById = async (termoId: number): Promise<GetTermoDoaca
   try {
     console.log('📄 Buscando termo de doação por ID:', termoId);
 
-    const response = await api.get<GetTermoDoacaoResponse>(
-      `/termos-doacao/${termoId}`
-    );
+    const response = await api.get<GetTermoDoacaoResponse>(`/termos-doacao/${termoId}`);
 
     console.log('✅ Termo de doação encontrado por ID:', {
       id: response.data.data.id,
-      doador: response.data.data.doador_nome
+      doador: response.data.data.doador_nome,
     });
 
     return response.data;
@@ -152,7 +145,7 @@ export const getHistoricoTermos = async (): Promise<{
 
     console.log('✅ Histórico de termos encontrado:', {
       total: response.data.total,
-      termos: response.data.data.map(t => ({ id: t.id, data: t.data_assinatura }))
+      termos: response.data.data.map((t) => ({ id: t.id, data: t.data_assinatura })),
     });
 
     return response.data;

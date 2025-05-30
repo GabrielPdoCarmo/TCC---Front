@@ -1110,7 +1110,7 @@ export default function ProfileScreen() {
         <View style={styles.bottomNavigation}>
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetDonation')}>
             <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Adoção</Text>
+            <Text style={styles.navText}>Doação</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>

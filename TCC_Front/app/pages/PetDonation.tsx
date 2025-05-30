@@ -1,5 +1,5 @@
 import { router, useFocusEffect } from 'expo-router';
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
   View,
   Text,
@@ -81,44 +81,90 @@ export default function PetDonationScreen() {
   const [isEditMode, setIsEditMode] = useState(false);
   // Estado para controlar se usuário pode cadastrar pets
   const [canCreatePets, setCanCreatePets] = useState(false);
+  const [initialCheckDone, setInitialCheckDone] = useState(false);
+  const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
+  const checkCountRef = useRef(0);
+  const lastCheckTimeRef = useRef(0);
 
-  // 🔍 Função para verificar se usuário pode cadastrar pets
-  const checkUserPermissions = async () => {
-    try {
-      setTermoLoading(true);
-      console.log('🔍 Verificando permissões do usuário...');
+  // 🔍 Função para verificar se usuário pode cadastrar pets (SEM LOOPS)
+  const checkUserPermissions = useCallback(
+    async (force = false) => {
+      // Evitar verificações muito frequentes (debounce de 2 segundos)
+      const now = Date.now();
+      if (!force && now - lastCheckTimeRef.current < 2000) {
+        console.log('⏱️ Verificação muito recente, pulando...');
+        return;
+      }
 
-      const result = await checkCanCreatePets();
-      const podecastrar = result.data.podecastrar;
+      // Evitar múltiplas verificações simultâneas
+      if (isCheckingPermissions && !force) {
+        console.log('🔄 Verificação já em andamento, pulando...');
+        return;
+      }
 
-      console.log('✅ Verificação de permissões:', {
-        podecastrar,
-        temTermo: result.data.temTermo,
-      });
+      // Limite de verificações para evitar loops
+      checkCountRef.current += 1;
+      if (checkCountRef.current > 10 && !force) {
+        console.log('🚫 Muitas verificações, parando para evitar loop');
+        return;
+      }
 
-      setCanCreatePets(podecastrar);
+      try {
+        setIsCheckingPermissions(true);
+        setTermoLoading(true);
+        lastCheckTimeRef.current = now;
 
-      // Se não pode cadastrar, mostrar modal do termo
-      if (!podecastrar) {
-        console.log('⚠️ Usuário precisa assinar termo, mostrando modal...');
+        console.log(`🔍 Verificação #${checkCountRef.current} - Verificando permissões...`);
+
+        const result = await checkCanCreatePets();
+
+        if (result && result.data) {
+          const podecastrar = result.data.podecastrar || false;
+          const temTermo = result.data.temTermo || false;
+
+          console.log('✅ Verificação de permissões:', {
+            podecastrar,
+            temTermo,
+            checkCount: checkCountRef.current,
+          });
+
+          setCanCreatePets(podecastrar);
+          setInitialCheckDone(true);
+
+          if (!podecastrar) {
+            console.log('ℹ️ Usuário precisa assinar termo, mostrando modal...');
+            setTermoModalVisible(true);
+          } else {
+            console.log('✅ Usuário já pode cadastrar pets');
+            setTermoModalVisible(false);
+          }
+        } else {
+          console.log('ℹ️ Resposta sem dados - primeira vez do usuário');
+          setCanCreatePets(false);
+          setTermoModalVisible(true);
+          setInitialCheckDone(true);
+        }
+      } catch (error: any) {
+        console.error('❌ Erro ao verificar permissões:', error);
+
+        if (error.message && error.message.includes('Sessão expirada')) {
+          Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
+            { text: 'OK', onPress: () => router.back() },
+          ]);
+          return;
+        }
+
+        console.log('ℹ️ Assumindo primeira vez devido ao erro');
+        setCanCreatePets(false);
         setTermoModalVisible(true);
+        setInitialCheckDone(true);
+      } finally {
+        setTermoLoading(false);
+        setIsCheckingPermissions(false);
       }
-    } catch (error: any) {
-      console.error('❌ Erro ao verificar permissões:', error);
-
-      // Em caso de erro, assumir que precisa do termo
-      setCanCreatePets(false);
-      setTermoModalVisible(true);
-
-      if (error.message.includes('Sessão expirada')) {
-        Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
-          { text: 'OK', onPress: () => router.back() },
-        ]);
-      }
-    } finally {
-      setTermoLoading(false);
-    }
-  };
+    },
+    [isCheckingPermissions]
+  );
 
   // 🔄 Carregar dados do usuário
   const loadUserData = async () => {
@@ -233,56 +279,93 @@ export default function PetDonationScreen() {
     }
   };
 
-  // 🚀 Inicialização da tela
+  // 🚀 Inicialização da tela (APENAS UMA VEZ)
   useEffect(() => {
     const initializeScreen = async () => {
+      if (initialCheckDone) {
+        console.log('⏭️ Inicialização já feita, pulando...');
+        return;
+      }
+
       console.log('🚀 Inicializando tela de doação de pets...');
+      checkCountRef.current = 0; // Reset contador
 
-      // Carregar dados do usuário primeiro
-      await loadUserData();
-
-      // Verificar permissões
-      await checkUserPermissions();
+      try {
+        await loadUserData();
+        await checkUserPermissions(true); // Force primeira verificação
+      } catch (error) {
+        console.error('❌ Erro na inicialização:', error);
+        setCanCreatePets(false);
+        setTermoModalVisible(true);
+        setTermoLoading(false);
+        setInitialCheckDone(true);
+      }
     };
 
     initializeScreen();
-  }, []);
+  }, []); // SEM DEPENDÊNCIAS para evitar re-execução
 
-  // 🔄 Recarregar pets quando permissões mudarem
+  // 🔄 Recarregar pets quando permissões mudarem (CONTROLADO)
   useEffect(() => {
-    if (canCreatePets) {
+    if (canCreatePets && initialCheckDone) {
       console.log('✅ Usuário tem permissão, carregando pets...');
       fetchUserPets();
+    } else if (initialCheckDone && !canCreatePets) {
+      console.log('ℹ️ Usuário ainda não tem permissão');
+      setLoading(false);
     }
-  }, [canCreatePets, currentUser]);
+  }, [canCreatePets, initialCheckDone]); // Adicionado initialCheckDone para controle
 
-  // Usar useFocusEffect para recarregar os dados quando a tela receber foco
+  // 👀 Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
     useCallback(() => {
-      console.log('👀 Tela recebeu foco - verificando permissões');
+      console.log('👀 Tela recebeu foco - verificação controlada');
 
-      // Só recarregar se já passou pela verificação inicial
-      if (!termoLoading) {
-        checkUserPermissions();
+      // Só verificar se:
+      // 1. Verificação inicial já foi feita
+      // 2. Não está carregando termo
+      // 3. Não está verificando permissões
+      if (initialCheckDone && !termoLoading && !isCheckingPermissions) {
+        console.log('🔄 Verificação de foco permitida');
+
+        // Usar timeout para evitar verificações muito frequentes
+        const timeoutId = setTimeout(() => {
+          checkUserPermissions(false);
+        }, 1000);
+
+        return () => {
+          clearTimeout(timeoutId);
+          console.log('👋 Limpando timeout de verificação');
+        };
+      } else {
+        console.log('⏸️ Verificação de foco bloqueada:', {
+          initialCheckDone,
+          termoLoading,
+          isCheckingPermissions,
+        });
       }
 
       return () => {
         console.log('👋 Tela perdeu foco');
       };
-    }, [termoLoading])
+    }, [initialCheckDone, termoLoading, isCheckingPermissions, checkUserPermissions])
   );
 
-  // 🎉 Callback quando termo for concluído
-  const handleTermoCompleted = () => {
+  // 🎉 Callback quando termo for concluído (SEM LOOPS)
+  const handleTermoCompleted = useCallback(() => {
     console.log('🎉 Termo concluído! Liberando acesso à tela...');
     setTermoModalVisible(false);
     setCanCreatePets(true);
 
-    // Recarregar verificação para ter certeza
+    // Reset contador para permitir nova verificação
+    checkCountRef.current = 0;
+
+    // Verificação final após término do termo (APENAS UMA VEZ)
     setTimeout(() => {
-      checkUserPermissions();
-    }, 1000);
-  };
+      console.log('🔄 Verificação final pós-termo');
+      checkUserPermissions(true);
+    }, 2000);
+  }, [checkUserPermissions]);
 
   // Função para abrir o modal no modo de adição
   const handleOpenModal = () => {
@@ -464,30 +547,6 @@ export default function PetDonationScreen() {
     />
   );
 
-  // 🚫 Renderizar tela bloqueada enquanto termo não for assinado
-  const renderBlockedScreen = () => (
-    <View style={styles.blockedContainer}>
-      <View style={styles.blockedContent}>
-        <Text style={styles.blockedIcon}>📋</Text>
-        <Text style={styles.blockedTitle}>Termo de Responsabilidade</Text>
-        <Text style={styles.blockedMessage}>
-          Para cadastrar e gerenciar pets para doação, você precisa assinar um termo de responsabilidade.
-        </Text>
-
-        {termoLoading ? (
-          <View style={styles.loadingContainer}>
-            <ActivityIndicator size="large" color="#FFFFFF" />
-            <Text style={styles.loadingText}>Verificando termo...</Text>
-          </View>
-        ) : (
-          <TouchableOpacity style={styles.blockedButton} onPress={() => setTermoModalVisible(true)}>
-            <Text style={styles.blockedButtonText}>✍️ Assinar Termo</Text>
-          </TouchableOpacity>
-        )}
-      </View>
-    </View>
-  );
-
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_03.png')} style={styles.backgroundImage}>
@@ -495,7 +554,7 @@ export default function PetDonationScreen() {
           {/* Header */}
           <View style={styles.header}>
             <View style={{ width: 60 }} />
-            <Text style={styles.headerTitle}>Adoção</Text>
+            <Text style={styles.headerTitle}>Doação</Text>
             <View style={styles.headerIcons}>
               <TouchableOpacity style={styles.iconButton} onPress={() => router.push('/pages/ConfigScreen')}>
                 <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
@@ -503,42 +562,35 @@ export default function PetDonationScreen() {
             </View>
           </View>
 
-          {/* Content - Bloqueado ou Normal */}
-          {!canCreatePets ? (
-            renderBlockedScreen()
-          ) : (
-            <>
-              {/* Lista de Pets */}
-              {loading ? (
-                <View style={styles.loadingContainer}>
-                  <ActivityIndicator size="large" color="#4682B4" />
-                  <Text style={styles.loadingText}>Carregando seus pets...</Text>
-                </View>
-              ) : error ? (
-                <View style={styles.errorContainer}>
-                  <Text style={styles.errorText}>{error}</Text>
-                  <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
-                    <Text style={styles.retryButtonText}>Tentar Novamente</Text>
-                  </TouchableOpacity>
-                </View>
-              ) : (
-                <FlatList
-                  data={pets}
-                  renderItem={renderPetItem}
-                  keyExtractor={(item) => item.id.toString()}
-                  contentContainerStyle={styles.petList}
-                  showsVerticalScrollIndicator={false}
-                  onRefresh={fetchUserPets}
-                  refreshing={loading}
-                />
-              )}
-
-              {/* Add button - Abre o modal quando pressionado */}
-              <TouchableOpacity style={styles.addButton} onPress={handleOpenModal}>
-                <Image source={require('../../assets/images/Icone/add-icon.png')} style={styles.addIcon} />
+          {/* Content - Sempre mostrar lista de pets */}
+          {loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4682B4" />
+              <Text style={styles.loadingText}>Carregando seus pets...</Text>
+            </View>
+          ) : error ? (
+            <View style={styles.errorContainer}>
+              <Text style={styles.errorText}>{error}</Text>
+              <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
+                <Text style={styles.retryButtonText}>Tentar Novamente</Text>
               </TouchableOpacity>
-            </>
+            </View>
+          ) : (
+            <FlatList
+              data={pets}
+              renderItem={renderPetItem}
+              keyExtractor={(item) => item.id.toString()}
+              contentContainerStyle={styles.petList}
+              showsVerticalScrollIndicator={false}
+              onRefresh={fetchUserPets}
+              refreshing={loading}
+            />
           )}
+
+          {/* Add button - Sempre visível */}
+          <TouchableOpacity style={styles.addButton} onPress={handleOpenModal}>
+            <Image source={require('../../assets/images/Icone/add-icon.png')} style={styles.addIcon} />
+          </TouchableOpacity>
         </View>
 
         {/* Bottom navigation */}
@@ -547,7 +599,7 @@ export default function PetDonationScreen() {
             <View style={styles.activeCircle}>
               <Image source={require('../../assets/images/Icone/adoption-icon.png')} style={styles.navIcon} />
             </View>
-            <Text style={styles.activeNavText}>Adoção</Text>
+            <Text style={styles.activeNavText}>Doação</Text>
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/PetAdoptionScreen')}>
@@ -561,16 +613,14 @@ export default function PetDonationScreen() {
           </TouchableOpacity>
         </View>
 
-        {/* Modal de Doação de Pet */}
-        {canCreatePets && (
-          <PetDonationModal
-            visible={petModalVisible}
-            onClose={handleCloseModal}
-            onSubmit={handleSubmitForm}
-            pet={currentPet}
-            isEditMode={isEditMode}
-          />
-        )}
+        {/* Modal de Doação de Pet - Sempre disponível */}
+        <PetDonationModal
+          visible={petModalVisible}
+          onClose={handleCloseModal}
+          onSubmit={handleSubmitForm}
+          pet={currentPet}
+          isEditMode={isEditMode}
+        />
 
         {/* Modal de Termo de Doação - Automático */}
         {currentUser && (
@@ -634,51 +684,6 @@ const styles = StyleSheet.create({
   headerIcon: {
     width: 24,
     height: 24,
-  },
-  // Estilos para tela bloqueada
-  blockedContainer: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 40,
-  },
-  blockedContent: {
-    backgroundColor: 'rgba(255, 255, 255, 0.95)',
-    padding: 30,
-    borderRadius: 20,
-    alignItems: 'center',
-    minWidth: '90%',
-  },
-  blockedIcon: {
-    fontSize: 60,
-    marginBottom: 20,
-  },
-  blockedTitle: {
-    fontSize: 22,
-    fontWeight: 'bold',
-    color: '#2E8B57',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  blockedMessage: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 22,
-    marginBottom: 25,
-  },
-  blockedButton: {
-    backgroundColor: '#2E8B57',
-    paddingHorizontal: 30,
-    paddingVertical: 15,
-    borderRadius: 10,
-    minWidth: 200,
-  },
-  blockedButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-    textAlign: 'center',
   },
   refreshButton: {
     backgroundColor: '#4682B4',

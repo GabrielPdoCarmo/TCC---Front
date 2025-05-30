@@ -16,10 +16,10 @@ api.interceptors.request.use(
   async (config) => {
     try {
       console.log('🔄 Interceptor de request para:', config.url);
-      
+
       // Buscar token da chave que sabemos que funciona (baseado nos seus logs)
       const token = await AsyncStorage.getItem('@App:token');
-      
+
       if (token) {
         // Adicionar token no header Authorization
         config.headers.Authorization = `Bearer ${token}`;
@@ -28,7 +28,7 @@ api.interceptors.request.use(
       } else {
         console.warn('⚠️ Token não encontrado no AsyncStorage');
       }
-      
+
       return config;
     } catch (error) {
       console.error('❌ Erro no interceptor de request:', error);
@@ -49,27 +49,19 @@ api.interceptors.response.use(
   },
   async (error) => {
     const errorMessage = error.response?.data || { error: 'Erro na requisição' };
-    console.error('❌ Erro na resposta:', errorMessage);
-    console.error('📊 Status:', error.response?.status);
-    console.error('🌐 URL:', error.config?.url);
-    
+
     // 🆕 Se token expirou (401), limpar AsyncStorage
     if (error.response?.status === 401) {
       console.log('🧹 Token expirado (401), limpando AsyncStorage...');
-      
+
       try {
-        await AsyncStorage.multiRemove([
-          '@App:token',
-          '@App:user',
-          '@App:userData', 
-          '@App:userId'
-        ]);
+        await AsyncStorage.multiRemove(['@App:token', '@App:user', '@App:userData', '@App:userId']);
         console.log('✅ AsyncStorage limpo');
       } catch (storageError) {
         console.error('Erro ao limpar storage:', storageError);
       }
     }
-    
+
     return Promise.reject(errorMessage);
   }
 );

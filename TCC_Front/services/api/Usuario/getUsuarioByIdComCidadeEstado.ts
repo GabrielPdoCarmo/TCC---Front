@@ -1,5 +1,6 @@
 import api from '../api';
 import { getEstados } from '../Estados/getEstados';
+
 export const getUsuarioByIdComCidadeEstado = async (id: number) => {
   try {
     // 1. Buscar o usuário
@@ -14,6 +15,7 @@ export const getUsuarioByIdComCidadeEstado = async (id: number) => {
         id: userId,
         nome,
         email: usuario.email ?? '', // <- campo adicionado aqui
+        telefone: usuario.telefone ?? undefined, // <- adicione também o telefone
         cidade: { id: cidade_id || null, nome: cidade_id ? 'Cidade não identificada' : 'Não informada' },
         estado: { id: estado_id || null, nome: estado_id ? 'Estado não identificado' : 'Não informado' },
       };
@@ -38,6 +40,8 @@ export const getUsuarioByIdComCidadeEstado = async (id: number) => {
     return {
       id: userId,
       nome,
+      email: usuario.email ?? '', // <- ADICIONADO: campo email que estava faltando
+      telefone: usuario.telefone ?? undefined, // <- ADICIONADO: campo telefone que estava faltando
       cidade: {
         id: cidade_id,
         nome: nomeCidade || 'Cidade não encontrada',
@@ -52,4 +56,5 @@ export const getUsuarioByIdComCidadeEstado = async (id: number) => {
     return null;
   }
 };
+
 export default getUsuarioByIdComCidadeEstado;

@@ -24,7 +24,7 @@ interface MyPetCardProps {
   onCommunicate?: () => void;
   onRemove?: () => void;
   onFavorite?: (id: number) => void;
-  isRemoving?: boolean; // ✅ ADICIONADO: Indicar se está removendo
+  isRemoving?: boolean;
 }
 
 const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = false }: MyPetCardProps) => {
@@ -86,8 +86,17 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
     }
   };
 
+  // 🆕 FUNÇÃO PARA OBTER A COR DO STATUS BASEADA NO status_id
+  const getStatusTextColor = () => {
+    if (pet.status_id === 4) {
+      return styles.statusAdoptedText; // Verde para "Adotado"
+    }
+    return styles.statusOneText; // Cor padrão para outros status
+  };
+
   console.log('MyPetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
   console.log('MyPetsCard - Removendo:', isRemoving);
+  console.log('MyPetsCard - Status ID:', pet.status_id, 'Status Nome:', pet.status_nome);
 
   return (
     <View style={[styles.container, isRemoving && styles.containerRemoving]}>
@@ -164,8 +173,9 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
             <Text style={styles.value}>{pet.usuario_nome}</Text>
           </TouchableOpacity>
 
+          {/* 🆕 STATUS COM COR CONDICIONAL */}
           <Text style={(styles.label, styles.statusAdoption)}>
-            Status: <Text style={(styles.value, styles.statusOneText)}>{pet.status_nome}</Text>
+            Status: <Text style={[styles.value, getStatusTextColor()]}>{pet.status_nome}</Text>
           </Text>
         </View>
 
@@ -299,6 +309,11 @@ const styles = StyleSheet.create({
   },
   statusOneText: {
     color: '#0E9999FF',
+    fontWeight: 'bold',
+  },
+  // 🆕 NOVO: Estilo específico para status "Adotado" (verde)
+  statusAdoptedText: {
+    color: '#28A745', // Verde para status "Adotado"
     fontWeight: 'bold',
   },
   favoriteButton: {

@@ -1,4 +1,4 @@
-// services/api/TermoDoacao/checkCanCreatePets.ts
+// services/api/TermoDoacao/checkCanCreatePets.ts - CORRIGIDO PARA PRIMEIRA VEZ
 
 import api from '../api';
 
@@ -10,54 +10,70 @@ interface CheckCanCreatePetsResponse {
   };
 }
 
-interface TermoStatsResponse {
-  message: string;
-  data: {
-    total: number;
-    hoje: number;
-    esteMes: number;
-  };
-}
-
 /**
- * ✅ Verificar se usuário pode cadastrar pets (possui termo ativo)
+ * ✅ Verificar se usuário pode cadastrar pets - AMIGÁVEL PARA PRIMEIRA VEZ
  * @returns Promise com status de permissão
  */
 export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> => {
   try {
-    console.log('✅ Verificando se usuário pode cadastrar pets...');
+    console.log('✅ Verificando se usuário pode cadastrar pets (suporte a primeira vez)...');
 
     const response = await api.get<CheckCanCreatePetsResponse>('/termos-doacao/pode-cadastrar-pets');
 
     console.log('✅ Verificação concluída:', {
       podecastrar: response.data.data.podecastrar,
       temTermo: response.data.data.temTermo,
+      status: response.status
     });
 
     return response.data;
   } catch (error: any) {
-    // Tratamento de erros específicos
-    if (error.response?.status === 401) {
-      throw new Error('Sessão expirada. Faça login novamente.');
-    }
+    console.log('⚠️ Erro na verificação do termo:', error);
 
-    if (error.response?.status === 403) {
-      throw new Error('Você não tem permissão para cadastrar pets. Assine o termo de responsabilidade.');
-    }
+    if (error.response) {
+      const status = error.response.status;
+      
+      console.log('📊 Status HTTP:', status);
 
-    if (error.response?.status === 500) {
-      throw new Error('Erro no servidor ao verificar permissões. Tente novamente.');
+      // Tratar apenas sessão expirada como erro crítico
+      if (status === 401) {
+        console.log('🔐 Sessão expirada');
+        throw new Error('Sessão expirada. Faça login novamente.');
+      }
+
+      // 404, 403, e outros erros = primeira vez ou sem termo (NORMAL)
+      if (status === 404 || status === 403) {
+        console.log('ℹ️ Status 404/403 - usuário provavelmente de primeira vez ou sem termo');
+        return {
+          message: 'Usuário de primeira vez ou sem termo',
+          data: {
+            podecastrar: false,
+            temTermo: false,
+          },
+        };
+      }
+
+      // Outros erros HTTP também são tratados como primeira vez
+      console.log('ℹ️ Outros erros HTTP tratados como primeira vez:', status);
+      return {
+        message: 'Assumindo primeira vez devido a erro HTTP',
+        data: {
+          podecastrar: false,
+          temTermo: false,
+        },
+      };
     }
 
     // Erro de rede
-    if (!error.response) {
+    if (error.request) {
+      console.log('🌐 Erro de conexão - mas permitindo continuar');
       throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
     }
 
-    // Erro genérico - assumir que não pode cadastrar por segurança
-
+    // Outros erros - assumir primeira vez
+    console.log('ℹ️ Erro desconhecido tratado como primeira vez:', error.message);
     return {
-      message: 'Erro na verificação',
+      message: 'Erro desconhecido - assumindo primeira vez',
       data: {
         podecastrar: false,
         temTermo: false,
@@ -67,87 +83,85 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
 };
 
 /**
- * 📊 Obter estatísticas gerais dos termos de doação
- * @returns Promise com estatísticas
+ * 🆕 Função específica para verificar se é primeira vez do usuário
+ * @returns Promise indicando se é primeira vez
  */
-export const getTermoStats = async (): Promise<TermoStatsResponse> => {
+export const isFirstTimeUser = async (): Promise<boolean> => {
+  try {
+    console.log('🔍 Verificando se é primeira vez do usuário...');
+    
+    // Tentar buscar termo existente diretamente
+    const response = await api.get('/termos-doacao/meu-termo');
+    
+    // Se chegou até aqui, usuário tem termo
+    console.log('ℹ️ Usuário já possui termo, não é primeira vez');
+    return false;
+  } catch (error: any) {
+    if (error.response?.status === 404) {
+      // 404 = primeira vez (sem termo)
+      console.log('✅ Confirmado: primeira vez do usuário (404)');
+      return true;
+    }
+    
+    if (error.response?.status === 401) {
+      // Sessão expirada
+      throw new Error('Sessão expirada. Faça login novamente.');
+    }
+    
+    // Outros erros = assumir primeira vez por segurança
+    console.log('ℹ️ Assumindo primeira vez devido a erro:', error.message);
+    return true;
+  }
+};
+
+/**
+ * 📊 Obter estatísticas gerais dos termos de doação
+ */
+export const getTermoStats = async () => {
   try {
     console.log('📊 Buscando estatísticas dos termos...');
-
-    const response = await api.get<TermoStatsResponse>('/termos-doacao/stats');
-
-    console.log('✅ Estatísticas obtidas:', {
-      total: response.data.data.total,
-      hoje: response.data.data.hoje,
-      esteMes: response.data.data.esteMes,
-    });
-
+    const response = await api.get('/termos-doacao/stats');
+    console.log('✅ Estatísticas obtidas:', response.data.data);
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 500) {
       throw new Error('Erro no servidor ao buscar estatísticas. Tente novamente.');
     }
-
     if (!error.response) {
       throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
     }
-
     throw new Error('Erro ao buscar estatísticas. Tente novamente.');
   }
 };
 
 /**
  * ✅ Validar integridade de um termo específico
- * @param termoId - ID do termo a ser validado
- * @returns Promise com resultado da validação
  */
-export const validateTermoIntegrity = async (
-  termoId: number
-): Promise<{
-  message: string;
-  data: {
-    integridadeOk: boolean;
-    compromissosOk: boolean;
-    dataAssinatura: string;
-    hashDocumento: string;
-  };
-}> => {
+export const validateTermoIntegrity = async (termoId: number) => {
   try {
     console.log('✅ Validando integridade do termo:', termoId);
-
     const response = await api.get(`/termos-doacao/${termoId}/validate`);
-
-    console.log('✅ Validação concluída:', {
-      integridadeOk: response.data.data.integridadeOk,
-      compromissosOk: response.data.data.compromissosOk,
-    });
-
+    console.log('✅ Validação concluída:', response.data.data);
     return response.data;
   } catch (error: any) {
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
-
     if (error.response?.status === 404) {
       throw new Error('Termo não encontrado.');
     }
-
     if (error.response?.status === 500) {
       throw new Error('Erro no servidor ao validar termo. Tente novamente.');
     }
-
     if (!error.response) {
       throw new Error('Erro de conexão. Verifique sua internet e tente novamente.');
     }
-
     throw new Error('Erro ao validar termo. Tente novamente.');
   }
 };
 
 /**
  * 🔄 Hook para verificar permissão antes de ações importantes
- * @param onSuccess - Callback executado se usuário pode cadastrar pets
- * @param onError - Callback executado se usuário não pode cadastrar pets
  */
 export const checkPermissionBeforeAction = async (
   onSuccess: () => void,
