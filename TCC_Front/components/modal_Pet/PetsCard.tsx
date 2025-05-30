@@ -352,7 +352,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   statusAdoptionText: {
-    color: '#4CAF50',
+    color: '#006EFFFF',
   },
   // Estilos para o modal da foto ampliada
   modalOverlay: {

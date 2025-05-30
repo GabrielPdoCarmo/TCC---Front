@@ -245,7 +245,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
   },
   statusAdoptionText: {
-    color: '#4CAF50',
+    color: '#0075FCFF',
   },
   // Novo estilo para status_id === 1
   statusOneText: {
