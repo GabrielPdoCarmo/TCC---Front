@@ -35,6 +35,15 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
   // Verifica se o pet tem status_id === 1
   const isStatusOne = pet.status_id === 1;
   
+  // Verifica se o pet tem status_id === 3
+  const isStatusThree = pet.status_id === 3;
+  
+  // Verifica se o pet tem status_id === 4
+  const isStatusFour = pet.status_id === 4;
+  
+  // Verifica se o botão "Enviar aos Pets" deve estar bloqueado (status_id 2, 3 ou 4)
+  const isAdoptButtonDisabled = pet.status_id === 2 || pet.status_id === 3 || pet.status_id === 4;
+  
   // Verifica se os botões de editar e deletar devem estar ativos (apenas para status_id 1 e 2)
   const canEditOrDelete = pet.status_id === 1 || pet.status_id === 2;
 
@@ -47,11 +56,18 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
     }
   };
 
-  // Função para exibir alerta quando tentar disponibilizar para adoção novamente
+  // Função para exibir alerta quando tentar disponibilizar para adoção com status bloqueado
   const handleAdoptDisabled = () => {
+    let message = '';
+    if (pet.status_id === 2) {
+      message = 'Este pet já está disponível para adoção.';
+    } else if (pet.status_id === 3 || pet.status_id === 4) {
+      message = 'Não é possível enviar este pet no status atual.';
+    }
+    
     Alert.alert(
       'Operação não permitida',
-      'Este pet já está disponível para adoção.'
+      message
     );
   };
 
@@ -105,12 +121,16 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
           <Text style={[
             styles.label, 
             isAvailableForAdoption ? styles.statusAdoption : null,
-            isStatusOne ? styles.statusAdoption : null
+            isStatusOne ? styles.statusAdoption : null,
+            isStatusThree ? styles.statusAdoption : null,
+            isStatusFour ? styles.statusAdoption : null
           ]}>
             Status: <Text style={[
               styles.value, 
               isAvailableForAdoption ? styles.statusAdoptionText : null,
-              isStatusOne ? styles.statusOneText : null
+              isStatusOne ? styles.statusOneText : null,
+              isStatusThree ? styles.statusThreeText : null,
+              isStatusFour ? styles.statusFourText : null
             ]}>{pet.status_nome}</Text>
           </Text>
         </View>
@@ -119,14 +139,14 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
           <TouchableOpacity 
             style={[
               styles.adoptButton,
-              isAvailableForAdoption ? styles.disabledButton : null
+              isAdoptButtonDisabled ? styles.disabledButton : null
             ]} 
-            onPress={isAvailableForAdoption ? handleAdoptDisabled : onAdopt}
-            disabled={isAvailableForAdoption}
+            onPress={isAdoptButtonDisabled ? handleAdoptDisabled : onAdopt}
+            disabled={isAdoptButtonDisabled}
           >
             <Text style={[
               styles.adoptButtonText,
-              isAvailableForAdoption ? styles.disabledText : null
+              isAdoptButtonDisabled ? styles.disabledText : null
             ]}>Enviar aos Pets</Text>
           </TouchableOpacity>
 
@@ -280,9 +300,17 @@ const styles = StyleSheet.create({
   statusAdoptionText: {
     color: '#0075FCFF',
   },
-  // Novo estilo para status_id === 1
+  // Estilo para status_id === 1
   statusOneText: {
     color: '#DE952F',
+  },
+  // Estilo para status_id === 3
+  statusThreeText: {
+    color: '#0E9999FF',
+  },
+  // Estilo para status_id === 4
+  statusFourText: {
+    color: '#28A745',
   }
 });
 
