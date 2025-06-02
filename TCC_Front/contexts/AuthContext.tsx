@@ -1,212 +1,193 @@
-// contexts/AuthContext.tsx - CORRIGIDO com timing e debug
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react';
+// contexts/AuthContext.tsx - Versão otimizada
+import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-interface Usuario {
+interface User {
   id: number;
   nome: string;
   email: string;
   foto?: string;
+  telefone?: string;
+  cpf?: string;
+  cep?: string;
+  estado_id?: number;
+  cidade_id?: number;
+  sexo_id?: number;
 }
 
 interface AuthContextType {
   isAuthenticated: boolean;
-  user: Usuario | null;
-  token: string | null;
   loading: boolean;
-  login: (userData: Usuario, token: string) => Promise<void>;
+  user: User | null;
+  token: string | null;
+  lastRoute: string | null;
+  login: (userData: User, authToken: string) => Promise<void>;
   logout: () => Promise<void>;
-  refreshAuthStatus: () => Promise<void>;
+  setLastRoute: (route: string) => void;
+  updateUser: (userData: User) => Promise<void>; // Nova função para atualizar usuário
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-interface AuthProviderProps {
-  children: ReactNode;
-}
+// Constantes para melhor organização
+const STORAGE_KEYS = {
+  TOKEN: '@App:userToken',
+  USER_ID: '@App:userId', 
+  USER_DATA: '@App:userData',
+  LAST_ROUTE: '@App:lastRoute'
+} as const;
 
-export const AuthProvider: React.FC<AuthProviderProps> = ({ children }) => {
+const EXCLUDED_ROUTES = [
+  '/',
+  '/index',
+  '/pages/LoginScreen',
+  '/pages/userCadastro', 
+  '/pages/ForgotPasswordScreen',
+  '/pages/FilterScreen',
+  '/pages/MypetsFilter',
+] as const;
+
+export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
-  const [user, setUser] = useState<Usuario | null>(null);
-  const [token, setToken] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [user, setUser] = useState<User | null>(null);
+  const [token, setToken] = useState<string | null>(null);
+  const [lastRoute, setLastRouteState] = useState<string | null>(null);
 
-  // Verificar autenticação na inicialização
   useEffect(() => {
-    checkInitialAuthStatus();
+    checkAuthStatus();
   }, []);
 
-  const checkAuthStatus = async (): Promise<{
-    isAuthenticated: boolean;
-    user: Usuario | null;
-    token: string | null;
-  }> => {
+  const checkAuthStatus = async () => {
     try {
-      // Buscar token e dados do usuário
-      const storedToken = await AsyncStorage.getItem('@App:token');
-      const userJson = await AsyncStorage.getItem('@App:user');
-      const userId = await AsyncStorage.getItem('@App:userId');
+      const [savedToken, savedUserId, savedRoute, userData] = await Promise.all([
+        AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
+        AsyncStorage.getItem(STORAGE_KEYS.USER_ID),
+        AsyncStorage.getItem(STORAGE_KEYS.LAST_ROUTE),
+        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA)
+      ]);
 
-      if (!storedToken || !userJson || !userId) {
-        return { isAuthenticated: false, user: null, token: null };
+      if (savedToken && savedUserId) {
+        let parsedUser: User;
+        
+        if (userData) {
+          parsedUser = JSON.parse(userData);
+        } else {
+          // Fallback se não há dados do usuário
+          parsedUser = { 
+            id: parseInt(savedUserId), 
+            nome: 'Usuário', 
+            email: '' 
+          };
+        }
+
+        setUser(parsedUser);
+        setToken(savedToken);
+        setIsAuthenticated(true);
+        
+        console.log('✅ Usuário autenticado:', parsedUser.nome);
       }
 
-      // Parse dos dados do usuário
-      let userData: Usuario;
-      try {
-        userData = JSON.parse(userJson);
-      } catch (parseError) {
-        console.error('❌ Erro ao fazer parse dos dados do usuário:', parseError);
-        return { isAuthenticated: false, user: null, token: null };
-      }
-
-      return { isAuthenticated: true, user: userData, token: storedToken };
+      setLastRouteState(savedRoute);
     } catch (error) {
       console.error('❌ Erro ao verificar autenticação:', error);
-      return { isAuthenticated: false, user: null, token: null };
-    }
-  };
-
-  const clearAuthData = async (): Promise<void> => {
-    try {
-      console.log('🧹 Limpando dados de autenticação...');
-      await AsyncStorage.multiRemove(['@App:token', '@App:user', '@App:userId', '@App:userPhoto']);
-      console.log('✅ Dados de autenticação limpos com sucesso');
-    } catch (error) {
-      console.error('❌ Erro ao limpar dados de autenticação:', error);
-    }
-  };
-
-  const checkInitialAuthStatus = async () => {
-    try {
-      setLoading(true);
-
-      // Pequeno delay para garantir que o AsyncStorage esteja pronto
-      await new Promise((resolve) => setTimeout(resolve, 100));
-
-      const authStatus = await checkAuthStatus();
-
-      setIsAuthenticated(authStatus.isAuthenticated);
-      setUser(authStatus.user);
-      setToken(authStatus.token);
-    } catch (error) {
-      console.error('❌ Erro ao verificar status inicial:', error);
-      setIsAuthenticated(false);
-      setUser(null);
-      setToken(null);
+      await clearAuthData();
     } finally {
       setLoading(false);
     }
   };
 
-  const login = async (userData: Usuario, userToken: string) => {
+  const login = async (userData: User, authToken: string) => {
     try {
-      console.log('🔐 INICIANDO login no contexto...');
-      console.log('📥 Dados recebidos:', {
-        userData: { id: userData.id, nome: userData.nome, email: userData.email },
-        token: userToken ? `${userToken.substring(0, 20)}...` : null,
-      });
-
-      // 1. Primeiro salvar no AsyncStorage
-      console.log('💾 Salvando dados no AsyncStorage...');
-      await AsyncStorage.multiSet([
-        ['@App:token', userToken],
-        ['@App:user', JSON.stringify(userData)],
-        ['@App:userId', userData.id.toString()],
+      await Promise.all([
+        AsyncStorage.setItem(STORAGE_KEYS.TOKEN, authToken),
+        AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userData.id.toString()),
+        AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData))
       ]);
-      console.log('✅ Dados salvos no AsyncStorage');
 
-      // 2. Verificar se foi salvo corretamente
-      console.log('🔍 Verificando se dados foram salvos...');
-      const savedToken = await AsyncStorage.getItem('@App:token');
-      const savedUser = await AsyncStorage.getItem('@App:user');
-      const savedUserId = await AsyncStorage.getItem('@App:userId');
-
-      console.log('📱 Verificação pós-salvamento:', {
-        tokenSalvo: !!savedToken,
-        userSalvo: !!savedUser,
-        userIdSalvo: !!savedUserId,
-      });
-
-      // 3. Aguardar um pouco para garantir persistência
-      await new Promise((resolve) => setTimeout(resolve, 200));
-
-      // 4. Atualizar o estado do contexto
-      console.log('🔄 Atualizando estado do contexto...');
-      setIsAuthenticated(true);
       setUser(userData);
-      setToken(userToken);
+      setToken(authToken);
+      setIsAuthenticated(true);
 
-      console.log('✅ Login no contexto CONCLUÍDO com sucesso');
-      console.log('📊 Estado final:', {
-        isAuthenticated: true,
-        user: userData.nome,
-        hasToken: !!userToken,
-      });
+      console.log('✅ Login realizado:', userData.nome);
     } catch (error) {
-      console.error('❌ Erro durante login no contexto:', error);
+      console.error('❌ Erro no login:', error);
       throw error;
     }
   };
 
+  const updateUser = async (userData: User) => {
+    try {
+      await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
+      setUser(userData);
+      console.log('✅ Dados do usuário atualizados:', userData.nome);
+    } catch (error) {
+      console.error('❌ Erro ao atualizar usuário:', error);
+      throw error;
+    }
+  };
+
+  const clearAuthData = async () => {
+    await Promise.all([
+      AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
+      AsyncStorage.removeItem(STORAGE_KEYS.USER_ID),
+      AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
+      AsyncStorage.removeItem(STORAGE_KEYS.LAST_ROUTE)
+    ]);
+
+    setUser(null);
+    setToken(null);
+    setIsAuthenticated(false);
+    setLastRouteState(null);
+  };
+
   const logout = async () => {
     try {
-      console.log('👋 Fazendo logout...');
-
-      // Limpar dados locais
       await clearAuthData();
-      setIsAuthenticated(false);
-      setUser(null);
-      setToken(null);
-      console.log('✅ Logout realizado com sucesso');
+      console.log('✅ Logout realizado');
     } catch (error) {
-      console.error('❌ Erro durante logout:', error);
-      // Mesmo com erro, tentar limpar os dados
-      await clearAuthData();
-      setIsAuthenticated(false);
-      setUser(null);
-      setToken(null);
+      console.error('❌ Erro no logout:', error);
     }
   };
 
-  const refreshAuthStatus = async () => {
-    console.log('🔄 Atualizando status de autenticação...');
-    setLoading(true);
-
+  const setLastRoute = async (route: string) => {
     try {
-      const authStatus = await checkAuthStatus();
-      console.log('📊 Novo status:', authStatus);
+      if (EXCLUDED_ROUTES.includes(route as any)) {
+        console.log('🚫 Rota excluída:', route);
+        return;
+      }
 
-      setIsAuthenticated(authStatus.isAuthenticated);
-      setUser(authStatus.user);
-      setToken(authStatus.token);
+      console.log('💾 Salvando rota:', route);
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_ROUTE, route);
+      setLastRouteState(route);
     } catch (error) {
-      console.error('❌ Erro ao atualizar status:', error);
-    } finally {
-      setLoading(false);
+      console.error('❌ Erro ao salvar rota:', error);
     }
   };
 
-  const value = {
-    isAuthenticated,
-    user,
-    token,
-    loading,
-    login,
-    logout,
-    refreshAuthStatus,
-  };
+  return (
+    <AuthContext.Provider 
+      value={{ 
+        isAuthenticated, 
+        loading, 
+        user,
+        token,
+        lastRoute, 
+        login, 
+        logout, 
+        setLastRoute,
+        updateUser
+      }}
+    >
+      {children}
+    </AuthContext.Provider>
+  );
+}
 
-  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;
-};
-
-export const useAuth = (): AuthContextType => {
+export function useAuth() {
   const context = useContext(AuthContext);
-
-  if (!context) {
-    console.error('❌ useAuth chamado fora do AuthProvider!');
-    throw new Error('useAuth deve ser usado dentro de um AuthProvider');
+  if (context === undefined) {
+    throw new Error('useAuth deve ser usado dentro de AuthProvider');
   }
-
   return context;
-};
+}

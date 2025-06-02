@@ -308,7 +308,7 @@ export default function CadastroUsuario() {
   // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: CidadeType) => {
     console.log('selectedCidade', selectedCidade);
-    
+
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estado?.id || null, selectedCidade.id);
 
@@ -401,229 +401,230 @@ export default function CadastroUsuario() {
   };
 
   const handleSalvar = async () => {
-  // Limpar mensagens anteriores
-  setFotoErro('');
-  setNomeErro('');
-  setCpfErro('');
-  setTelefoneErro('');
-  setEstadoErro('');
-  setCidadeErro('');
-  setSexoErro('');
-  setSenhaErro('');
-  setConfirmarSenhaErro('');
-  setEmailErro('');
-  setCepErro('');
+    // Limpar mensagens anteriores
+    setFotoErro('');
+    setNomeErro('');
+    setCpfErro('');
+    setTelefoneErro('');
+    setEstadoErro('');
+    setCidadeErro('');
+    setSexoErro('');
+    setSenhaErro('');
+    setConfirmarSenhaErro('');
+    setEmailErro('');
+    setCepErro('');
 
-  let hasError = false;
+    let hasError = false;
 
-  // Validações locais (manter toda a seção de validação igual)
-  if (!foto) {
-    setFotoErro('A foto é obrigatória.');
-    hasError = true;
-  }
-
-  if (!nome) {
-    setNomeErro('O nome é obrigatório.');
-    hasError = true;
-  }
-  
-  if (!cpf) {
-    setCpfErro('O CPF é obrigatório.');
-    hasError = true;
-  } else if (!validarCpf(cpf)) {
-    setCpfErro('CPF inválido. Informe um CPF com 11 números.');
-    hasError = true;
-  }
-  
-  if (!telefone) {
-    setTelefoneErro('O telefone é obrigatório.');
-    hasError = true;
-  } else if (!validarTelefone(telefone)) {
-    setTelefoneErro('Telefone inválido. Informe um número válido.');
-    hasError = true;
-  }
-
-  if (!email) {
-    setEmailErro('O e-mail é obrigatório.');
-    hasError = true;
-  } else if (!validarEmail(email)) {
-    setEmailErro('E-mail inválido. Informe um e-mail válido.');
-    hasError = true;
-  }
-
-  if (!sexo.id) {
-    setSexoErro('O sexo é obrigatório.');
-    hasError = true;
-  }
-
-  if (!estado || !estado.id) {
-    setEstadoErro('O estado é obrigatório.');
-    hasError = true;
-  }
-
-  if (!cidade || !cidade.id) {
-    setCidadeErro('A cidade é obrigatória.');
-    hasError = true;
-  }
-
-  if (!senha) {
-    setSenhaErro('A senha é obrigatória.');
-    hasError = true;
-  } else if (senha.length < 6) {
-    setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
-    hasError = true;
-  }
-
-  if (!confirmarSenha) {
-    setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
-    hasError = true;
-  } else if (senha !== confirmarSenha) {
-    setConfirmarSenhaErro('As senhas não conferem.');
-    hasError = true;
-  }
-
-  if (cep && !validarCep(cep)) {
-    setCepErro('CEP inválido. Informe um CEP válido.');
-    hasError = true;
-  }
-
-  // Se há erros de validação local, interrompe
-  if (hasError) {
-    return;
-  }
-
-  try {
-    // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
-    console.log('Verificando campos duplicados...');
-    
-    const validationResponse = await checkDuplicateFields({
-      email: email,
-      cpf: stripNonNumeric(cpf),
-      telefone: stripNonNumeric(telefone)
-    });
-
-    // Verificar se há campos duplicados
-    if (validationResponse && validationResponse.exists) {
-      let validationHasError = false;
-      
-      if (validationResponse.duplicateFields?.includes('cpf')) {
-        setCpfErro('Este CPF já está cadastrado no sistema.');
-        validationHasError = true;
-      }
-      
-      if (validationResponse.duplicateFields?.includes('email')) {
-        setEmailErro('Este e-mail já está cadastrado no sistema.');
-        validationHasError = true;
-      }
-      
-      if (validationResponse.duplicateFields?.includes('telefone')) {
-        setTelefoneErro('Este telefone já está cadastrado no sistema.');
-        validationHasError = true;
-      }
-
-      if (validationHasError) {
-        return;
-      }
+    // Validações locais (manter toda a seção de validação igual)
+    if (!foto) {
+      setFotoErro('A foto é obrigatória.');
+      hasError = true;
     }
 
-    console.log('Campos validados. Prosseguindo com o cadastro...');
-
-    // Se chegou até aqui, pode prosseguir com o cadastro
-    // Preparar a foto para upload
-    let fotoFile = null;
-
-    if (foto) {
-      const uriParts = foto.split('/');
-      const fileName = uriParts[uriParts.length - 1];
-
-      fotoFile = {
-        uri: foto,
-        name: fileName,
-        type: 'image/jpeg',
-      } as unknown as File;
+    if (!nome) {
+      setNomeErro('O nome é obrigatório.');
+      hasError = true;
     }
 
-    // Dados completos do usuário
-    const usuarioData = {
-      nome,
-      sexo_id: sexo.id,
-      telefone: stripNonNumeric(telefone),
-      email,
-      senha,
-      cpf: stripNonNumeric(cpf),
-      cidade_id: cidade.id,
-      estado_id: estado?.id,
-      cep: stripNonNumeric(cep),
-      foto: fotoFile,
-    };
+    if (!cpf) {
+      setCpfErro('O CPF é obrigatório.');
+      hasError = true;
+    } else if (!validarCpf(cpf)) {
+      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+      hasError = true;
+    }
 
-    // Chamar a função de criação
-    const response = await createUsuario(usuarioData);
+    if (!telefone) {
+      setTelefoneErro('O telefone é obrigatório.');
+      hasError = true;
+    } else if (!validarTelefone(telefone)) {
+      setTelefoneErro('Telefone inválido. Informe um número válido.');
+      hasError = true;
+    }
 
-    Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!', [
-      {
-        text: 'OK',
-        onPress: () => {
-          router.push('/pages/LoginScreen');
-        },
-      },
-    ]);
-    console.log('Usuário cadastrado com sucesso:', response);
+    if (!email) {
+      setEmailErro('O e-mail é obrigatório.');
+      hasError = true;
+    } else if (!validarEmail(email)) {
+      setEmailErro('E-mail inválido. Informe um e-mail válido.');
+      hasError = true;
+    }
 
-  } catch (error: any) {
-    console.error('Erro no cadastro:', error);
+    if (!sexo.id) {
+      setSexoErro('O sexo é obrigatório.');
+      hasError = true;
+    }
 
-    // Verificar se o erro está na resposta da API ou diretamente no error
-    const serverError = error?.response?.data || error;
+    if (!estado || !estado.id) {
+      setEstadoErro('O estado é obrigatório.');
+      hasError = true;
+    }
 
-    if (serverError) {
-      // 1. Tratar erro de dados duplicados (nova estrutura do backend)
-      if (serverError.error === 'Dados duplicados' || 
-          serverError.exists === true ||
-          serverError.error?.toLowerCase().includes('duplicado') ||
-          serverError.message?.toLowerCase().includes('já cadastrado')) {
-        
-        // Verificar se há campo específico identificado
-        if (serverError.duplicateField || serverError.duplicateFields) {
-          const fields = serverError.duplicateFields || [serverError.duplicateField];
-          
-          if (fields.includes('cpf')) {
-            setCpfErro('Este CPF já está cadastrado no sistema.');
-          }
-          if (fields.includes('email')) {
-            setEmailErro('Este e-mail já está cadastrado no sistema.');
-          }
-          if (fields.includes('telefone')) {
-            setTelefoneErro('Este telefone já está cadastrado no sistema.');
-          }
-        } else {
-          // Fallback: analisa a mensagem para detectar o campo
-          const message = serverError.message?.toLowerCase() || '';
-          
-          if (message.includes('email') || message.includes('e-mail')) {
-            setEmailErro('Este e-mail já está cadastrado no sistema.');
-          } else if (message.includes('cpf')) {
-            setCpfErro('Este CPF já está cadastrado no sistema.');
-          } else if (message.includes('telefone')) {
-            setTelefoneErro('Este telefone já está cadastrado no sistema.');
-          } else {
-            Alert.alert('Dados Duplicados', serverError.message || 'Email, CPF ou telefone já cadastrado no sistema.');
-          }
+    if (!cidade || !cidade.id) {
+      setCidadeErro('A cidade é obrigatória.');
+      hasError = true;
+    }
+
+    if (!senha) {
+      setSenhaErro('A senha é obrigatória.');
+      hasError = true;
+    } else if (senha.length < 6) {
+      setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
+      hasError = true;
+    }
+
+    if (!confirmarSenha) {
+      setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
+      hasError = true;
+    } else if (senha !== confirmarSenha) {
+      setConfirmarSenhaErro('As senhas não conferem.');
+      hasError = true;
+    }
+
+    if (cep && !validarCep(cep)) {
+      setCepErro('CEP inválido. Informe um CEP válido.');
+      hasError = true;
+    }
+
+    // Se há erros de validação local, interrompe
+    if (hasError) {
+      return;
+    }
+
+    try {
+      // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
+      console.log('Verificando campos duplicados...');
+
+      const validationResponse = await checkDuplicateFields({
+        email: email,
+        cpf: stripNonNumeric(cpf),
+        telefone: stripNonNumeric(telefone),
+      });
+
+      // Verificar se há campos duplicados
+      if (validationResponse && validationResponse.exists) {
+        let validationHasError = false;
+
+        if (validationResponse.duplicateFields?.includes('cpf')) {
+          setCpfErro('Este CPF já está cadastrado no sistema.');
+          validationHasError = true;
+        }
+
+        if (validationResponse.duplicateFields?.includes('email')) {
+          setEmailErro('Este e-mail já está cadastrado no sistema.');
+          validationHasError = true;
+        }
+
+        if (validationResponse.duplicateFields?.includes('telefone')) {
+          setTelefoneErro('Este telefone já está cadastrado no sistema.');
+          validationHasError = true;
+        }
+
+        if (validationHasError) {
+          return;
         }
       }
-      // 2. Tratar erro de senha
-      else if (serverError.error?.toLowerCase().includes('senha')) {
-        setSenhaErro(serverError.message || 'Senha inválida.');
+
+      console.log('Campos validados. Prosseguindo com o cadastro...');
+
+      // Se chegou até aqui, pode prosseguir com o cadastro
+      // Preparar a foto para upload
+      let fotoFile = null;
+
+      if (foto) {
+        const uriParts = foto.split('/');
+        const fileName = uriParts[uriParts.length - 1];
+
+        fotoFile = {
+          uri: foto,
+          name: fileName,
+          type: 'image/jpeg',
+        } as unknown as File;
       }
-      // 3. Outros erros
-      else {
-        Alert.alert('Erro', serverError.message || 'Erro inesperado.');
+
+      // Dados completos do usuário
+      const usuarioData = {
+        nome,
+        sexo_id: sexo.id,
+        telefone: stripNonNumeric(telefone),
+        email,
+        senha,
+        cpf: stripNonNumeric(cpf),
+        cidade_id: cidade.id,
+        estado_id: estado?.id,
+        cep: stripNonNumeric(cep),
+        foto: fotoFile,
+      };
+
+      // Chamar a função de criação
+      const response = await createUsuario(usuarioData);
+
+      Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            router.push('/pages/LoginScreen');
+          },
+        },
+      ]);
+      console.log('Usuário cadastrado com sucesso:', response);
+    } catch (error: any) {
+      // Verificar se o erro está na resposta da API ou diretamente no error
+      const serverError = error?.response?.data || error;
+
+      if (serverError) {
+        // 1. Tratar erro de dados duplicados (nova estrutura do backend)
+        if (
+          serverError.error === 'Dados duplicados' ||
+          serverError.exists === true ||
+          serverError.error?.toLowerCase().includes('duplicado') ||
+          serverError.message?.toLowerCase().includes('já cadastrado')
+        ) {
+          // Verificar se há campo específico identificado
+          if (serverError.duplicateField || serverError.duplicateFields) {
+            const fields = serverError.duplicateFields || [serverError.duplicateField];
+
+            if (fields.includes('cpf')) {
+              setCpfErro('Este CPF já está cadastrado no sistema.');
+            }
+            if (fields.includes('email')) {
+              setEmailErro('Este e-mail já está cadastrado no sistema.');
+            }
+            if (fields.includes('telefone')) {
+              setTelefoneErro('Este telefone já está cadastrado no sistema.');
+            }
+          } else {
+            // Fallback: analisa a mensagem para detectar o campo
+            const message = serverError.message?.toLowerCase() || '';
+
+            if (message.includes('email') || message.includes('e-mail')) {
+              setEmailErro('Este e-mail já está cadastrado no sistema.');
+            } else if (message.includes('cpf')) {
+              setCpfErro('Este CPF já está cadastrado no sistema.');
+            } else if (message.includes('telefone')) {
+              setTelefoneErro('Este telefone já está cadastrado no sistema.');
+            } else {
+              Alert.alert(
+                'Dados Duplicados',
+                serverError.message || 'Email, CPF ou telefone já cadastrado no sistema.'
+              );
+            }
+          }
+        }
+        // 2. Tratar erro de senha
+        else if (serverError.error?.toLowerCase().includes('senha')) {
+          setSenhaErro(serverError.message || 'Senha inválida.');
+        }
+        // 3. Outros erros
+        else {
+          Alert.alert('Erro', serverError.message || 'Erro inesperado.');
+        }
+      } else {
+        Alert.alert('Erro', 'Erro inesperado. Tente novamente.');
       }
-    } else {
-      Alert.alert('Erro', 'Erro inesperado. Tente novamente.');
     }
-  }
-};
+  };
   // Handles for formatted inputs
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
@@ -758,7 +759,7 @@ export default function CadastroUsuario() {
       throw error;
     }
   }
-  
+
   // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     try {
@@ -1235,7 +1236,7 @@ const styles = StyleSheet.create({
     color: 'red',
   },
   input: {
-    height: 40,
+    height: 45,
     borderColor: '#ccc',
     borderWidth: 1,
     paddingLeft: 10,
@@ -1340,7 +1341,7 @@ const styles = StyleSheet.create({
     color: '#333',
   },
   errorText: {
-    color: 'red',
+    color: '#FF0000',
     fontSize: 12,
     marginTop: 2,
     marginLeft: 10,

@@ -17,7 +17,7 @@ import { Link, router } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import login from '../../services/api/auth';
 import getUsuarioById from '../../services/api/Usuario/getUsuarioById';
-import { AuthProvider, useAuth } from '../../contexts/AuthContext';
+import { AuthProvider, useAuth } from '@/contexts/AuthContext';
 
 // Interface para tipagem de erros da API
 interface ApiError {
@@ -40,10 +40,10 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName,
   console.log('🎭 WelcomeModal renderizado:', { visible, userName, photoUrl });
 
   return (
-    <Modal 
-      animationType="fade" 
-      transparent={true} 
-      visible={visible} 
+    <Modal
+      animationType="fade"
+      transparent={true}
+      visible={visible}
       onRequestClose={onClose}
       statusBarTranslucent={true} // Adiciona suporte para status bar
     >
@@ -100,17 +100,17 @@ function LoginScreenContent() {
 
   // Debug: Log dos estados do modal
   useEffect(() => {
-    console.log('🎭 Estado do modal mudou:', { 
-      welcomeModalVisible, 
-      userName, 
-      userPhoto 
+    console.log('🎭 Estado do modal mudou:', {
+      welcomeModalVisible,
+      userName,
+      userPhoto,
     });
   }, [welcomeModalVisible, userName, userPhoto]);
 
   // Se já estiver autenticado, redirecionar
   useEffect(() => {
     console.log('🔍 LoginScreen: authLoading:', authLoading, 'isAuthenticated:', isAuthenticated);
-    
+
     if (!authLoading && isAuthenticated) {
       console.log('✅ Usuário já autenticado, redirecionando...');
       router.replace('/pages/PetAdoptionScreen');
@@ -246,24 +246,23 @@ function LoginScreenContent() {
       }
 
       const userDataForContext = userDetails || data.usuario;
-      
+
       // Preparar dados para o modal de boas-vindas
       const displayName = userDataForContext?.nome || 'usuário';
       console.log('🎭 Preparando modal com:', { displayName, photoUrlToUse });
-      
+
       setUserName(displayName);
       setUserPhoto(photoUrlToUse);
-      
+
       // Salvar dados temporariamente para usar depois no modal
       setTempLoginData({
         userDataForContext,
-        token: data.token
+        token: data.token,
       });
-      
+
       // Mostrar o modal SEM atualizar o contexto ainda
       console.log('🎭 Mostrando modal de boas-vindas...');
       setWelcomeModalVisible(true);
-
     } catch (error: unknown) {
       console.error('❌ Erro no login:', error);
 
@@ -288,17 +287,17 @@ function LoginScreenContent() {
   const handleCloseWelcomeModal = async () => {
     console.log('🎭 Fechando modal de boas-vindas');
     setWelcomeModalVisible(false);
-    
+
     // Agora sim, atualizar o contexto de autenticação
     if (tempLoginData) {
       try {
         console.log('✅ Atualizando contexto de autenticação...');
         await setAuthLogin(tempLoginData.userDataForContext, tempLoginData.token);
         console.log('✅ Contexto atualizado, navegando...');
-        
+
         // Limpar dados temporários
         setTempLoginData(null);
-        
+
         // Navegar para a próxima página
         router.replace('/pages/PetAdoptionScreen');
       } catch (authError) {
@@ -320,8 +319,8 @@ function LoginScreenContent() {
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
-        <Image 
-          source={require('../../assets/images/Icone/Pets_Up.png')} 
+        <Image
+          source={require('../../assets/images/Icone/Pets_Up.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -403,7 +402,7 @@ function LoginScreenContent() {
 // Componente principal que envolve com AuthProvider
 export default function LoginScreen() {
   console.log('🎯 LoginScreen montado');
-  
+
   return (
     <AuthProvider>
       <LoginScreenContent />
