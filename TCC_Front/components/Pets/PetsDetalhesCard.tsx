@@ -1,14 +1,6 @@
 // petsdetalhes.tsx
 import React, { useState, useEffect } from 'react';
-import {
-  View,
-  Text,
-  Image,
-  TouchableOpacity,
-  StyleSheet,
-  Dimensions,
-  Modal
-} from 'react-native';
+import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Modal } from 'react-native';
 
 // Definindo a interface para o tipo Pet
 interface Pet {
@@ -52,11 +44,11 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   onAdoptPress,
   onBackPress,
   loading = false,
-  usuarioLogadoId // ✅ ADICIONADO: Receber ID do usuário logado
+  usuarioLogadoId, // ✅ ADICIONADO: Receber ID do usuário logado
 }) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
-  
+
   // Estado para controlar a exibição da foto ampliada
   const [showExpandedPhoto, setShowExpandedPhoto] = useState(false);
 
@@ -72,7 +64,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   const handleToggleFavorite = () => {
     // Atualizar o estado local imediatamente para feedback visual rápido
     setIsFavorite(!isFavorite);
-    
+
     // Chamar a função passada via props para atualizar no backend
     if (onFavoriteToggle) {
       onFavoriteToggle(pet.id);
@@ -96,7 +88,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   // Função para obter os nomes das doenças, se existirem
   const getDiseaseNames = () => {
     if (pet?.doencas && pet.doencas.length > 0) {
-      return pet.doencas.map(d => d.nome).join(', ');
+      return pet.doencas.map((d) => d.nome).join(', ');
     }
     return '';
   };
@@ -110,20 +102,22 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
     }
     return 'Não informado';
   };
-  
+
   // Função para obter localização (cidade e estado)
   const getLocation = () => {
     if (pet.cidade_nome && pet.estado_nome) {
       return `${pet.cidade_nome}, ${pet.estado_nome}`;
     } else {
-      return pet.cidade_id && pet.estado_id ? `ID Cidade: ${pet.cidade_id}, ID Estado: ${pet.estado_id}` : 'Localização não informada';
+      return pet.cidade_id && pet.estado_id
+        ? `ID Cidade: ${pet.cidade_id}, ID Estado: ${pet.estado_id}`
+        : 'Localização não informada';
     }
   };
 
   // Função para formatar o RG do pet
   const formatRG = (text?: string): string => {
     if (!text) return 'Não informado';
-    
+
     const digits = text.replace(/\D/g, '');
     const limitedDigits = digits.slice(0, 9);
 
@@ -150,13 +144,20 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
 
   const motivoDoacao = getMotivo();
   console.log('Motivo de doação no componente:', motivoDoacao);
-  
+
   const doencasParaMostrar = getDiseaseNames();
 
   console.log('RG do Pet no componente:', pet.rgPet);
   console.log('Estado de favorito atual:', isFavorite);
-  console.log('PetsDetalhesCard - É próprio pet:', isOwnPet, 'Usuario logado:', usuarioLogadoId, 'Dono do pet:', pet.usuario_id);
-  
+  console.log(
+    'PetsDetalhesCard - É próprio pet:',
+    isOwnPet,
+    'Usuario logado:',
+    usuarioLogadoId,
+    'Dono do pet:',
+    pet.usuario_id
+  );
+
   return (
     <View style={styles.petCardContainer}>
       <View style={styles.petCard}>
@@ -172,10 +173,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Nome:</Text>
             <Text style={styles.infoValue}>{pet.nome}</Text>
-            <TouchableOpacity 
-              style={styles.favoriteButton} 
-              onPress={handleToggleFavorite}
-            >
+            <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
               <Image
                 source={
                   isFavorite
@@ -194,7 +192,9 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
 
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>Idade:</Text>
-            <Text style={styles.infoValue}>{pet.idade} {pet.faixa_etaria_unidade || ''}</Text>
+            <Text style={styles.infoValue}>
+              {pet.idade} {pet.faixa_etaria_unidade || ''}
+            </Text>
           </View>
 
           {/* RG do Pet com formatação adequada */}
@@ -205,7 +205,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
 
           {/* Responsável em linhas separadas */}
           <Text style={[styles.infoLabel, { marginBottom: 3 }]}>Responsável:</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.userInfoContainer}
             onPress={handleExpandUserPhoto}
             activeOpacity={pet.usuario_foto ? 0.7 : 1}
@@ -256,18 +256,18 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
           </TouchableOpacity>
 
           {/* ✅ BOTÃO ATUALIZADO com validação */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.adoptButton,
-              isOwnPet && styles.disabledButton // Aplicar estilo desabilitado se for próprio pet
-            ]} 
+              isOwnPet && styles.disabledButton, // Aplicar estilo desabilitado se for próprio pet
+            ]}
             onPress={handleAdoptPress}
             disabled={isOwnPet} // Desabilitar se for próprio pet
           >
-            <Text 
+            <Text
               style={[
                 styles.buttonText,
-                isOwnPet && styles.disabledText // Aplicar estilo de texto desabilitado
+                isOwnPet && styles.disabledText, // Aplicar estilo de texto desabilitado
               ]}
             >
               {isOwnPet ? 'Adicionar ao meus Pets' : 'Adicionar ao meus Pets'}
@@ -283,27 +283,16 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
         animationType="fade"
         onRequestClose={() => setShowExpandedPhoto(false)}
       >
-        <TouchableOpacity 
-          style={styles.modalOverlay}
-          activeOpacity={1}
-          onPress={() => setShowExpandedPhoto(false)}
-        >
+        <TouchableOpacity style={styles.modalOverlay} activeOpacity={1} onPress={() => setShowExpandedPhoto(false)}>
           <View style={styles.modalContent}>
-            <TouchableOpacity 
-              style={styles.closeButton}
-              onPress={() => setShowExpandedPhoto(false)}
-            >
+            <TouchableOpacity style={styles.closeButton} onPress={() => setShowExpandedPhoto(false)}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
-            
+
             {pet.usuario_foto && (
-              <Image 
-                source={{ uri: pet.usuario_foto }} 
-                style={styles.expandedPhoto}
-                resizeMode="contain"
-              />
+              <Image source={{ uri: pet.usuario_foto }} style={styles.expandedPhoto} resizeMode="contain" />
             )}
-            
+
             <Text style={styles.expandedPhotoName}>{pet.usuario_nome}</Text>
           </View>
         </TouchableOpacity>
@@ -481,11 +470,11 @@ const styles = StyleSheet.create({
   },
   expandedPhoto: {
     width: 250,
-    height: 250,
-    borderRadius: 125,
+    height: 185,
+    borderRadius: 5,
     borderWidth: 3,
     borderColor: '#4682B4',
-    marginTop: 20,
+    marginTop: 30,
   },
   expandedPhotoName: {
     fontSize: 18,

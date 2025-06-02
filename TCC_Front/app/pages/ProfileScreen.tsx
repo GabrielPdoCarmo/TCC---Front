@@ -25,6 +25,7 @@ import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import { cpf } from 'cpf-cnpj-validator';
+import  checkDuplicateFieldsProfile  from '@/services/api/Usuario/checkDuplicateFieldsProfile';
 
 interface Usuario {
   id: number;
@@ -624,175 +625,229 @@ export default function ProfileScreen() {
 
   // Função para salvar as alterações no perfil
   const handleSaveProfile = async () => {
-    // Limpar mensagens de erro anteriores
-    setNomeErro('');
-    setEmailErro('');
-    setTelefoneErro('');
-    setCpfErro('');
-    setCepErro('');
-    setEstadoErro('');
-    setCidadeErro('');
-    setSenhaErro('');
-    setConfirmarSenhaErro('');
+  // Limpar mensagens de erro anteriores
+  setNomeErro('');
+  setEmailErro('');
+  setTelefoneErro('');
+  setCpfErro('');
+  setCepErro('');
+  setEstadoErro('');
+  setCidadeErro('');
+  setSenhaErro('');
+  setConfirmarSenhaErro('');
 
-    let hasError = false;
+  let hasError = false;
 
-    // Validar campos obrigatórios
-    if (!nome) {
-      setNomeErro('O nome é obrigatório.');
+  // Validar campos obrigatórios
+  if (!nome) {
+    setNomeErro('O nome é obrigatório.');
+    hasError = true;
+  }
+
+  if (!email) {
+    setEmailErro('O e-mail é obrigatório.');
+    hasError = true;
+  } else if (!validarEmail(email)) {
+    setEmailErro('E-mail inválido.');
+    hasError = true;
+  }
+
+  if (!sexoId) {
+    setSexoErro('O sexo é obrigatório.');
+    hasError = true;
+  }
+
+  if (!telefone) {
+    setTelefoneErro('O telefone é obrigatório.');
+    hasError = true;
+  } else if (!validarTelefone(telefone)) {
+    setTelefoneErro('Telefone inválido. Informe DDD + número.');
+    hasError = true;
+  }
+
+  if (!cpfCnpj) {
+    setCpfErro('O CPF é obrigatório.');
+    hasError = true;
+  } else if (!validarCpf(stripNonNumeric(cpfCnpj))) {
+    setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+    hasError = true;
+  }
+
+  if (cep && !validarCep(stripNonNumeric(cep))) {
+    setCepErro('CEP inválido. Informe no formato 00000-000.');
+    hasError = true;
+  }
+
+  // Validar senha apenas se foi preenchida
+  if (senha || confirmarSenha) {
+    if (senha !== confirmarSenha) {
+      setConfirmarSenhaErro('As senhas não conferem.');
+      hasError = true;
+    } else if (senha && senha.length < 8) {
+      setSenhaErro('A senha deve ter pelo menos 8 caracteres.');
       hasError = true;
     }
+  }
 
-    if (!email) {
-      setEmailErro('O e-mail é obrigatório.');
-      hasError = true;
-    } else if (!validarEmail(email)) {
-      setEmailErro('E-mail inválido.');
-      hasError = true;
-    }
+  if (hasError) {
+    Alert.alert('Erro', 'Verifique os campos destacados e tente novamente.');
+    return;
+  }
 
-    if (!sexoId) {
-      setSexoErro('O sexo é obrigatório.');
-      hasError = true;
-    }
+  try {
+    setLoading(true);
 
-    if (!telefone) {
-      setTelefoneErro('O telefone é obrigatório.');
-      hasError = true;
-    } else if (!validarTelefone(telefone)) {
-      setTelefoneErro('Telefone inválido. Informe DDD + número.');
-      hasError = true;
-    }
-
-    if (!cpfCnpj) {
-      setCpfErro('O CPF é obrigatório.');
-      hasError = true;
-    } else if (!validarCpf(stripNonNumeric(cpfCnpj))) {
-      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
-      hasError = true;
-    }
-
-    if (cep && !validarCep(stripNonNumeric(cep))) {
-      setCepErro('CEP inválido. Informe no formato 00000-000.');
-      hasError = true;
-    }
-
-    // Validar senha apenas se foi preenchida
-    if (senha || confirmarSenha) {
-      if (senha !== confirmarSenha) {
-        setConfirmarSenhaErro('As senhas não conferem.');
-        hasError = true;
-      } else if (senha && senha.length < 8) {
-        setSenhaErro('A senha deve ter pelo menos 8 caracteres.');
-        hasError = true;
-      }
-    }
-
-    if (hasError) {
-      Alert.alert('Erro', 'Verifique os campos destacados e tente novamente.');
+    if (!usuario || !usuario.id) {
+      Alert.alert('Erro', 'Dados do usuário não encontrados.');
       return;
     }
 
-    try {
-      setLoading(true);
+    // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar salvar
+    console.log('Verificando campos duplicados para edição...');
+    
+    const validationResponse = await checkDuplicateFieldsProfile({
+      userId: usuario.id,
+      email: email,
+      cpf: stripNonNumeric(cpfCnpj),
+      telefone: stripNonNumeric(telefone)
+    });
 
-      if (!usuario || !usuario.id) {
-        Alert.alert('Erro', 'Dados do usuário não encontrados.');
+    // Verificar se há campos duplicados
+    if (validationResponse && validationResponse.exists) {
+      let validationHasError = false;
+      
+      if (validationResponse.duplicateFields?.includes('cpf')) {
+        setCpfErro('Este CPF já está sendo usado por outro usuário.');
+        validationHasError = true;
+      }
+      
+      if (validationResponse.duplicateFields?.includes('email')) {
+        setEmailErro('Este e-mail já está sendo usado por outro usuário.');
+        validationHasError = true;
+      }
+      
+      if (validationResponse.duplicateFields?.includes('telefone')) {
+        setTelefoneErro('Este telefone já está sendo usado por outro usuário.');
+        validationHasError = true;
+      }
+
+      if (validationHasError) {
+        Alert.alert('Dados Duplicados', 'Alguns dados já estão sendo usados por outro usuário. Verifique os campos destacados.');
         return;
       }
-
-      // Preparar os dados do usuário
-      const dadosUsuario: UsuarioData = {
-        id: usuario.id,
-        nome,
-        email,
-        telefone: stripNonNumeric(telefone),
-        cpf: stripNonNumeric(cpfCnpj),
-        cep: stripNonNumeric(cep),
-        estado_id: estadoSelecionado ? Number(estadoSelecionado) : undefined,
-        cidade_id: cidadeSelecionada ? Number(cidadeSelecionada) : undefined,
-        sexo_id: Number(sexoId),
-        foto: null, // Inicializa como null
-      };
-
-      // IMPORTANTE: Adiciona senha apenas se for preenchida
-      if (senha && senha.length >= 8) {
-        dadosUsuario.senha = senha;
-      }
-
-      // Logs para debug
-
-      // Formatação da foto usando a mesma abordagem da tela de pet
-      if (foto && foto.startsWith('file://')) {
-        // Se for uma nova foto selecionada do dispositivo (URI local)
-        const filename = foto.split('/').pop() || `usuario_${Date.now()}.jpg`;
-        const match = /\.(\w+)$/.exec(filename);
-        const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-        // Formato similar ao usado na tela de pet
-        dadosUsuario.foto = {
-          uri: foto,
-          type: type,
-          name: `${nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
-        };
-      }
-
-      const resultado = await updateUsuario(dadosUsuario);
-
-      // Verificar o resultado com mais detalhes
-      if (resultado && resultado.id) {
-        // Verificar se os valores foram atualizados corretamente
-        const atualizadoCorretamente =
-          (!estadoSelecionado || resultado.estado_id == estadoSelecionado) &&
-          (!cidadeSelecionada || resultado.cidade_id == cidadeSelecionada);
-
-        if (!atualizadoCorretamente) {
-          console.warn('Atenção: Alguns campos podem não ter sido atualizados corretamente:', {
-            'estado enviado': estadoSelecionado,
-            'estado retornado': resultado.estado_id,
-            'cidade enviada': cidadeSelecionada,
-            'cidade retornada': resultado.cidade_id,
-          });
-        }
-
-        // Resetar os campos de senha se tiverem dados
-        if (senha || confirmarSenha) {
-          setSenha('');
-          setConfirmarSenha('');
-        }
-
-        Alert.alert('Sucesso', 'Dados salvos com sucesso!');
-
-        // Recarrega dados com uma pequena pausa para garantir que atualizou
-        setTimeout(() => {
-          fetchUserData();
-        }, 500);
-      } else {
-        const mensagemErro = resultado?.message || 'Não foi possível salvar os dados.';
-        console.error('Erro retornado pela API:', mensagemErro);
-        Alert.alert('Erro', mensagemErro);
-      }
-    } catch (err) {
-      console.error('Erro ao salvar dados do perfil:', err);
-      Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente mais tarde.');
-    } finally {
-      setLoading(false);
     }
-  };
 
-  // Helper para encontrar o nome do estado a partir do ID
-  const getEstadoNome = (id: number | null) => {
-    if (!id) return '';
-    const estado = estados.find((e) => e.id === id);
-    return estado ? estado.nome : '';
-  };
+    console.log('Campos validados. Prosseguindo com a atualização...');
 
-  // Helper para encontrar o nome da cidade a partir do ID
-  const getCidadeNome = (id: number | null) => {
-    if (!id) return '';
-    const cidade = cidades.find((c) => c.id === id);
-    return cidade ? cidade.nome : '';
-  };
+    // Preparar os dados do usuário
+    const dadosUsuario: UsuarioData = {
+      id: usuario.id,
+      nome,
+      email,
+      telefone: stripNonNumeric(telefone),
+      cpf: stripNonNumeric(cpfCnpj),
+      cep: stripNonNumeric(cep),
+      estado_id: estadoSelecionado ? Number(estadoSelecionado) : undefined,
+      cidade_id: cidadeSelecionada ? Number(cidadeSelecionada) : undefined,
+      sexo_id: Number(sexoId),
+      foto: null, // Inicializa como null
+    };
+
+    // IMPORTANTE: Adiciona senha apenas se for preenchida
+    if (senha && senha.length >= 8) {
+      dadosUsuario.senha = senha;
+    }
+
+    // Formatação da foto usando a mesma abordagem da tela de pet
+    if (foto && foto.startsWith('file://')) {
+      // Se for uma nova foto selecionada do dispositivo (URI local)
+      const filename = foto.split('/').pop() || `usuario_${Date.now()}.jpg`;
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+      // Formato similar ao usado na tela de pet
+      dadosUsuario.foto = {
+        uri: foto,
+        type: type,
+        name: `${nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
+      };
+    }
+
+    const resultado = await updateUsuario(dadosUsuario);
+
+    // Verificar o resultado com mais detalhes
+    if (resultado && resultado.id) {
+      // Resetar os campos de senha se tiverem dados
+      if (senha || confirmarSenha) {
+        setSenha('');
+        setConfirmarSenha('');
+      }
+
+      Alert.alert('Sucesso', 'Dados salvos com sucesso!');
+
+      // Recarrega dados com uma pequena pausa para garantir que atualizou
+      setTimeout(() => {
+        fetchUserData();
+      }, 500);
+    } else {
+      const mensagemErro = resultado?.message || 'Não foi possível salvar os dados.';
+      console.error('Erro retornado pela API:', mensagemErro);
+      Alert.alert('Erro', mensagemErro);
+    }
+  } catch (err: any) {
+    console.error('Erro ao salvar dados do perfil:', err);
+    
+    // Verificar se o erro está na resposta da API ou diretamente no error
+    const serverError = err?.response?.data || err;
+
+    if (serverError) {
+      // 1. Tratar erro de dados duplicados (nova estrutura do backend)
+      if (serverError.error === 'Dados duplicados' || 
+          serverError.exists === true ||
+          serverError.error?.toLowerCase().includes('duplicado') ||
+          serverError.message?.toLowerCase().includes('já')) {
+        
+        // Verificar se há campo específico identificado
+        if (serverError.duplicateField || serverError.duplicateFields) {
+          const fields = serverError.duplicateFields || [serverError.duplicateField];
+          
+          if (fields.includes('cpf')) {
+            setCpfErro('Este CPF já está sendo usado por outro usuário.');
+          }
+          if (fields.includes('email')) {
+            setEmailErro('Este e-mail já está sendo usado por outro usuário.');
+          }
+          if (fields.includes('telefone')) {
+            setTelefoneErro('Este telefone já está sendo usado por outro usuário.');
+          }
+          
+          Alert.alert('Dados Duplicados', 'Alguns dados já estão sendo usados por outro usuário.');
+        } else {
+          // Fallback: analisa a mensagem para detectar o campo
+          const message = serverError.message?.toLowerCase() || '';
+          
+          if (message.includes('email') || message.includes('e-mail')) {
+            setEmailErro('Este e-mail já está sendo usado por outro usuário.');
+          } else if (message.includes('cpf')) {
+            setCpfErro('Este CPF já está sendo usado por outro usuário.');
+          } else if (message.includes('telefone')) {
+            setTelefoneErro('Este telefone já está sendo usado por outro usuário.');
+          } else {
+            Alert.alert('Dados Duplicados', serverError.message || 'Alguns dados já estão sendo usados por outro usuário.');
+          }
+        }
+      }
+      // 2. Outros erros
+      else {
+        Alert.alert('Erro', serverError.message || 'Não foi possível salvar os dados. Tente novamente mais tarde.');
+      }
+    } else {
+      Alert.alert('Erro', 'Não foi possível salvar os dados. Tente novamente mais tarde.');
+    }
+  } finally {
+    setLoading(false);
+  }
+};
 
   // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
   const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {

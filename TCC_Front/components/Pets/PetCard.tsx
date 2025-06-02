@@ -35,8 +35,8 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
   // Verifica se o pet tem status_id === 1
   const isStatusOne = pet.status_id === 1;
   
-  // Removida a verificação de status para o botão de edição
-  // O botão de edição agora sempre estará habilitado, independente do status
+  // Verifica se os botões de editar e deletar devem estar ativos (apenas para status_id 1 e 2)
+  const canEditOrDelete = pet.status_id === 1 || pet.status_id === 2;
 
   // Função para alternar o estado do favorito
   const handleToggleFavorite = () => {
@@ -52,6 +52,22 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
     Alert.alert(
       'Operação não permitida',
       'Este pet já está disponível para adoção.'
+    );
+  };
+
+  // Função para exibir alerta quando tentar editar com status inválido
+  const handleEditDisabled = () => {
+    Alert.alert(
+      'Operação não permitida',
+      'Não é possível editar este pet no status atual.'
+    );
+  };
+
+  // Função para exibir alerta quando tentar deletar com status inválido
+  const handleDeleteDisabled = () => {
+    Alert.alert(
+      'Operação não permitida',
+      'Não é possível deletar este pet no status atual.'
     );
   };
 
@@ -116,13 +132,30 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
 
           <View style={styles.editDeleteContainer}>
             <TouchableOpacity 
-              style={styles.editButton}
-              onPress={onEdit}
+              style={[
+                styles.editButton,
+                !canEditOrDelete ? styles.disabledButton : null
+              ]}
+              onPress={canEditOrDelete ? onEdit : handleEditDisabled}
+              disabled={!canEditOrDelete}
             >
-              <Text style={styles.buttonText}>Editar</Text>
+              <Text style={[
+                styles.buttonText,
+                !canEditOrDelete ? styles.disabledText : null
+              ]}>Editar</Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.deleteButton} onPress={onDelete}>
-              <Text style={styles.buttonText}>Deletar</Text>
+            <TouchableOpacity 
+              style={[
+                styles.deleteButton,
+                !canEditOrDelete ? styles.disabledButton : null
+              ]} 
+              onPress={canEditOrDelete ? onDelete : handleDeleteDisabled}
+              disabled={!canEditOrDelete}
+            >
+              <Text style={[
+                styles.buttonText,
+                !canEditOrDelete ? styles.disabledText : null
+              ]}>Deletar</Text>
             </TouchableOpacity>
           </View>
         </View>

@@ -14,11 +14,11 @@ import {
   FlatList,
   ActivityIndicator,
 } from 'react-native';
-import PetDonationModal from '@/components/modal_Pet/PetDonationModal';
+import PetDonationModal from '@/components/Pets/PetDonationModal';
 import TermoDoacaoModalAuto from '@/components/Termo/TermoDoacaoModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import PetCard from '@/components/modal_Pet/PetCard';
+import PetCard from '@/components/Pets/PetCard';
 import deletePet from '@/services/api/Pets/deletePet';
 import updatePet from '@/services/api/Pets/updatePet';
 import getPetsByUsuarioId from '@/services/api/Pets/getPetsByUsuarioId';

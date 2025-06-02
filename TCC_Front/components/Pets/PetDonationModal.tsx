@@ -10,6 +10,7 @@ import {
   Platform,
   Image,
   Alert,
+  ActivityIndicator, // Adicionado para o loading
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
@@ -120,6 +121,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // State to store logged user data
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
+  const [loadingFoto, setLoadingFoto] = useState<boolean>(false); // NOVO: Estado para loading da foto
 
   // States for validation errors
   const [especieErro, setEspecieErro] = useState<string>('');
@@ -925,9 +927,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  // Função para selecionar uma imagem da galeria
+  // NOVA FUNÇÃO: Função para selecionar uma imagem da galeria com loading
   const pickImage = async () => {
     try {
+      setLoadingFoto(true); // Inicia o loading
+
       // Solicitar permissão para acessar a galeria
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
@@ -945,6 +949,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
       // Se não cancelou a seleção
       if (!result.canceled) {
+        // Simular um pequeno delay para processamento da imagem (opcional)
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         // Atualizar o estado com a URI da imagem selecionada
         handleChange('foto', result.assets[0].uri);
         console.log('Imagem selecionada:', result.assets[0].uri);
@@ -952,8 +959,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     } catch (error) {
       console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
+    } finally {
+      setLoadingFoto(false); // Finaliza o loading
     }
   };
+
   const formatRG = (text: string): string => {
     // Remove todos os caracteres não numéricos
     const digits = text.replace(/\D/g, '');
@@ -986,11 +996,13 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     return formatted;
   };
+
   // Exibir loading enquanto os dados são carregados
   if (isLoading) {
     return (
       <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
         <View style={styles.loadingContainer}>
+          <ActivityIndicator size="large" color="#4B99FB" />
           <Text style={styles.loadingText}>Carregando dados...</Text>
         </View>
       </Modal>
@@ -1001,8 +1013,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          {/* Cabeçalho do Modal */}
-
           {/* Título do Formulário */}
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Dados Do Pet</Text>
@@ -1186,6 +1196,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               />
               <Text style={styles.infoText}>Campo preenchido automaticamente com sua cidade</Text>
             </View>
+
             {/* Rg do Pet  */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>RG do Pet</Text>
@@ -1202,6 +1213,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               />
               <Text style={styles.infoText}>Informe o RG do pet se disponível</Text>
             </View>
+
             {/* Sexo */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
@@ -1286,13 +1298,27 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               {motivoDoacaoErro ? <Text style={styles.errorText}>{motivoDoacaoErro}</Text> : null}
             </View>
 
-            {/* Foto */}
+            {/* SEÇÃO DE FOTO MODIFICADA COM LOADING */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity style={styles.photoUploadButton} onPress={pickImage}>
-                {formData.foto ? (
+              <TouchableOpacity 
+                style={[
+                  styles.photoUploadButton, 
+                  loadingFoto && styles.photoUploadDisabled,
+                  fotoErro ? styles.errorBorder : {}
+                ]} 
+                onPress={pickImage}
+                disabled={loadingFoto} // Desabilita o botão durante o loading
+              >
+                {loadingFoto ? (
+                  // Mostra loading durante seleção da foto
+                  <View style={styles.photoLoadingContainer}>
+                    <ActivityIndicator size="large" color="#4B99FB" />
+                    <Text style={styles.photoLoadingText}>Processando imagem...</Text>
+                  </View>
+                ) : formData.foto ? (
                   <Image source={{ uri: formData.foto }} style={styles.photoPreview} />
                 ) : (
                   <View style={styles.photoPlaceholder}>
@@ -1301,12 +1327,35 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 )}
               </TouchableOpacity>
               {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
-              <Text style={styles.infoText}>Clique para selecionar uma foto da galeria</Text>
+              <Text style={styles.infoText}>
+                {loadingFoto ? 'Processando imagem...' : 'Clique para selecionar uma foto da galeria'}
+              </Text>
             </View>
 
-            {/* Botão Salvar */}
-            <TouchableOpacity style={styles.saveButton} onPress={handleSubmit}>
-              <Text style={styles.saveButtonText}>Salvar</Text>
+            {/* BOTÃO SALVAR MODIFICADO COM LOADING */}
+            <TouchableOpacity 
+              style={[
+                styles.saveButton, 
+                (isLoading || loadingFoto) && styles.saveButtonDisabled
+              ]} 
+              onPress={handleSubmit}
+              disabled={isLoading || loadingFoto} // Desabilita se estiver carregando ou processando foto
+            >
+              {isLoading ? (
+                <View style={styles.loadingButtonContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
+                  <Text style={styles.saveButtonText}>
+                    {isEditMode ? 'Atualizando...' : 'Salvando...'}
+                  </Text>
+                </View>
+              ) : loadingFoto ? (
+                <View style={styles.loadingButtonContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
+                  <Text style={styles.saveButtonText}>Processando foto...</Text>
+                </View>
+              ) : (
+                <Text style={styles.saveButtonText}>Salvar</Text>
+              )}
             </TouchableOpacity>
           </ScrollView>
         </View>
@@ -1478,6 +1527,26 @@ const styles = StyleSheet.create({
   photoUploadButton: {
     marginTop: 5,
   },
+  // NOVOS ESTILOS PARA O LOADING DA FOTO
+  photoUploadDisabled: {
+    opacity: 0.7,
+  },
+  photoLoadingContainer: {
+    width: 120,
+    height: 120,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  photoLoadingText: {
+    color: '#4B99FB',
+    fontSize: 12,
+    marginTop: 8,
+    textAlign: 'center',
+  },
   photoPlaceholder: {
     width: 120,
     height: 120,
@@ -1499,6 +1568,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 20,
     marginBottom: 40,
+  },
+  // NOVOS ESTILOS PARA O BOTÃO COM LOADING
+  saveButtonDisabled: {
+    backgroundColor: '#B0B0B0',
+    opacity: 0.7,
+  },
+  loadingButtonContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  loadingButtonIcon: {
+    marginRight: 8,
   },
   saveButtonText: {
     color: '#FFFFFF',
@@ -1579,8 +1661,6 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
-
-  // Add this for the loading text
   loadingText: {
     fontSize: 16,
     marginTop: 10,
@@ -1593,7 +1673,6 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#CCCCCC',
   },
-  // Add this for readonly inputs
   readonlyInput: {
     backgroundColor: '#f0f0f0',
     color: '#666',

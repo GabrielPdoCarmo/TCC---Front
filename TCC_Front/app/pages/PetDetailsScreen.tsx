@@ -17,9 +17,9 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-import PetsDetalhesCard from '@/components/modal_Pet/PetsDetalhesCard';
+import PetsDetalhesCard from '@/components/Pets/PetsDetalhesCard';
 import { getPetById } from '@/services/api/Pets/getPetById';
-import { createMyPet } from '@/services/api/MyPets/createMypets'; // ✅ ADICIONADO
+import { createMyPet } from '@/services/api/MyPets/createMypets'; 
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
@@ -177,7 +177,7 @@ export default function PetDetailsScreen() {
             try {
               const usuarioData = await getUsuarioByIdComCidadeEstado(petData.usuario_id);
               console.log('Dados do usuário com cidade/estado obtidos:', usuarioData);
-              
+
               let usuarioFoto = null;
               try {
                 const usuarioBasico = await getUsuarioById(petData.usuario_id);
@@ -187,10 +187,10 @@ export default function PetDetailsScreen() {
               } catch (err) {
                 console.error(`Erro ao buscar dados básicos do usuário com ID ${petData.usuario_id}:`, err);
               }
-              
+
               return {
                 ...usuarioData,
-                foto: usuarioFoto
+                foto: usuarioFoto,
               } as Usuario;
             } catch (err) {
               console.error(`Erro ao buscar o usuário com ID ${petData.usuario_id}:`, err);
@@ -241,7 +241,7 @@ export default function PetDetailsScreen() {
             console.log('Usuário não logado - não verificando favoritos');
             return false;
           }
-          
+
           try {
             console.log(`Verificando se pet ID ${petId} é favorito do usuário ID ${usuarioId}`);
             const isFavorite = await checkFavorito(usuarioId, petId);
@@ -400,8 +400,10 @@ export default function PetDetailsScreen() {
     if (!pet) return;
 
     try {
-      console.log(`Alternando favorito para pet ID ${pet.id}${usuarioId ? `, usuário ID ${usuarioId}` : ' (usuário não logado)'}`);
-      
+      console.log(
+        `Alternando favorito para pet ID ${pet.id}${usuarioId ? `, usuário ID ${usuarioId}` : ' (usuário não logado)'}`
+      );
+
       if (usuarioId) {
         if (pet.favorito) {
           console.log('Removendo dos favoritos...');
@@ -414,19 +416,15 @@ export default function PetDetailsScreen() {
         }
       }
 
-      setPet(prevPet => ({
+      setPet((prevPet) => ({
         ...prevPet!,
-        favorito: !prevPet!.favorito
+        favorito: !prevPet!.favorito,
       }));
 
       console.log(`Pet ID ${pet.id} ${pet.favorito ? 'removido dos' : 'adicionado aos'} favoritos`);
     } catch (error) {
       console.error('Erro ao atualizar favorito:', error);
-      Alert.alert(
-        'Erro',
-        'Não foi possível atualizar os favoritos. Tente novamente.',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.', [{ text: 'OK' }]);
     }
   };
 
@@ -447,25 +445,20 @@ export default function PetDetailsScreen() {
 
     try {
       console.log(`Adicionando pet ID ${pet.id} aos pets do usuário ${usuarioId}`);
-      
+
       // Chamar a API para criar a associação
       await createMyPet(pet.id, usuarioId);
-      
+
       // Mostrar mensagem de sucesso e voltar para PetAdoptionScreen
-      Alert.alert(
-        'Sucesso!', 
-        'Pet adicionado aos seus pets com sucesso!',
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              // Voltar para a tela PetAdoptionScreen
-              router.push('/pages/PetAdoptionScreen');
-            }
-          }
-        ]
-      );
-      
+      Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
+        {
+          text: 'OK',
+          onPress: () => {
+            // Voltar para a tela PetAdoptionScreen
+            router.push('/pages/PetAdoptionScreen');
+          },
+        },
+      ]);
     } catch (error) {
       console.error('Erro ao adicionar pet:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
@@ -523,16 +516,23 @@ export default function PetDetailsScreen() {
                     }
 
                     try {
-                        const [racaInfo, usuarioInfoCompleto, statusInfo, sexoInfo, doencasIds, faixaEtariaInfo, isFavorite] =
-                        await Promise.all([
-                          getRacaById(petData.raca_id),
-                          getUsuarioByIdComCidadeEstado(petData.usuario_id),
-                          getstatusById(petData.status_id),
-                          getSexoPetById(petData.sexo_id || 0),
-                          getDoencasPorPetId(petId),
-                          getFaixaEtariaById(petData.faixa_etaria_id || 0),
-                          usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
-                        ]);
+                      const [
+                        racaInfo,
+                        usuarioInfoCompleto,
+                        statusInfo,
+                        sexoInfo,
+                        doencasIds,
+                        faixaEtariaInfo,
+                        isFavorite,
+                      ] = await Promise.all([
+                        getRacaById(petData.raca_id),
+                        getUsuarioByIdComCidadeEstado(petData.usuario_id),
+                        getstatusById(petData.status_id),
+                        getSexoPetById(petData.sexo_id || 0),
+                        getDoencasPorPetId(petId),
+                        getFaixaEtariaById(petData.faixa_etaria_id || 0),
+                        usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
+                      ]);
 
                       let usuarioFoto = null;
                       try {
@@ -548,13 +548,19 @@ export default function PetDetailsScreen() {
                       if (usuarioInfoCompleto) {
                         if ((usuarioInfoCompleto as Usuario).cidade_nome) {
                           cidade_nome = (usuarioInfoCompleto as Usuario).cidade_nome as string;
-                        } else if ((usuarioInfoCompleto as Usuario).cidade && (usuarioInfoCompleto as Usuario).cidade!.nome) {
+                        } else if (
+                          (usuarioInfoCompleto as Usuario).cidade &&
+                          (usuarioInfoCompleto as Usuario).cidade!.nome
+                        ) {
                           cidade_nome = (usuarioInfoCompleto as Usuario).cidade!.nome;
                         }
 
                         if ((usuarioInfoCompleto as Usuario).estado_nome) {
                           estado_nome = (usuarioInfoCompleto as Usuario).estado_nome as string;
-                        } else if ((usuarioInfoCompleto as Usuario).estado && (usuarioInfoCompleto as Usuario).estado!.nome) {
+                        } else if (
+                          (usuarioInfoCompleto as Usuario).estado &&
+                          (usuarioInfoCompleto as Usuario).estado!.nome
+                        ) {
                           estado_nome = (usuarioInfoCompleto as Usuario).estado!.nome;
                         }
                       }

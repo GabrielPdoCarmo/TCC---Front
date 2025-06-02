@@ -15,7 +15,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
-import AdocaoResponsavelModal from '@/components/modal_Pet/AdocaoResponsavelModal';
+import AdocaoResponsavelModal from '@/components/Pets/AdocaoResponsavelModal';
 import deleteUsuario from '@/services/api/Usuario/deleteUsuario';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 export default function ConfigScreen() {
@@ -155,7 +155,7 @@ export default function ConfigScreen() {
         <Text style={styles.title}>Configurações</Text>
 
         {/* Adicionado ScrollView aqui */}
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
           contentContainerStyle={styles.scrollContent}

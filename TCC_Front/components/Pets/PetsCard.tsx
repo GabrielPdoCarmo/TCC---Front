@@ -388,11 +388,11 @@ const styles = StyleSheet.create({
   },
   expandedPhoto: {
     width: 250,
-    height: 250,
-    borderRadius: 125,
+    height: 189,
+    borderRadius: 5,
     borderWidth: 3,
     borderColor: '#4682B4',
-    marginTop: 20,
+    marginTop: 30,
   },
   expandedPhotoName: {
     fontSize: 18,

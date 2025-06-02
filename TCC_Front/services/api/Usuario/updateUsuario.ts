@@ -15,7 +15,7 @@ interface UsuarioUpdatePayload {
   senha?: string; // Adicionando senha como opcional
 }
 
-// Função para validar CPF
+// Função para validar CPF (existente)
 export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
   // Remove caracteres não numéricos
   const cpfNumerico = cpfValue.replace(/\D/g, '');
@@ -30,6 +30,57 @@ export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?
   
   // CPF válido, retornar formatado
   return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
+};
+
+// NOVA FUNÇÃO: Validação de telefone
+export const validateTelefone = (telefoneValue: string): { isValid: boolean; formattedTelefone?: string; errorMessage?: string } => {
+  // Remove caracteres não numéricos
+  const telefoneNumerico = telefoneValue.replace(/\D/g, '');
+  
+  if (!telefoneNumerico) {
+    return { isValid: false, errorMessage: 'Telefone é obrigatório' };
+  }
+  
+  // Verifica se tem pelo menos 10 dígitos (telefone fixo) ou 11 (celular)
+  if (telefoneNumerico.length < 10 || telefoneNumerico.length > 11) {
+    return { isValid: false, errorMessage: 'Telefone deve ter 10 ou 11 dígitos' };
+  }
+  
+  if (telefoneNumerico.length === 11) {
+    // Celular: deve começar com 9 no terceiro dígito
+    const ddd = telefoneNumerico.substring(0, 2);
+    const primeiroDigito = telefoneNumerico.substring(2, 3);
+    
+    // Valida DDD (11 a 99)
+    if (parseInt(ddd) < 11 || parseInt(ddd) > 99) {
+      return { isValid: false, errorMessage: 'DDD inválido' };
+    }
+    
+    // Celular deve começar com 9
+    if (primeiroDigito !== '9') {
+      return { isValid: false, errorMessage: 'Número de celular deve começar com 9' };
+    }
+    
+    // Formata: (11) 99999-9999
+    const formatted = `(${ddd}) ${telefoneNumerico.substring(2, 7)}-${telefoneNumerico.substring(7)}`;
+    
+    return { isValid: true, formattedTelefone: formatted };
+  } else if (telefoneNumerico.length === 10) {
+    // Telefone fixo
+    const ddd = telefoneNumerico.substring(0, 2);
+    
+    // Valida DDD (11 a 99)
+    if (parseInt(ddd) < 11 || parseInt(ddd) > 99) {
+      return { isValid: false, errorMessage: 'DDD inválido' };
+    }
+    
+    // Formata: (11) 3333-4444
+    const formatted = `(${ddd}) ${telefoneNumerico.substring(2, 6)}-${telefoneNumerico.substring(6)}`;
+    
+    return { isValid: true, formattedTelefone: formatted };
+  }
+  
+  return { isValid: false, errorMessage: 'Número de telefone inválido' };
 };
 
 export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
@@ -50,10 +101,24 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
       formData.append('cpf', formattedCpf || usuarioInfo.cpf);
     }
 
+    // NOVA VALIDAÇÃO: Validar telefone se fornecido
+    if (usuarioInfo.telefone) {
+      const telefoneValidation = validateTelefone(usuarioInfo.telefone);
+      
+      if (!telefoneValidation.isValid) {
+        throw new Error(telefoneValidation.errorMessage || 'Telefone inválido');
+      }
+      
+      // Usar o telefone formatado
+      const formattedTelefone = telefoneValidation.formattedTelefone;
+      formData.append('telefone', formattedTelefone || usuarioInfo.telefone);
+    }
+
     // Adicionar campos ao FormData apenas se existirem
     if (usuarioInfo.nome) formData.append('nome', usuarioInfo.nome);
     if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
-    if (usuarioInfo.telefone) formData.append('telefone', usuarioInfo.telefone);
+    
+    // Telefone já foi tratado acima, não precisa adicionar novamente aqui
     
     if (usuarioInfo.cidade_id !== undefined) formData.append('cidade_id', String(usuarioInfo.cidade_id));
     if (usuarioInfo.estado_id !== undefined) formData.append('estado_id', String(usuarioInfo.estado_id));
@@ -66,6 +131,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
 
     // Log para depuração
     console.log('Enviando CEP para API:', usuarioInfo.cep);
+    console.log('Telefone validado e formatado:', usuarioInfo.telefone);
     
     // Adicionar foto se existir
     if (usuarioInfo.foto) {

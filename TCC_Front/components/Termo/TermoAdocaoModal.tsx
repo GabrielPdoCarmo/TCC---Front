@@ -1,9 +1,10 @@
-// TermoModal.tsx - Versão Corrigida
+// TermoModal.tsx - Versão com formatação de telefone
 // 🔧 Principais correções:
 // - Otimizada lógica de verificação de termo existente
 // - Corrigido fluxo após criação do termo
 // - Melhorado tratamento de estados e erros
 // - Removida chamada desnecessária na primeira abertura
+// - Adicionada formatação de telefone padrão brasileiro
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -68,7 +69,7 @@ interface TermoModalProps {
   hasExistingTermo?: boolean;
 }
 
-const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioLogado, hasExistingTermo = false }) => {
+const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioLogado, hasExistingTermo = false }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
   const [observacoes, setObservacoes] = useState('');
@@ -77,6 +78,41 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
   const [sendingEmail, setSendingEmail] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+
+  // 📱 Função para formatar telefone no padrão brasileiro
+  const formatTelefone = (telefone: string | undefined): string => {
+    if (!telefone) return '';
+
+    // Remove todos os caracteres não numéricos
+    const numbers = telefone.replace(/\D/g, '');
+
+    // Se não tem números, retorna vazio
+    if (!numbers) return '';
+
+    // Formato para telefones brasileiros
+    if (numbers.length === 11) {
+      // Celular: (11) 99999-9999
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
+    } else if (numbers.length === 10) {
+      // Fixo: (11) 9999-9999
+      return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
+    } else if (numbers.length === 13 && numbers.startsWith('55')) {
+      // Internacional: +55 (11) 99999-9999
+      return `+55 (${numbers.slice(2, 4)}) ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
+    } else if (numbers.length >= 8) {
+      // Fallback para outros formatos
+      if (numbers.length === 8) {
+        // 9999-9999
+        return `${numbers.slice(0, 4)}-${numbers.slice(4)}`;
+      } else if (numbers.length === 9) {
+        // 99999-9999
+        return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
+      }
+    }
+
+    // Se não conseguiu formatar, retorna com hífen a cada 4 dígitos
+    return numbers.replace(/(\d{4})(?=\d)/g, '$1-');
+  };
 
   // 🆕 Função para obter o token de autenticação
   const getAuthToken = async () => {
@@ -145,8 +181,6 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
 
     setInitialLoadComplete(true);
   };
-
-  // 🔧 Função para verificar termo existente (agora mais específica)
 
   // 🔧 Função para criar termo (com melhor tratamento pós-criação)
   const handleCreateTermo = async () => {
@@ -385,6 +419,10 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
                 <Text style={styles.petInfoText}>Raça: {pet.raca_nome || pet.pet_raca_nome || 'Não informado'}</Text>
                 <Text style={styles.petInfoText}>Idade: {pet.idade} anos</Text>
                 <Text style={styles.petInfoText}>Dono: {pet.usuario_nome || 'Não informado'}</Text>
+                {/* 📱 Telefone formatado do dono do pet */}
+                {pet.usuario_telefone && (
+                  <Text style={styles.petInfoText}>Telefone: {formatTelefone(pet.usuario_telefone)}</Text>
+                )}
               </View>
 
               <View style={styles.inputContainer}>
@@ -450,8 +488,9 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
                 <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
                 <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.doador_email}</Text>
+                {/* 📱 Telefone formatado do doador */}
                 {termoData.doador_telefone && (
-                  <Text style={styles.dataText}>Telefone: {termoData.doador_telefone}</Text>
+                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
                 )}
               </View>
 
@@ -459,8 +498,9 @@ const TermoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioL
                 <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
                 <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.adotante_email}</Text>
+                {/* 📱 Telefone formatado do adotante */}
                 {termoData.adotante_telefone && (
-                  <Text style={styles.dataText}>Telefone: {termoData.adotante_telefone}</Text>
+                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
                 )}
               </View>
 
@@ -581,7 +621,7 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   formContentContainer: {
-    paddingBottom: 20, // 🔧 Espaçamento adicional no conteúdo do formulário
+    paddingBottom: 20,
   },
   petInfoContainer: {
     backgroundColor: '#F5F5F5',
@@ -654,10 +694,10 @@ const styles = StyleSheet.create({
   },
   termoContainer: {
     padding: 20,
-    paddingBottom: 30, // 🔧 Espaçamento extra na parte inferior
+    paddingBottom: 30,
   },
   termoContentContainer: {
-    paddingBottom: 30, // 🔧 Espaçamento adicional no conteúdo do scroll
+    paddingBottom: 30,
   },
   termoTitle: {
     fontSize: 18,
@@ -707,7 +747,7 @@ const styles = StyleSheet.create({
     fontFamily: 'monospace',
   },
   emailButton: {
-    backgroundColor: '#1E88E5', // Azul para email
+    backgroundColor: '#1E88E5',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',
@@ -721,4 +761,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TermoModal;
+export default TermoAdocaoModal;

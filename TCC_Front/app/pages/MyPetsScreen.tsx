@@ -19,7 +19,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import getByUsuarioId from '@/services/api/MyPets/getByUsuarioId';
 import deleteMyPet from '@/services/api/MyPets/deleteMyPet';
-import MyPetsCard from '@/components/modal_Pet/MyPetCard';
+import MyPetsCard from '@/components/Pets/MyPetCard';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import getRacaById from '@/services/api/Raca/getRacaById';
@@ -31,7 +31,7 @@ import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getTermoByPet from '@/services/api/Termo/getTermoByPet';
 import updateStatus from '@/services/api/Status/updateStatus';
 // 🆕 IMPORTS PARA O MODAL DO TERMO
-import TermoModal from '@/components/Termo/TermoModal';
+import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 
 // Definindo uma interface para o tipo Pet
 interface Pet {
@@ -1204,7 +1204,7 @@ Agradeço desde já! 🐾❤️`;
 
         {/* 🆕 MODAL DO TERMO DE COMPROMISSO */}
         {selectedPetForTermo && usuario && (
-          <TermoModal
+          <TermoAdocaoModal
             visible={termoModalVisible}
             onClose={handleCloseTermoModal}
             pet={selectedPetForTermo}

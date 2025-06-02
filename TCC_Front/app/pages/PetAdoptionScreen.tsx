@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
-import PetsCard from '@/components/modal_Pet/PetsCard';
+import PetsCard from '@/components/Pets/PetsCard';
 import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';

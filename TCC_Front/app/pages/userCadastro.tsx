@@ -22,15 +22,25 @@ import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import createUsuario from '@/services/api/Usuario/createUsuario';
 import validarUsuario from '@/services/api/Usuario/validarUsuario';
+import checkDuplicateFields from '@/services/api/Usuario/checkDuplicateFields';
 import Feather from 'react-native-vector-icons/Feather';
 import { Redirect, router } from 'expo-router';
 // Adicione esta linha no início do arquivo, junto com as outras importações
 import { cpf as cpfValidator } from 'cpf-cnpj-validator';
+
 // Define the cidade type to ensure consistency throughout the component
 type CidadeType = {
   nome: string;
   id: number;
 };
+
+// NOVA INTERFACE: Para armazenar dados do CEP
+interface CEPData {
+  estadoId: number | null;
+  cidadeId: number | null;
+  estadoNome: string;
+  cidadeNome: string;
+}
 
 // Helper functions defined at the top to avoid "used before declaration" error
 
@@ -111,6 +121,15 @@ const fetchAddressByCep = async (cep: string): Promise<any> => {
   }
 };
 
+// Function to normalize strings for case-insensitive comparisons
+const normalizeString = (str: string): string => {
+  return str
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '') // Remove accents
+    .toLowerCase() // Convert to lowercase
+    .trim(); // Remove extra spaces
+};
+
 export default function CadastroUsuario() {
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoErro, setFotoErro] = useState('');
@@ -148,9 +167,41 @@ export default function CadastroUsuario() {
   const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
   const [loadingCep, setLoadingCep] = useState<boolean>(false);
 
+  // NOVO ESTADO: Para rastrear dados preenchidos pelo CEP
+  const [dadosDoCep, setDadosDoCep] = useState<CEPData>({
+    estadoId: null,
+    cidadeId: null,
+    estadoNome: '',
+    cidadeNome: '',
+  });
+
   // Cache para armazenar cidades por estado - updated with correct type
   const cidadesCache = useRef<{ [key: string]: CidadeType[] }>({});
   const navigation = useNavigation<any>();
+
+  // NOVA FUNÇÃO: Verificar se deve limpar o CEP
+  const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
+    // Se não há dados do CEP ou CEP está vazio, não fazer nada
+    if (!dadosDoCep.estadoId || !dadosDoCep.cidadeId || !cep.trim()) {
+      return;
+    }
+
+    // Se o estado ou cidade selecionado for diferente do que veio do CEP
+    const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
+    const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
+
+    if (estadoDiferente || cidadeDiferente) {
+      setCep('');
+      setCepErro('');
+      // Limpar dados do CEP já que foi alterado manualmente
+      setDadosDoCep({
+        estadoId: null,
+        cidadeId: null,
+        estadoNome: '',
+        cidadeNome: '',
+      });
+    }
+  };
 
   // Função para voltar à tela de login
   const handleVoltarLogin = () => {
@@ -228,7 +279,11 @@ export default function CadastroUsuario() {
     }
   };
 
+  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
   const handleEstadoChange = async (selectedEstado: { id: number; nome: string }) => {
+    // Verificar se deve limpar o CEP antes de alterar
+    verificarELimparCep(selectedEstado.id, cidade.id || null);
+
     setEstado(selectedEstado);
     setShowEstados(false);
     setCidade({ id: 0, nome: '' });
@@ -250,8 +305,13 @@ export default function CadastroUsuario() {
     }
   };
 
+  // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: CidadeType) => {
     console.log('selectedCidade', selectedCidade);
+    
+    // Verificar se deve limpar o CEP antes de alterar
+    verificarELimparCep(estado?.id || null, selectedCidade.id);
+
     if (selectedCidade.id && selectedCidade.nome) {
       setCidade(selectedCidade);
     }
@@ -341,184 +401,229 @@ export default function CadastroUsuario() {
   };
 
   const handleSalvar = async () => {
-    // Limpar mensagens anteriores
-    setFotoErro('');
-    setNomeErro('');
-    setCpfErro('');
-    setTelefoneErro('');
-    setEstadoErro('');
-    setCidadeErro('');
-    setSexoErro('');
-    setSenhaErro('');
-    setConfirmarSenhaErro('');
-    setEmailErro('');
-    setCepErro('');
+  // Limpar mensagens anteriores
+  setFotoErro('');
+  setNomeErro('');
+  setCpfErro('');
+  setTelefoneErro('');
+  setEstadoErro('');
+  setCidadeErro('');
+  setSexoErro('');
+  setSenhaErro('');
+  setConfirmarSenhaErro('');
+  setEmailErro('');
+  setCepErro('');
 
-    let hasError = false;
+  let hasError = false;
 
-    // Validações (manter toda a seção de validação igual)
-    if (!foto) {
-      setFotoErro('A foto é obrigatória.');
-      hasError = true;
-    }
+  // Validações locais (manter toda a seção de validação igual)
+  if (!foto) {
+    setFotoErro('A foto é obrigatória.');
+    hasError = true;
+  }
 
-    // Validações locais
-    if (!nome) {
-      setNomeErro('O nome é obrigatório.');
-      hasError = true;
-    }
-    if (!cpf) {
-      setCpfErro('O CPF é obrigatório.');
-      hasError = true;
-    } else if (!validarCpf(cpf)) {
-      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
-      hasError = true;
-    }
-    if (!telefone) {
-      setTelefoneErro('O telefone é obrigatório.');
-      hasError = true;
-    } else if (!validarTelefone(telefone)) {
-      setTelefoneErro('Telefone inválido. Informe um número válido.');
-      hasError = true;
-    }
+  if (!nome) {
+    setNomeErro('O nome é obrigatório.');
+    hasError = true;
+  }
+  
+  if (!cpf) {
+    setCpfErro('O CPF é obrigatório.');
+    hasError = true;
+  } else if (!validarCpf(cpf)) {
+    setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+    hasError = true;
+  }
+  
+  if (!telefone) {
+    setTelefoneErro('O telefone é obrigatório.');
+    hasError = true;
+  } else if (!validarTelefone(telefone)) {
+    setTelefoneErro('Telefone inválido. Informe um número válido.');
+    hasError = true;
+  }
 
-    if (!email) {
-      setEmailErro('O e-mail é obrigatório.');
-      hasError = true;
-    } else if (!validarEmail(email)) {
-      setEmailErro('E-mail inválido. Informe um e-mail válido.');
-      hasError = true;
-    }
+  if (!email) {
+    setEmailErro('O e-mail é obrigatório.');
+    hasError = true;
+  } else if (!validarEmail(email)) {
+    setEmailErro('E-mail inválido. Informe um e-mail válido.');
+    hasError = true;
+  }
 
-    if (!sexo.id) {
-      setSexoErro('O sexo é obrigatório.');
-      hasError = true;
-    }
+  if (!sexo.id) {
+    setSexoErro('O sexo é obrigatório.');
+    hasError = true;
+  }
 
-    if (!estado || !estado.id) {
-      setEstadoErro('O estado é obrigatório.');
-      hasError = true;
-    }
+  if (!estado || !estado.id) {
+    setEstadoErro('O estado é obrigatório.');
+    hasError = true;
+  }
 
-    if (!cidade || !cidade.id) {
-      setCidadeErro('A cidade é obrigatória.');
-      hasError = true;
-    }
+  if (!cidade || !cidade.id) {
+    setCidadeErro('A cidade é obrigatória.');
+    hasError = true;
+  }
 
-    if (!senha) {
-      setSenhaErro('A senha é obrigatória.');
-      hasError = true;
-    } else if (senha.length < 6) {
-      setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
-      hasError = true;
-    }
+  if (!senha) {
+    setSenhaErro('A senha é obrigatória.');
+    hasError = true;
+  } else if (senha.length < 6) {
+    setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
+    hasError = true;
+  }
 
-    if (!confirmarSenha) {
-      setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
-      hasError = true;
-    } else if (senha !== confirmarSenha) {
-      setConfirmarSenhaErro('As senhas não conferem.');
-      hasError = true;
-    }
+  if (!confirmarSenha) {
+    setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
+    hasError = true;
+  } else if (senha !== confirmarSenha) {
+    setConfirmarSenhaErro('As senhas não conferem.');
+    hasError = true;
+  }
 
-    if (cep && !validarCep(cep)) {
-      setCepErro('CEP inválido. Informe um CEP válido.');
-      hasError = true;
-    }
+  if (cep && !validarCep(cep)) {
+    setCepErro('CEP inválido. Informe um CEP válido.');
+    hasError = true;
+  }
 
-    if (hasError) {
-      return;
-    }
+  // Se há erros de validação local, interrompe
+  if (hasError) {
+    return;
+  }
 
-    try {
-      // Criar o objeto de dados do usuário para validação
-      const validationData = {
-        nome,
-        sexo_id: sexo.id,
-        telefone: stripNonNumeric(telefone),
-        email,
-        senha,
-        cpf: stripNonNumeric(cpf),
-        cidade_id: cidade.id,
-        estado_id: estado?.id,
-        cep: stripNonNumeric(cep),
-        foto: foto || '', // Necessário para o validarUsuario
-      };
+  try {
+    // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
+    console.log('Verificando campos duplicados...');
+    
+    const validationResponse = await checkDuplicateFields({
+      email: email,
+      cpf: stripNonNumeric(cpf),
+      telefone: stripNonNumeric(telefone)
+    });
 
-      // Primeira etapa: validar se usuário já existe
-      const validationResponse = await validarUsuario(validationData);
+    // Verificar se há campos duplicados
+    if (validationResponse && validationResponse.exists) {
+      let validationHasError = false;
+      
+      if (validationResponse.duplicateFields?.includes('cpf')) {
+        setCpfErro('Este CPF já está cadastrado no sistema.');
+        validationHasError = true;
+      }
+      
+      if (validationResponse.duplicateFields?.includes('email')) {
+        setEmailErro('Este e-mail já está cadastrado no sistema.');
+        validationHasError = true;
+      }
+      
+      if (validationResponse.duplicateFields?.includes('telefone')) {
+        setTelefoneErro('Este telefone já está cadastrado no sistema.');
+        validationHasError = true;
+      }
 
-      // Check if the response indicates user exists
-      if (validationResponse && 'exists' in validationResponse && validationResponse.exists) {
-        Alert.alert('Usuário Existente', 'Usuário já existe com este CPF ou e-mail.');
+      if (validationHasError) {
         return;
       }
-
-      // Preparar a foto para upload - se tivermos uma foto
-      let fotoFile = null;
-
-      if (foto) {
-        // Criar um objeto "File-like" que o FormData possa processar
-        const uriParts = foto.split('/');
-        const fileName = uriParts[uriParts.length - 1];
-
-        // Criar um objeto que simula um File para o FormData
-        // @ts-ignore - Ignoramos o erro de tipo aqui, pois o React Native não tem o tipo File
-        fotoFile = {
-          uri: foto,
-          name: fileName,
-          type: 'image/jpeg', // Assumir JPEG como padrão
-        } as unknown as File;
-      }
-
-      // Dados completos do usuário com a foto incluída no mesmo objeto
-      const usuarioData = {
-        nome,
-        sexo_id: sexo.id,
-        telefone: stripNonNumeric(telefone),
-        email,
-        senha,
-        cpf: stripNonNumeric(cpf),
-        cidade_id: cidade.id,
-        estado_id: estado?.id,
-        cep: stripNonNumeric(cep),
-        foto: fotoFile, // Incluindo a foto no mesmo objeto
-      };
-
-      // Chamar a função de criação com o novo formato (apenas um parâmetro)
-      const response = await createUsuario(usuarioData);
-
-      Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!', [
-        {
-          text: 'OK',
-          onPress: () => {
-            // Quando o usuário apertar OK no alerta, volta para a tela de login
-            router.push('/pages/LoginScreen');
-          },
-        },
-      ]);
-      console.log('Usuário cadastrado com sucesso:', response);
-    } catch (error: any) {
-      console.error('Erro no cadastro:', error);
-
-      if (error?.response?.data) {
-        const serverError = error.response.data;
-
-        // Trata especificamente erro de senha
-        if (serverError.error?.toLowerCase().includes('senha')) {
-          setSenhaErro(serverError.message || 'Senha inválida.');
-        }
-        // Aqui você pode adicionar mais campos (se quiser)
-        else {
-          // Se não for senha, pode exibir um alerta genérico
-          Alert.alert('Erro', serverError.message || 'Erro inesperado.');
-        }
-      } else {
-        Alert.alert('Erro', 'Erro inesperado. Tente novamente.');
-      }
     }
-  };
 
+    console.log('Campos validados. Prosseguindo com o cadastro...');
+
+    // Se chegou até aqui, pode prosseguir com o cadastro
+    // Preparar a foto para upload
+    let fotoFile = null;
+
+    if (foto) {
+      const uriParts = foto.split('/');
+      const fileName = uriParts[uriParts.length - 1];
+
+      fotoFile = {
+        uri: foto,
+        name: fileName,
+        type: 'image/jpeg',
+      } as unknown as File;
+    }
+
+    // Dados completos do usuário
+    const usuarioData = {
+      nome,
+      sexo_id: sexo.id,
+      telefone: stripNonNumeric(telefone),
+      email,
+      senha,
+      cpf: stripNonNumeric(cpf),
+      cidade_id: cidade.id,
+      estado_id: estado?.id,
+      cep: stripNonNumeric(cep),
+      foto: fotoFile,
+    };
+
+    // Chamar a função de criação
+    const response = await createUsuario(usuarioData);
+
+    Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!', [
+      {
+        text: 'OK',
+        onPress: () => {
+          router.push('/pages/LoginScreen');
+        },
+      },
+    ]);
+    console.log('Usuário cadastrado com sucesso:', response);
+
+  } catch (error: any) {
+    console.error('Erro no cadastro:', error);
+
+    // Verificar se o erro está na resposta da API ou diretamente no error
+    const serverError = error?.response?.data || error;
+
+    if (serverError) {
+      // 1. Tratar erro de dados duplicados (nova estrutura do backend)
+      if (serverError.error === 'Dados duplicados' || 
+          serverError.exists === true ||
+          serverError.error?.toLowerCase().includes('duplicado') ||
+          serverError.message?.toLowerCase().includes('já cadastrado')) {
+        
+        // Verificar se há campo específico identificado
+        if (serverError.duplicateField || serverError.duplicateFields) {
+          const fields = serverError.duplicateFields || [serverError.duplicateField];
+          
+          if (fields.includes('cpf')) {
+            setCpfErro('Este CPF já está cadastrado no sistema.');
+          }
+          if (fields.includes('email')) {
+            setEmailErro('Este e-mail já está cadastrado no sistema.');
+          }
+          if (fields.includes('telefone')) {
+            setTelefoneErro('Este telefone já está cadastrado no sistema.');
+          }
+        } else {
+          // Fallback: analisa a mensagem para detectar o campo
+          const message = serverError.message?.toLowerCase() || '';
+          
+          if (message.includes('email') || message.includes('e-mail')) {
+            setEmailErro('Este e-mail já está cadastrado no sistema.');
+          } else if (message.includes('cpf')) {
+            setCpfErro('Este CPF já está cadastrado no sistema.');
+          } else if (message.includes('telefone')) {
+            setTelefoneErro('Este telefone já está cadastrado no sistema.');
+          } else {
+            Alert.alert('Dados Duplicados', serverError.message || 'Email, CPF ou telefone já cadastrado no sistema.');
+          }
+        }
+      }
+      // 2. Tratar erro de senha
+      else if (serverError.error?.toLowerCase().includes('senha')) {
+        setSenhaErro(serverError.message || 'Senha inválida.');
+      }
+      // 3. Outros erros
+      else {
+        Alert.alert('Erro', serverError.message || 'Erro inesperado.');
+      }
+    } else {
+      Alert.alert('Erro', 'Erro inesperado. Tente novamente.');
+    }
+  }
+};
   // Handles for formatted inputs
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
@@ -653,6 +758,8 @@ export default function CadastroUsuario() {
       throw error;
     }
   }
+  
+  // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     try {
       setLoadingCep(true);
@@ -680,6 +787,17 @@ export default function CadastroUsuario() {
         );
         if (cidadeEncontrada) {
           handleCidadeSelect(cidadeEncontrada);
+
+          // NOVO: Armazenar dados do CEP para validação futura
+          const estadoEncontrado = estados.find((e) => e.nome === endereco.estado);
+          if (estadoEncontrado) {
+            setDadosDoCep({
+              estadoId: estadoEncontrado.id,
+              cidadeId: cidadeEncontrada.id,
+              estadoNome: estadoEncontrado.nome,
+              cidadeNome: cidadeEncontrada.nome,
+            });
+          }
         } else {
           console.warn('Cidade não encontrada na lista:', endereco.cidade);
         }
@@ -692,13 +810,6 @@ export default function CadastroUsuario() {
     }
   }
 
-  function normalizeString(str: string): string {
-    return str
-      .normalize('NFD')
-      .replace(/[\u0300-\u036f]/g, '') // Remove acentos
-      .toLowerCase() // Converte para minúsculo
-      .trim(); // Remove espaços extras
-  }
   // Atualiza a busca de cidades
   const handleCidadeSearchChange = (text: { id: number; nome: string }) => {
     setCidadeSearch(text);
