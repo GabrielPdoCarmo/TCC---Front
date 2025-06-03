@@ -607,10 +607,9 @@ export default function MyPetsScreen() {
       if (!telefone) {
         Alert.alert(
           'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
-            pet.usuario_email
-              ? `Você pode tentar entrar em contato pelo email: ${pet.usuario_email}`
-              : 'Tente entrar em contato através do app posteriormente.'
+          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${pet.usuario_email
+            ? `Você pode tentar entrar em contato pelo email: ${pet.usuario_email}`
+            : 'Tente entrar em contato através do app posteriormente.'
           }`,
           [{ text: 'OK' }]
         );
@@ -733,10 +732,9 @@ Agradeço desde já! 🐾❤️`;
 
         Alert.alert(
           'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
-            selectedPetForAdoption.usuario_email
-              ? `Você pode tentar entrar em contato pelo email: ${selectedPetForAdoption.usuario_email}`
-              : 'Tente entrar em contato através do app posteriormente.'
+          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${selectedPetForAdoption.usuario_email
+            ? `Você pode tentar entrar em contato pelo email: ${selectedPetForAdoption.usuario_email}`
+            : 'Tente entrar em contato através do app posteriormente.'
           }`,
           [{ text: 'OK' }]
         );
@@ -1088,7 +1086,7 @@ Agradeço desde já! 🐾❤️`;
               {/* Botões */}
               <View style={modalStyles.buttonContainer}>
                 <TouchableOpacity style={modalStyles.adoptButton} onPress={handleStartAdoption}>
-                  <Text style={modalStyles.adoptButtonText}>📱 Conversar no WhatsApp</Text>
+                  <Text style={modalStyles.adoptButtonText}>Conversar no WhatsApp</Text>
                 </TouchableOpacity>
 
                 <TouchableOpacity style={modalStyles.cancelButton} onPress={handleCloseAdoptionModal}>
@@ -1171,12 +1169,11 @@ Agradeço desde já! 🐾❤️`;
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {hasActiveSearch && searchQuery.trim() !== ''
-                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${
-                      activeFilters ? ' e filtros aplicados' : ''
-                    }`
+                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${activeFilters ? ' e filtros aplicados' : ''
+                  }`
                   : activeFilters
-                  ? 'Nenhum pet encontrado com os filtros selecionados'
-                  : 'Você ainda não possui pets em seus favoritos. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
+                    ? 'Nenhum pet encontrado com os filtros selecionados'
+                    : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
               </Text>
               {activeFilters && (
                 <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>

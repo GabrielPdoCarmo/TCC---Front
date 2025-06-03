@@ -122,7 +122,7 @@ export default function ConfigScreen() {
   // Função para abrir site sobre combate ao abandono de animais
   const handleLearnMore = async () => {
     // URL de um site sobre combate ao abandono de animais
-    const url = 'https://www.worldanimalprotection.org.br/abandono-de-animais';
+    const url = 'https://www.worldanimalprotection.org.br';
 
     try {
       const supported = await Linking.canOpenURL(url);

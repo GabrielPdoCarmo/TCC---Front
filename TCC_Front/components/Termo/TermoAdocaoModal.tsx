@@ -539,7 +539,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
                 {sendingEmail ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.emailButtonText}>📧 Enviar por Email</Text>
+                  <Text style={styles.emailButtonText}>Enviar por Email</Text>
                 )}
               </TouchableOpacity>
             </ScrollView>
