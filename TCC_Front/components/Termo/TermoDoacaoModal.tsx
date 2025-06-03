@@ -390,7 +390,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Motivo da Doação *</Text>
+              <Text style={styles.inputLabel}>
+                Motivo da Doação <Text style={styles.required}>*</Text>
+              </Text>
               <TextInput
                 style={[styles.textInput, styles.textArea]}
                 value={formData.motivoDoacao}
@@ -399,6 +401,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 placeholderTextColor="#999"
                 multiline
                 numberOfLines={3}
+                maxLength={150}
               />
             </View>
 
@@ -412,6 +415,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 placeholderTextColor="#999"
                 multiline
                 numberOfLines={2}
+                maxLength={150}
               />
             </View>
 
@@ -425,17 +429,21 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 placeholderTextColor="#999"
                 multiline
                 numberOfLines={2}
+                maxLength={150}
               />
             </View>
 
             <View style={styles.inputContainer}>
-              <Text style={styles.inputLabel}>Assinatura Digital *</Text>
+              <Text style={styles.inputLabel}>
+                Assinatura Digital <Text style={styles.required}>*</Text>
+              </Text>
               <TextInput
                 style={styles.textInput}
                 value={formData.assinaturaDigital}
                 onChangeText={(value) => updateFormField('assinaturaDigital', value)}
                 placeholder="Digite seu nome completo"
                 placeholderTextColor="#999"
+                maxLength={100}
               />
             </View>
 
@@ -663,6 +671,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
+  },
+  required: {
+    color: 'red',
   },
   textInput: {
     borderWidth: 1,

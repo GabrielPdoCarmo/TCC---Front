@@ -1,4 +1,9 @@
-// MyPetsScreen.tsx - Tela para listar pets associados ao usuário - COM MODAL DO TERMO E MODAL DE ADOÇÃO + WHATSAPP
+// MyPetsScreen.tsx - VERSÃO SIMPLIFICADA - Sempre vai pelo modal do termo
+// 🔧 PRINCIPAIS MUDANÇAS:
+// - Removido modal de adoção (não é mais necessário)
+// - handleCommunicate sempre abre modal do termo quando existe
+// - Fluxo mais simples e direto
+
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -14,7 +19,6 @@ import {
   Dimensions,
   Alert,
   Linking,
-  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import getByUsuarioId from '@/services/api/MyPets/getByUsuarioId';
@@ -30,10 +34,11 @@ import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getTermoByPet from '@/services/api/Termo/getTermoByPet';
 import updateStatus from '@/services/api/Status/updateStatus';
-// 🆕 IMPORTS PARA O MODAL DO TERMO
+import deleteTermoDoacao from '@/services/api/TermoDoacao/deleteTermoDoacao';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
-
+import AdoptionModal from '@/components/Termo/AdoptionModal';
 // Definindo uma interface para o tipo Pet
+// 🆕 INTERFACE PET ATUALIZADA com propriedades do termo
 interface Pet {
   id: number;
   nome: string;
@@ -62,6 +67,9 @@ interface Pet {
   cidade_id?: number;
   pet_especie_nome?: string;
   pet_sexo_nome?: string;
+  // 🆕 PROPRIEDADES DO TERMO
+  temTermo?: boolean;
+  termoJaEnviado?: boolean;
 }
 
 // Interface para o usuário
@@ -81,7 +89,7 @@ interface Usuario {
   };
 }
 
-// Interface para os filtros (completa para MyPets)
+// Interface para os filtros
 interface FilterParams {
   especieIds?: number[];
   faixaEtariaIds?: number[];
@@ -110,32 +118,79 @@ export default function MyPetsScreen() {
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
-
-  // 🆕 ESTADOS PARA O MODAL DO TERMO
+  // Estado para rastrear pets que já tiveram termo enviado por email
+  const [petsComTermoEnviado, setPetsComTermoEnviado] = useState<Set<number>>(new Set());
+  // 🆕 ESTADOS PARA O MODAL DO TERMO (ÚNICO MODAL NECESSÁRIO)
   const [termoModalVisible, setTermoModalVisible] = useState(false);
   const [selectedPetForTermo, setSelectedPetForTermo] = useState<Pet | null>(null);
-
-  // 🆕 ESTADOS PARA O MODAL DE ADOÇÃO
+  // 🆕 Estado para trackear quando email foi enviado recentemente
+  const [recentEmailSent, setRecentEmailSent] = useState<{ [petId: number]: boolean }>({});
   const [adoptionModalVisible, setAdoptionModalVisible] = useState(false);
   const [selectedPetForAdoption, setSelectedPetForAdoption] = useState<Pet | null>(null);
 
-  // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
+  // Botão voltar
   const handleGoBack = () => {
     console.log('🔄 Botão voltar clicado - navegando para tela anterior');
     try {
       router.back();
     } catch (error) {
       console.error('Erro ao voltar:', error);
-      // Fallback: navegar para uma tela específica
-      router.push('/pages/PetAdoptionScreen'); // ou router.replace('/(tabs)/home')
+      router.push('/pages/PetAdoptionScreen');
     }
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
+  const loadPetsComTermoEnviado = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('@App:petsComTermoEnviado');
+      if (stored) {
+        const petIds = JSON.parse(stored);
+        setPetsComTermoEnviado(new Set(petIds));
+      }
+    } catch (error) {
+      console.error('Erro ao carregar pets com termo enviado:', error);
+    }
+  };
+  // 🆕 ADICIONAR este useEffect para carregar pets com termo enviado
+  useEffect(() => {
+    const loadPetsComTermoEnviado = async () => {
+      try {
+        console.log('📱 Carregando pets com termo enviado do AsyncStorage...');
+        const stored = await AsyncStorage.getItem('@App:petsComTermoEnviado');
+        if (stored) {
+          const petIds = JSON.parse(stored);
+          console.log('✅ Pets com termo enviado carregados:', petIds);
+          setPetsComTermoEnviado(new Set(petIds));
+        } else {
+          console.log('ℹ️ Nenhum pet com termo enviado encontrado');
+        }
+      } catch (error) {
+        console.error('❌ Erro ao carregar pets com termo enviado:', error);
+      }
+    };
+
+    loadPetsComTermoEnviado();
+  }, []); // Executar apenas uma vez na montagem
+
+  // 🗑️ REMOVER esta linha solta do código:
+  // loadPetsComTermoEnviado();
+  const handleCreateTermoFromAdoption = () => {
+    console.log('📝 Criando termo do modal de adoção');
+
+    // Fechar modal de adoção
+    setAdoptionModalVisible(false);
+
+    // Abrir modal do termo para criar
+    setSelectedPetForTermo(selectedPetForAdoption);
+    setTermoModalVisible(true);
+
+    // Manter seleção de adoção para retornar depois
+    // setSelectedPetForAdoption(null); // NÃO limpar ainda
+  };
+  loadPetsComTermoEnviado();
+  // Filtro avançado
   const handleAdvancedFilter = () => {
     console.log('🔍 Botão filtro avançado clicado');
 
-    // Evitar execução se estiver navegando
     if (loading) return;
 
     let currentFiltersToPass = activeFilters ? { ...activeFilters } : {};
@@ -177,33 +232,6 @@ export default function MyPetsScreen() {
       especie_id: pet.especie_id || 0,
       sexo_id: pet.sexo_id || 0,
     };
-  };
-
-  // Função auxiliar para normalizar respostas da API
-  const normalizeApiResponse = (response: any): Pet[] => {
-    if (!response) {
-      return [];
-    }
-
-    if (Array.isArray(response)) {
-      return response;
-    }
-
-    if (typeof response === 'object' && response.id) {
-      return [response as Pet];
-    }
-
-    if (typeof response === 'object') {
-      const possibleArrays = ['data', 'pets', 'results', 'items'];
-      for (const prop of possibleArrays) {
-        if (response[prop]) {
-          return normalizeApiResponse(response[prop]);
-        }
-      }
-    }
-
-    console.warn('Formato de resposta não reconhecido:', response);
-    return [];
   };
 
   // Verificar se há filtros para aplicar quando a tela recebe parâmetros
@@ -337,9 +365,6 @@ export default function MyPetsScreen() {
   // Aplicar filtros considerando busca ativa
   const applyCurrentFilters = async () => {
     console.log('Aplicando filtros atuais...');
-    console.log('Busca ativa:', hasActiveSearch);
-    console.log('Query de busca:', searchQuery);
-    console.log('Filtros ativos:', activeFilters);
 
     try {
       let baseData: Pet[];
@@ -357,22 +382,18 @@ export default function MyPetsScreen() {
 
         if (activeFilters.onlyFavorites && usuarioId) {
           filteredData = filteredData.filter((pet) => pet.favorito === true);
-          console.log('Após filtro de favoritos:', filteredData.length, 'pets');
         }
 
         if (activeFilters.especieIds && activeFilters.especieIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.especieIds?.includes(pet.especie_id || 0));
-          console.log('Após filtro de espécies:', filteredData.length, 'pets');
         }
 
         if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.racaIds?.includes(pet.raca_id));
-          console.log('Após filtro de raças:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.faixaEtariaIds?.includes(pet.faixa_etaria_id));
-          console.log('Após filtro de faixa etária:', filteredData.length, 'pets');
         }
 
         if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
@@ -380,7 +401,6 @@ export default function MyPetsScreen() {
             const petEstadoId = pet.usuario_estado_id || pet.estado_id;
             return activeFilters.estadoIds?.includes(petEstadoId || 0);
           });
-          console.log('Após filtro de estados:', filteredData.length, 'pets');
         }
 
         if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
@@ -388,7 +408,6 @@ export default function MyPetsScreen() {
             const petCidadeId = pet.usuario_cidade_id || pet.cidade_id;
             return activeFilters.cidadeIds?.includes(petCidadeId || 0);
           });
-          console.log('Após filtro de cidades:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixasEtariaIdades && Object.keys(activeFilters.faixasEtariaIdades).length > 0) {
@@ -403,7 +422,6 @@ export default function MyPetsScreen() {
 
             return true;
           });
-          console.log('Após filtro de idades específicas:', filteredData.length, 'pets');
         }
 
         console.log('Pets após aplicar TODOS os filtros:', filteredData.length);
@@ -534,8 +552,8 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🔧 FUNÇÃO MODIFICADA: handleCommunicate agora usa o modal de adoção
-  // 🔧 FUNÇÃO MODIFICADA: handleCommunicate com verificação de status_id = 4
+  // 🔧 FUNÇÃO CORRIGIDA: handleCommunicate com validação melhorada
+  // 🔧 FUNÇÃO ATUALIZADA: handleCommunicate - sempre abre modal do WhatsApp
   const handleCommunicate = async (pet: Pet) => {
     try {
       console.log('📋 Verificando comunicação para o pet:', pet.nome);
@@ -555,68 +573,186 @@ export default function MyPetsScreen() {
         return;
       }
 
-      // 🆕 VERIFICAÇÃO PRIORITÁRIA: Se o status_id já for 4 (Adotado), ir direto para WhatsApp
-      if (pet.status_id === 4) {
-        console.log('✅ Pet já tem status "Adotado" (status_id: 4), indo direto para WhatsApp');
-        await openWhatsAppDirectly(pet);
-        return;
+      // 🆕 VERIFICAR SE TEM TERMO (para definir estado do botão)
+      let temTermo = false;
+      let termoJaEnviado = false;
+
+      // Verificar se já foi enviado por email (AsyncStorage)
+      if (petsComTermoEnviado.has(pet.id)) {
+        console.log('✅ Termo já foi enviado por email');
+        temTermo = true;
+        termoJaEnviado = true;
+      } else {
+        // Verificar se existe termo no banco
+        try {
+          const termoResponse = await getTermoByPet(pet.id);
+          if (termoResponse && termoResponse.data && termoResponse.data.id) {
+            console.log('✅ Termo encontrado no banco');
+            temTermo = true;
+            termoJaEnviado = false; // Existe mas não foi enviado
+          } else {
+            console.log('ℹ️ Nenhum termo encontrado');
+            temTermo = false;
+          }
+        } catch (error) {
+          console.log('ℹ️ Erro ao verificar termo:', error);
+          temTermo = false;
+        }
       }
 
-      // Verificar silenciosamente se já existe um termo para este pet
-      const termoResponse = await getTermoByPet(pet.id);
+      // 🆕 SEMPRE ABRIR MODAL DO WHATSAPP com informações do termo
+      console.log('📱 Abrindo AdoptionModal com estado do termo:', { temTermo, termoJaEnviado });
 
-      if (termoResponse && termoResponse.data) {
-        // Já existe termo - mostrar modal de adoção
-        console.log('✅ Termo já existe para este pet, mostrando modal de adoção');
-        setSelectedPetForAdoption(pet);
-        setAdoptionModalVisible(true);
-        return;
-      }
+      // Adicionar propriedades de termo ao pet
+      const petComTermoInfo = {
+        ...pet,
+        temTermo,
+        termoJaEnviado,
+      };
 
-      // Se termoResponse é null, significa que não existe termo (404 tratado silenciosamente)
-      console.log('ℹ️ Nenhum termo encontrado, abrindo modal para criar');
-      setSelectedPetForTermo(pet);
-      setTermoModalVisible(true);
+      setSelectedPetForAdoption(petComTermoInfo);
+      setAdoptionModalVisible(true);
     } catch (error: any) {
-      // Apenas tratar erros reais (401, 500, etc. - não 404)
-      if (error.message?.includes('Sessão expirada')) {
-        Alert.alert('Erro', 'Sessão expirada. Faça login novamente.');
-        return;
-      }
-
-      // Para outros erros, permitir criar termo
-      setSelectedPetForTermo(pet);
-      setTermoModalVisible(true);
+      console.error('❌ Erro em handleCommunicate:', error);
+      // Em caso de erro, assumir que não tem termo
+      const petComTermoInfo = {
+        ...pet,
+        temTermo: false,
+        termoJaEnviado: false,
+      };
+      setSelectedPetForAdoption(petComTermoInfo);
+      setAdoptionModalVisible(true);
     }
   };
 
-  // 🆕 FUNÇÃO PARA ABRIR WHATSAPP DIRETAMENTE (SEM MODAL E SEM UPDATE STATUS)
-  const openWhatsAppDirectly = async (pet: Pet) => {
+  // FUNÇÃO PARA ABRIR WHATSAPP DIRETAMENTE (quando status_id = 4)
+
+  // 🆕 FUNÇÃO SIMPLIFICADA para fechar modal do termo
+  const handleCloseTermoModal = () => {
+    console.log('❌ Fechando modal do termo');
+    setTermoModalVisible(false);
+    setSelectedPetForTermo(null);
+
+    // 🆕 SE TEM PET SELECIONADO PARA ADOÇÃO, REABRIR O MODAL DE ADOÇÃO
+    if (selectedPetForAdoption) {
+      console.log('🔄 Reabrindo modal de adoção');
+      // Reabrir modal de adoção após um pequeno delay
+      setTimeout(() => {
+        setAdoptionModalVisible(true);
+      }, 300);
+    }
+  };
+
+  // 🆕 FUNÇÃO quando email for enviado (callback do modal)
+  const handleEmailSent = async (petId: number) => {
+    console.log('📧 Email enviado com sucesso para pet ID:', petId);
+
+    // Adicionar o pet ao conjunto de pets com termo enviado
+    setPetsComTermoEnviado((prev) => {
+      const newSet = new Set(prev).add(petId);
+
+      // Salvar no AsyncStorage
+      AsyncStorage.setItem('@App:petsComTermoEnviado', JSON.stringify(Array.from(newSet))).catch((error) =>
+        console.error('Erro ao salvar AsyncStorage:', error)
+      );
+
+      return newSet;
+    });
+
+    // Marcar que email foi enviado recentemente
+    setRecentEmailSent((prev) => ({
+      ...prev,
+      [petId]: true,
+    }));
+
+    // Fechar modal do termo
+    setTermoModalVisible(false);
+    setSelectedPetForTermo(null);
+
+    // 🆕 ATUALIZAR O PET SELECIONADO PARA ADOÇÃO COM NOVO STATUS
+    if (selectedPetForAdoption) {
+      const updatedPet = {
+        ...selectedPetForAdoption,
+        temTermo: true,
+        termoJaEnviado: true,
+      };
+
+      setSelectedPetForAdoption(updatedPet);
+
+      // Reabrir modal de adoção com status atualizado
+      setTimeout(() => {
+        setAdoptionModalVisible(true);
+      }, 300);
+    }
+  };
+
+  // 3. ADICIONAR FUNÇÃO para ver o termo do AdoptionModal
+  const handleViewTermoFromAdoption = () => {
+    console.log('👁️ Visualizando termo do modal de adoção');
+
+    // Fechar modal de adoção
+    setAdoptionModalVisible(false);
+
+    // Abrir modal do termo para visualizar/finalizar
+    setSelectedPetForTermo(selectedPetForAdoption);
+    setTermoModalVisible(true);
+
+    // Manter seleção de adoção para retornar depois
+    // setSelectedPetForAdoption(null); // NÃO limpar ainda
+  };
+  // 🆕 FUNÇÃO específica para abrir WhatsApp após completar termo
+  // 🆕 FUNÇÃO específica para abrir WhatsApp após completar termo
+  const openWhatsAppForAdoption = async (pet: Pet) => {
     if (!usuario) return;
 
     try {
-      console.log('📱 Abrindo WhatsApp diretamente para:', pet.nome);
+      // 🆕 FECHAR O MODAL DE ADOÇÃO IMEDIATAMENTE
+      setAdoptionModalVisible(false);
+      setSelectedPetForAdoption(null);
 
-      // Preparar dados para WhatsApp
+      // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" ANTES DE ABRIR WHATSAPP
+      try {
+        console.log('🔄 Atualizando status do pet para "Adotado"...');
+        await updateStatus(pet.id);
+
+        const updatedPet = {
+          ...pet,
+          status_id: 4,
+          status_nome: 'Adotado',
+        };
+
+        // Atualizar estados locais
+        setAllMyPets((prevPets) => prevPets.map((p) => (p.id === pet.id ? updatedPet : p)));
+        setFilteredMyPets((prevPets) => prevPets.map((p) => (p.id === pet.id ? updatedPet : p)));
+
+        if (hasActiveSearch) {
+          setSearchResults((prevResults) => prevResults.map((p) => (p.id === pet.id ? updatedPet : p)));
+        }
+
+        console.log('✅ Status do pet atualizado com sucesso');
+      } catch (statusError) {
+        console.error('❌ Erro ao atualizar status do pet:', statusError);
+        // Continuar mesmo se falhar a atualização do status
+      }
+
       const donoPet = pet.usuario_nome || 'responsável';
       const nomePet = pet.nome;
       const nomeInteressado = usuario.nome;
       const telefone = pet.usuario_telefone;
 
-      // Verificar se tem telefone
       if (!telefone) {
         Alert.alert(
           'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${pet.usuario_email
-            ? `Você pode tentar entrar em contato pelo email: ${pet.usuario_email}`
-            : 'Tente entrar em contato através do app posteriormente.'
+          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
+            pet.usuario_email
+              ? `Você pode tentar entrar em contato pelo email: ${pet.usuario_email}`
+              : 'Tente entrar em contato através do app posteriormente.'
           }`,
           [{ text: 'OK' }]
         );
         return;
       }
 
-      // Criar mensagem pré-pronta personalizada
       const mensagem = `Olá ${donoPet}! 👋
 
 Meu nome é ${nomeInteressado} e tenho interesse em adotar o pet *${nomePet}* que vi no app de adoção.
@@ -628,39 +764,24 @@ Gostaria de saber mais detalhes sobre:
 
 Agradeço desde já! 🐾❤️`;
 
-      // Limpar número (remover caracteres especiais e garantir formato brasileiro)
       let numeroLimpo = telefone.replace(/\D/g, '');
 
-      // Adicionar código do país se não tiver
       if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
-        numeroLimpo = numeroLimpo.substring(1); // Remove o 0 inicial
+        numeroLimpo = numeroLimpo.substring(1);
       }
       if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
-        numeroLimpo = '55' + numeroLimpo; // Adiciona código do Brasil
+        numeroLimpo = '55' + numeroLimpo;
       }
 
-      // Criar URL do WhatsApp
       const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
 
-      console.log('📱 Tentando abrir WhatsApp para:', numeroLimpo);
-
-      // Verificar se pode abrir WhatsApp
       const canOpen = await Linking.canOpenURL(whatsappUrl);
 
       if (canOpen) {
-        // Abrir WhatsApp diretamente (SEM atualizar status pois já é 4)
         await Linking.openURL(whatsappUrl);
 
-        // Mostrar confirmação após um delay
-        setTimeout(() => {
-          Alert.alert(
-            'Conversa Iniciada! 💬',
-            `Uma conversa foi iniciada com ${donoPet} sobre a adoção do ${nomePet}.`,
-            [{ text: 'Perfeito!' }]
-          );
-        }, 1500);
+        setTimeout(() => {}, 1500);
       } else {
-        // WhatsApp não disponível - mostrar opções alternativas
         Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${donoPet}:`, [
           {
             text: 'Ver número',
@@ -679,7 +800,6 @@ Agradeço desde já! 🐾❤️`;
       }
     } catch (error) {
       console.error('Erro ao abrir WhatsApp:', error);
-
       Alert.alert(
         'Erro na comunicação',
         'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
@@ -688,177 +808,7 @@ Agradeço desde já! 🐾❤️`;
     }
   };
 
-  // 🆕 FUNÇÃO PARA FECHAR O MODAL DO TERMO E ABRIR O DE ADOÇÃO
-  const handleCloseTermoModal = () => {
-    console.log('📋 Fechando modal do termo');
-    setTermoModalVisible(false);
-
-    // Se havia um pet selecionado, mostrar modal de adoção
-    if (selectedPetForTermo) {
-      console.log('🐾 Abrindo modal de adoção para o pet:', selectedPetForTermo.nome);
-      setSelectedPetForAdoption(selectedPetForTermo);
-      setSelectedPetForTermo(null);
-      setAdoptionModalVisible(true);
-    }
-  };
-
-  // 🆕 FUNÇÃO PARA FECHAR O MODAL DE ADOÇÃO
-  const handleCloseAdoptionModal = () => {
-    console.log('🐾 Fechando modal de adoção');
-    setAdoptionModalVisible(false);
-    setSelectedPetForAdoption(null);
-  };
-
-  // 🆕 FUNÇÃO PARA INICIAR PROCESSO DE ADOÇÃO VIA WHATSAPP
-  // 🆕 FUNÇÃO PARA INICIAR PROCESSO DE ADOÇÃO VIA WHATSAPP COM ATUALIZAÇÃO DE STATUS
-  // 🆕 FUNÇÃO PARA INICIAR PROCESSO DE ADOÇÃO VIA WHATSAPP COM ATUALIZAÇÃO DE STATUS
-  // Esta função é chamada através do modal e DEVE atualizar o status para 4
-  const handleStartAdoption = async () => {
-    if (!selectedPetForAdoption || !usuario) return;
-
-    try {
-      console.log('🎯 Iniciando processo de adoção via WhatsApp para:', selectedPetForAdoption.nome);
-
-      // Preparar dados para WhatsApp
-      const donoPet = selectedPetForAdoption.usuario_nome || 'responsável';
-      const nomePet = selectedPetForAdoption.nome;
-      const nomeInteressado = usuario.nome;
-      const telefone = selectedPetForAdoption.usuario_telefone;
-
-      // Verificar se tem telefone
-      if (!telefone) {
-        // Fechar modal primeiro
-        handleCloseAdoptionModal();
-
-        Alert.alert(
-          'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${selectedPetForAdoption.usuario_email
-            ? `Você pode tentar entrar em contato pelo email: ${selectedPetForAdoption.usuario_email}`
-            : 'Tente entrar em contato através do app posteriormente.'
-          }`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
-
-      // Criar mensagem pré-pronta personalizada
-      const mensagem = `Olá ${donoPet}! 👋
-
-Meu nome é ${nomeInteressado} e tenho interesse em adotar o pet *${nomePet}* que vi no app de adoção.
-
-Gostaria de saber mais detalhes sobre:
-• Processo de adoção
-• Quando podemos nos conhecer
-• Cuidados especiais do ${nomePet}
-
-Agradeço desde já! 🐾❤️`;
-
-      // Limpar número (remover caracteres especiais e garantir formato brasileiro)
-      let numeroLimpo = telefone.replace(/\D/g, '');
-
-      // Adicionar código do país se não tiver
-      if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
-        numeroLimpo = numeroLimpo.substring(1); // Remove o 0 inicial
-      }
-      if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
-        numeroLimpo = '55' + numeroLimpo; // Adiciona código do Brasil
-      }
-
-      // Criar URL do WhatsApp
-      const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
-
-      console.log('📱 Tentando abrir WhatsApp para:', numeroLimpo);
-
-      // Verificar se pode abrir WhatsApp
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-
-      if (canOpen) {
-        // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" (status_id: 4)
-        // Esta atualização só acontece quando chamado através do modal
-        try {
-          console.log('🔄 Atualizando status do pet para "Adotado"...');
-          await updateStatus(selectedPetForAdoption.id);
-
-          // 🆕 ATUALIZAR OS ESTADOS LOCAIS PARA REFLETIR A MUDANÇA
-          const updatedPet = {
-            ...selectedPetForAdoption,
-            status_id: 4,
-            status_nome: 'Adotado',
-          };
-
-          // Atualizar allMyPets
-          setAllMyPets((prevPets) => prevPets.map((pet) => (pet.id === selectedPetForAdoption.id ? updatedPet : pet)));
-
-          // Atualizar filteredMyPets
-          setFilteredMyPets((prevPets) =>
-            prevPets.map((pet) => (pet.id === selectedPetForAdoption.id ? updatedPet : pet))
-          );
-
-          // Atualizar searchResults se houver busca ativa
-          if (hasActiveSearch) {
-            setSearchResults((prevResults) =>
-              prevResults.map((pet) => (pet.id === selectedPetForAdoption.id ? updatedPet : pet))
-            );
-          }
-
-          console.log('✅ Status do pet atualizado com sucesso para "Adotado"');
-        } catch (statusError) {
-          console.error('❌ Erro ao atualizar status do pet:', statusError);
-          // Mesmo se falhar a atualização do status, ainda continua com o WhatsApp
-          // mas mostra um aviso
-          Alert.alert(
-            'Aviso',
-            'O WhatsApp será aberto, mas houve um problema ao atualizar o status do pet. Tente novamente mais tarde.',
-            [{ text: 'OK' }]
-          );
-        }
-
-        // Fechar modal primeiro
-        handleCloseAdoptionModal();
-
-        // Abrir WhatsApp
-        await Linking.openURL(whatsappUrl);
-
-        // Mostrar confirmação após um delay
-        setTimeout(() => {
-          Alert.alert(
-            'Processo de Adoção Iniciado! 🎉',
-            `Uma conversa foi iniciada com ${donoPet} e o status do ${nomePet} foi atualizado para "Adotado". Complete a conversa para finalizar o processo de adoção.`,
-            [{ text: 'Perfeito!' }]
-          );
-        }, 1500);
-      } else {
-        // WhatsApp não disponível - mostrar opções alternativas
-        handleCloseAdoptionModal();
-
-        Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${donoPet}:`, [
-          {
-            text: 'Ver número',
-            onPress: () => {
-              Alert.alert('Telefone', telefone, [{ text: 'OK' }]);
-            },
-          },
-          {
-            text: 'Ver mensagem',
-            onPress: () => {
-              Alert.alert('Mensagem sugerida', mensagem, [{ text: 'OK' }]);
-            },
-          },
-          { text: 'OK' },
-        ]);
-      }
-    } catch (error) {
-      console.error('Erro ao abrir WhatsApp:', error);
-      handleCloseAdoptionModal();
-
-      Alert.alert(
-        'Erro na comunicação',
-        'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
-        [{ text: 'OK' }]
-      );
-    }
-  };
-  // Remover pet dos meus pets usando deleteMyPet
+  // Remover pet dos meus pets
   const handleRemovePet = async (pet: Pet) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
@@ -897,7 +847,11 @@ Agradeço desde já! 🐾❤️`;
       Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
     }
   };
-
+  const handleCloseAdoptionModal = () => {
+    console.log('❌ Fechando modal de adoção');
+    setAdoptionModalVisible(false);
+    setSelectedPetForAdoption(null);
+  };
   // Função para favoritar/desfavoritar um pet
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
@@ -1034,72 +988,6 @@ Agradeço desde já! 🐾❤️`;
     return 'Todos os meus pets';
   };
 
-  // 🆕 COMPONENTE DO MODAL DE ADOÇÃO BONITO
-  const AdoptionModal = () => {
-    if (!selectedPetForAdoption) return null;
-
-    return (
-      <Modal
-        visible={adoptionModalVisible}
-        transparent={true}
-        animationType="fade"
-        onRequestClose={handleCloseAdoptionModal}
-      >
-        <View style={modalStyles.overlay}>
-          <View style={modalStyles.container}>
-            {/* Header */}
-            <View style={modalStyles.header}>
-              <Text style={modalStyles.title}>🐾 Processo de Adoção</Text>
-              <TouchableOpacity onPress={handleCloseAdoptionModal} style={modalStyles.closeButton}>
-                <Text style={modalStyles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
-            </View>
-
-            {/* Conteúdo */}
-            <View style={modalStyles.content}>
-              {/* Foto do Pet */}
-              <View style={modalStyles.petImageContainer}>
-                {selectedPetForAdoption.foto ? (
-                  <Image source={{ uri: selectedPetForAdoption.foto }} style={modalStyles.petImage} />
-                ) : (
-                  <View style={modalStyles.placeholderImage}>
-                    <Text style={modalStyles.placeholderText}>🐕</Text>
-                  </View>
-                )}
-              </View>
-
-              {/* Informações */}
-              <Text style={modalStyles.question}>
-                Deseja iniciar o processo de adoção do pet{' '}
-                <Text style={modalStyles.petName}>{selectedPetForAdoption.nome}</Text>?
-              </Text>
-
-              <Text style={modalStyles.ownerInfo}>
-                Dono: <Text style={modalStyles.ownerName}>{selectedPetForAdoption.usuario_nome}</Text>
-              </Text>
-
-              <Text style={modalStyles.description}>
-                O termo de responsabilidade já foi assinado. Agora você pode conversar diretamente com o responsável
-                pelo pet.
-              </Text>
-
-              {/* Botões */}
-              <View style={modalStyles.buttonContainer}>
-                <TouchableOpacity style={modalStyles.adoptButton} onPress={handleStartAdoption}>
-                  <Text style={modalStyles.adoptButtonText}>Conversar no WhatsApp</Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity style={modalStyles.cancelButton} onPress={handleCloseAdoptionModal}>
-                  <Text style={modalStyles.cancelButtonText}>Cancelar</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </View>
-      </Modal>
-    );
-  };
-
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
@@ -1169,11 +1057,12 @@ Agradeço desde já! 🐾❤️`;
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {hasActiveSearch && searchQuery.trim() !== ''
-                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${activeFilters ? ' e filtros aplicados' : ''
-                  }`
+                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${
+                      activeFilters ? ' e filtros aplicados' : ''
+                    }`
                   : activeFilters
-                    ? 'Nenhum pet encontrado com os filtros selecionados'
-                    : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
+                  ? 'Nenhum pet encontrado com os filtros selecionados'
+                  : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
               </Text>
               {activeFilters && (
                 <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
@@ -1199,11 +1088,13 @@ Agradeço desde já! 🐾❤️`;
           )}
         </View>
 
-        {/* 🆕 MODAL DO TERMO DE COMPROMISSO */}
+        {/* 🆕 MODAL DO TERMO (ÚNICO MODAL NECESSÁRIO) */}
+        {/* 🆕 MODAL DO TERMO */}
         {selectedPetForTermo && usuario && (
           <TermoAdocaoModal
             visible={termoModalVisible}
-            onClose={handleCloseTermoModal}
+            onClose={handleCloseTermoModal} // 🆕 Função atualizada
+            onEmailSent={handleEmailSent} // 🆕 Função atualizada
             pet={selectedPetForTermo}
             usuarioLogado={{
               id: usuario.id,
@@ -1214,8 +1105,16 @@ Agradeço desde já! 🐾❤️`;
           />
         )}
 
-        {/* 🆕 MODAL DE ADOÇÃO BONITO */}
-        <AdoptionModal />
+        {/* 🆕 MODAL DE ADOÇÃO ATUALIZADO */}
+        {selectedPetForAdoption && (
+          <AdoptionModal
+            visible={adoptionModalVisible}
+            onClose={handleCloseAdoptionModal} // 🆕 Função atualizada
+            onStartAdoption={() => openWhatsAppForAdoption(selectedPetForAdoption)}
+            onViewTermo={handleViewTermoFromAdoption} // 🆕 Função atualizada
+            pet={selectedPetForAdoption}
+          />
+        )}
       </ImageBackground>
     </SafeAreaView>
   );
@@ -1230,22 +1129,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     width: '100%',
     marginBottom: 5,
-  },
-  navText: {
-    fontSize: 12,
-    marginTop: 3,
-    color: '#000',
-  },
-  activeNavText: {
-    fontSize: 12,
-    marginTop: 3,
-    color: '#4682B4',
-    fontWeight: 'bold',
-  },
-  activeCircle: {
-    backgroundColor: '#E8F1F8',
-    borderRadius: 20,
-    padding: 5,
   },
   backgroundImage: {
     flex: 1,
@@ -1454,148 +1337,5 @@ const styles = StyleSheet.create({
   goToPetsButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
-  },
-});
-
-// 🆕 ESTILOS PARA O MODAL DE ADOÇÃO
-const modalStyles = StyleSheet.create({
-  overlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    padding: 20,
-  },
-  container: {
-    backgroundColor: '#FFFFFF',
-    borderRadius: 20,
-    width: '100%',
-    maxWidth: 400,
-    maxHeight: '80%',
-    overflow: 'hidden',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 10 },
-    shadowOpacity: 0.3,
-    shadowRadius: 20,
-  },
-  header: {
-    backgroundColor: '#4682B4',
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-    paddingVertical: 15,
-  },
-  title: {
-    fontSize: 20,
-    fontWeight: 'bold',
-    color: '#FFFFFF',
-  },
-  closeButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  closeButtonText: {
-    color: '#FFFFFF',
-    fontSize: 18,
-    fontWeight: 'bold',
-  },
-  content: {
-    padding: 25,
-    alignItems: 'center',
-  },
-  petImageContainer: {
-    marginBottom: 20,
-    elevation: 5,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-  },
-  petImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 4,
-    borderColor: '#4682B4',
-  },
-  placeholderImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#E8F5E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    borderWidth: 4,
-    borderColor: '#4682B4',
-  },
-  placeholderText: {
-    fontSize: 40,
-  },
-  question: {
-    fontSize: 18,
-    color: '#333',
-    textAlign: 'center',
-    marginBottom: 10,
-    lineHeight: 24,
-  },
-  petName: {
-    fontWeight: 'bold',
-    color: '#4682B4',
-  },
-  ownerInfo: {
-    fontSize: 16,
-    color: '#666',
-    textAlign: 'center',
-    marginBottom: 15,
-  },
-  ownerName: {
-    fontWeight: 'bold',
-    color: '#4682B4',
-  },
-  description: {
-    fontSize: 14,
-    color: '#666',
-    textAlign: 'center',
-    lineHeight: 20,
-    marginBottom: 25,
-  },
-  buttonContainer: {
-    width: '100%',
-    gap: 12,
-  },
-  adoptButton: {
-    backgroundColor: '#25D366', // Cor do WhatsApp
-    paddingVertical: 15,
-    borderRadius: 12,
-    alignItems: 'center',
-    elevation: 3,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 3 },
-    shadowOpacity: 0.2,
-    shadowRadius: 5,
-  },
-  adoptButtonText: {
-    color: '#FFFFFF',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  cancelButton: {
-    backgroundColor: '#F5F5F5',
-    paddingVertical: 12,
-    borderRadius: 12,
-    alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
-  },
-  cancelButtonText: {
-    color: '#666',
-    fontSize: 14,
-    fontWeight: '500',
   },
 });

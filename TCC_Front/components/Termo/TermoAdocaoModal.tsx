@@ -1,11 +1,4 @@
-// TermoModal.tsx - Versão com formatação de telefone
-// 🔧 Principais correções:
-// - Otimizada lógica de verificação de termo existente
-// - Corrigido fluxo após criação do termo
-// - Melhorado tratamento de estados e erros
-// - Removida chamada desnecessária na primeira abertura
-// - Adicionada formatação de telefone padrão brasileiro
-
+// TermoModal.tsx - VERSÃO CORRIGIDA com onSuccess
 import React, { useState, useEffect } from 'react';
 import {
   View,
@@ -58,6 +51,8 @@ interface TermoData {
 interface TermoModalProps {
   visible: boolean;
   onClose: () => void;
+  onSuccess?: () => void; // 🔧 Callback quando termo for criado com sucesso
+  onEmailSent?: (petId: number) => void; // Callback quando email for enviado
   pet: Pet;
   usuarioLogado: {
     id: number;
@@ -65,11 +60,18 @@ interface TermoModalProps {
     email: string;
     telefone?: string;
   };
-  // 🆕 Nova prop opcional para indicar se já sabemos que existe um termo
   hasExistingTermo?: boolean;
 }
 
-const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, usuarioLogado, hasExistingTermo = false }) => {
+const TermoAdocaoModal: React.FC<TermoModalProps> = ({
+  visible,
+  onClose,
+  onSuccess, // 🔧 Callback quando termo for criado
+  onEmailSent, // Callback quando email for enviado
+  pet,
+  usuarioLogado,
+  hasExistingTermo = false,
+}) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
   const [observacoes, setObservacoes] = useState('');
@@ -79,42 +81,32 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // 📱 Função para formatar telefone no padrão brasileiro
+  // Função para formatar telefone no padrão brasileiro
   const formatTelefone = (telefone: string | undefined): string => {
     if (!telefone) return '';
 
-    // Remove todos os caracteres não numéricos
     const numbers = telefone.replace(/\D/g, '');
 
-    // Se não tem números, retorna vazio
     if (!numbers) return '';
 
-    // Formato para telefones brasileiros
     if (numbers.length === 11) {
-      // Celular: (11) 99999-9999
       return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
     } else if (numbers.length === 10) {
-      // Fixo: (11) 9999-9999
       return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 6)}-${numbers.slice(6)}`;
     } else if (numbers.length === 13 && numbers.startsWith('55')) {
-      // Internacional: +55 (11) 99999-9999
       return `+55 (${numbers.slice(2, 4)}) ${numbers.slice(4, 9)}-${numbers.slice(9)}`;
     } else if (numbers.length >= 8) {
-      // Fallback para outros formatos
       if (numbers.length === 8) {
-        // 9999-9999
         return `${numbers.slice(0, 4)}-${numbers.slice(4)}`;
       } else if (numbers.length === 9) {
-        // 99999-9999
         return `${numbers.slice(0, 5)}-${numbers.slice(5)}`;
       }
     }
 
-    // Se não conseguiu formatar, retorna com hífen a cada 4 dígitos
     return numbers.replace(/(\d{4})(?=\d)/g, '$1-');
   };
 
-  // 🆕 Função para obter o token de autenticação
+  // Função para obter o token de autenticação
   const getAuthToken = async () => {
     try {
       const allKeys = await AsyncStorage.getAllKeys();
@@ -150,14 +142,14 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
     }
   };
 
-  // 🔧 Carregar token e inicializar modal quando abrir
+  // Carregar token e inicializar modal quando abrir
   useEffect(() => {
     if (visible && !initialLoadComplete) {
       initializeModal();
     }
   }, [visible]);
 
-  // 🆕 Função para inicializar o modal
+  // Função para inicializar o modal
   const initializeModal = async () => {
     console.log('🚀 Inicializando modal...');
     setStep('loading');
@@ -170,19 +162,26 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
       console.warn('⚠️ Token não encontrado, mas tentando continuar');
     }
 
-    // 🔧 Lógica otimizada: só verificar termo existente se indicado ou se não conseguimos determinar
-    if (hasExistingTermo) {
-      console.log('ℹ️ Indicado que existe termo, buscando...');
-      await loadTermoCompleto();
-    } else {
-      console.log('ℹ️ Assumindo que não existe termo, indo direto para formulário');
+    // Sempre verificar se existe termo primeiro
+    try {
+      const response = await getTermoByPet(pet.id);
+      if (response && response.data) {
+        console.log('✅ Termo encontrado, carregando...');
+        setTermoData(response.data);
+        setStep('termo');
+      } else {
+        console.log('ℹ️ Nenhum termo encontrado, indo para formulário');
+        setStep('form');
+      }
+    } catch (error) {
+      console.log('ℹ️ Erro ao buscar termo ou não existe, indo para formulário');
       setStep('form');
     }
 
     setInitialLoadComplete(true);
   };
 
-  // 🔧 Função para criar termo (com melhor tratamento pós-criação)
+  // Função para criar termo
   const handleCreateTermo = async () => {
     if (!assinaturaDigital.trim()) {
       Alert.alert('Erro', 'Por favor, digite seu nome para assinatura digital.');
@@ -205,13 +204,22 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
       if (response && (response.data || response.message)) {
         console.log('✅ Termo criado com sucesso, buscando dados completos...');
 
-        // 🔧 Pequeno delay para garantir que o backend salvou completamente
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // 🔧 Buscar termo completo após criação para garantir dados atualizados
         await loadTermoCompleto();
 
-        Alert.alert('Sucesso', 'Termo de compromisso criado com sucesso!');
+        Alert.alert('Sucesso', 'Termo de compromisso criado com sucesso!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // 🔧 CORREÇÃO: Chamar onSuccess quando termo for criado
+              if (onSuccess) {
+                console.log('🎉 Chamando callback onSuccess');
+                onSuccess();
+              }
+            }
+          }
+        ]);
       } else {
         throw new Error('Resposta inválida da API');
       }
@@ -222,7 +230,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
 
       if (error.response?.status === 401) {
         errorMessage = 'Sessão expirada. Faça login novamente.';
-        Alert.alert('Erro de Autenticação', errorMessage, [{ text: 'OK', onPress: handleClose }]);
+        Alert.alert('Erro de Autenticação', errorMessage, [{ text: 'OK', onPress: handleCancel }]);
         return;
       }
 
@@ -231,10 +239,20 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
 
         if (message.includes('Já existe um termo')) {
           errorMessage = 'Este pet já possui um termo de compromisso.';
-          // Buscar o termo existente e mostrar
           console.log('ℹ️ Termo já existe, carregando dados...');
           await loadTermoCompleto();
-          Alert.alert('Informação', 'Este pet já possui um termo de compromisso. Exibindo o termo existente.');
+          Alert.alert('Informação', 'Este pet já possui um termo de compromisso. Exibindo o termo existente.', [
+            {
+              text: 'OK',
+              onPress: () => {
+                // 🔧 CORREÇÃO: Chamar onSuccess mesmo quando termo já existe
+                if (onSuccess) {
+                  console.log('🎉 Chamando callback onSuccess (termo já existia)');
+                  onSuccess();
+                }
+              }
+            }
+          ]);
           return;
         } else if (message.includes('não pode adotar seu próprio pet')) {
           errorMessage = 'Você não pode adotar seu próprio pet.';
@@ -251,7 +269,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
     }
   };
 
-  // 🆕 Função centralizada para carregar termo completo
+  // Função centralizada para carregar termo completo
   const loadTermoCompleto = async () => {
     try {
       console.log('🔄 Carregando termo completo para pet ID:', pet.id);
@@ -271,33 +289,16 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
 
       if (error.response?.status === 401) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
-          { text: 'OK', onPress: handleClose },
+          { text: 'OK', onPress: handleCancel },
         ]);
         return;
       }
 
-      // Se der erro ao buscar, mostrar formulário
       setStep('form');
     }
   };
 
-  // 🆕 Função para buscar termo atualizado (útil para refresh)
-  const refreshTermo = async () => {
-    if (!termoData) return;
-
-    try {
-      setLoading(true);
-      console.log('🔄 Atualizando dados do termo...');
-      await loadTermoCompleto();
-      console.log('✅ Termo atualizado');
-    } catch (error) {
-      console.error('❌ Erro ao atualizar termo:', error);
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  // 📧 Função para enviar termo por email
+  // Função para enviar termo por email
   const handleSendEmail = async () => {
     if (!termoData) return;
 
@@ -309,14 +310,17 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
 
       Alert.alert(
         'Email Enviado! 📧',
-        `O termo foi enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.`,
+        `O termo foi enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.\n\nAgora você pode clicar em "Comunicar" novamente para conversar no WhatsApp!`,
         [
           {
             text: 'OK',
             onPress: () => {
-              // 🔧 Fechar modal após envio bem-sucedido
-              console.log('📧 Email enviado com sucesso, fechando modal...');
-              handleClose();
+              console.log('📧 Email enviado, notificando callback');
+              // Notificar que email foi enviado
+              if (onEmailSent) {
+                onEmailSent(pet.id);
+              }
+              handleCancel(); // Fechar modal após envio
             },
           },
         ]
@@ -328,7 +332,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
 
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
-          { text: 'OK', onPress: handleClose },
+          { text: 'OK', onPress: handleCancel },
         ]);
         return;
       }
@@ -349,11 +353,15 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
     }
   };
 
-  // 🔧 Função de fechamento com reset completo
-  const handleClose = () => {
-    console.log('🔒 Fechando modal e resetando estados...');
+  // Função para cancelar (chamada pelo botão X)
+  const handleCancel = () => {
+    console.log('❌ Cancelando modal do termo - usuário clicou no X');
+    resetStates();
+    onClose();
+  };
 
-    // Reset todos os estados
+  // Função para resetar estados
+  const resetStates = () => {
     setStep('loading');
     setAssinaturaDigital(usuarioLogado.nome || '');
     setObservacoes('');
@@ -362,8 +370,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
     setSendingEmail(false);
     setAuthToken(null);
     setInitialLoadComplete(false);
-
-    onClose();
   };
 
   const formatDate = (dateString: string) => {
@@ -384,13 +390,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Termo de Compromisso</Text>
             <View style={styles.headerActions}>
-              {/* 🆕 Botão de refresh quando estiver visualizando termo */}
-              {step === 'termo' && (
-                <TouchableOpacity onPress={refreshTermo} style={styles.refreshButton} disabled={loading}>
-                  <Text style={styles.refreshButtonText}>🔄</Text>
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+              <TouchableOpacity onPress={handleCancel} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
             </View>
@@ -419,14 +419,15 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
                 <Text style={styles.petInfoText}>Raça: {pet.raca_nome || pet.pet_raca_nome || 'Não informado'}</Text>
                 <Text style={styles.petInfoText}>Idade: {pet.idade} anos</Text>
                 <Text style={styles.petInfoText}>Dono: {pet.usuario_nome || 'Não informado'}</Text>
-                {/* 📱 Telefone formatado do dono do pet */}
                 {pet.usuario_telefone && (
                   <Text style={styles.petInfoText}>Telefone: {formatTelefone(pet.usuario_telefone)}</Text>
                 )}
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Assinatura Digital *</Text>
+                <Text style={styles.inputLabel}>
+                  Assinatura Digital <Text style={styles.required}>*</Text>
+                </Text>
                 <TextInput
                   style={styles.textInput}
                   value={assinaturaDigital}
@@ -488,7 +489,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
                 <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
                 <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.doador_email}</Text>
-                {/* 📱 Telefone formatado do doador */}
                 {termoData.doador_telefone && (
                   <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
                 )}
@@ -498,7 +498,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
                 <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
                 <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.adotante_email}</Text>
-                {/* 📱 Telefone formatado do adotante */}
                 {termoData.adotante_telefone && (
                   <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
                 )}
@@ -531,17 +530,20 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({ visible, onClose, pet, us
                 <Text style={styles.hashText}>Hash: {termoData.hash_documento}</Text>
               </View>
 
-              <TouchableOpacity
-                style={[styles.emailButton, sendingEmail && styles.disabledButton]}
-                onPress={handleSendEmail}
-                disabled={sendingEmail}
-              >
-                {sendingEmail ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.emailButtonText}>Enviar por Email</Text>
-                )}
-              </TouchableOpacity>
+              {/* Botão para enviar por email */}
+              <View style={styles.buttonGroup}>
+                <TouchableOpacity
+                  style={[styles.emailButton, sendingEmail && styles.disabledButton]}
+                  onPress={handleSendEmail}
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.emailButtonText}>📧 Enviar por Email</Text>
+                  )}
+                </TouchableOpacity>
+              </View>
             </ScrollView>
           )}
         </View>
@@ -556,6 +558,9 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0, 0, 0, 0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  required: {
+    color: 'red',
   },
   modalContainer: {
     width: '95%',
@@ -580,19 +585,6 @@ const styles = StyleSheet.create({
   headerActions: {
     flexDirection: 'row',
     alignItems: 'center',
-  },
-  refreshButton: {
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    borderRadius: 15,
-    width: 30,
-    height: 30,
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginRight: 10,
-  },
-  refreshButtonText: {
-    color: '#FFFFFF',
-    fontSize: 14,
   },
   closeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -661,20 +653,6 @@ const styles = StyleSheet.create({
   textArea: {
     height: 80,
     textAlignVertical: 'top',
-  },
-  secondaryButton: {
-    backgroundColor: '#FFF',
-    borderWidth: 2,
-    borderColor: '#4682B4',
-    paddingVertical: 12,
-    borderRadius: 10,
-    alignItems: 'center',
-    marginBottom: 10,
-  },
-  secondaryButtonText: {
-    color: '#4682B4',
-    fontSize: 14,
-    fontWeight: 'bold',
   },
   createButton: {
     backgroundColor: '#4682B4',
@@ -746,15 +724,28 @@ const styles = StyleSheet.create({
     color: '#999',
     fontFamily: 'monospace',
   },
+  buttonGroup: {
+    marginTop: 20,
+    gap: 12,
+  },
   emailButton: {
     backgroundColor: '#1E88E5',
     paddingVertical: 15,
     borderRadius: 10,
     alignItems: 'center',
-    marginTop: 20,
-    marginBottom: 10,
   },
   emailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 16,
+    fontWeight: 'bold',
+  },
+  whatsappButton: {
+    backgroundColor: '#25D366',
+    paddingVertical: 15,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  whatsappButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
