@@ -1,10 +1,4 @@
-// TermoDoacaoModalAuto.tsx - Modal automático para tela de doação de pets
-// 🔧 Funcionalidades:
-// - Aparece automaticamente quando necessário
-// - Não pode ser fechado manualmente (sem botão X)
-// - Fecha automaticamente após PDF ser enviado
-// - Botão para voltar à tela anterior
-// - Bloqueia acesso até termo ser assinado
+// TermoDoacaoModalAuto.tsx - Modal automático ATUALIZADO com modo de atualização de nome
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -22,7 +16,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { createTermoDoacao } from '@/services/api/TermoDoacao/createTermoDoacao';
+import { createOrUpdateTermoDoacao } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Função atualizada
 import { getTermoDoacao } from '@/services/api/TermoDoacao/getTermoDoacao';
 import { sendTermoDoacaoEmail } from '@/services/api/TermoDoacao/sendTermoDoacaoEmail';
 
@@ -56,6 +50,8 @@ interface TermoDoacaoModalAutoProps {
   };
   // Callback para quando termo for concluído e usuário puder usar a tela
   onTermoCompleted: () => void;
+  // 🆕 Prop para indicar se é modo de atualização de nome
+  isNameUpdateMode?: boolean;
 }
 
 interface FormData {
@@ -71,7 +67,12 @@ interface FormData {
   compromesteContato: boolean;
 }
 
-const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, usuarioLogado, onTermoCompleted }) => {
+const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ 
+  visible, 
+  usuarioLogado, 
+  onTermoCompleted, 
+  isNameUpdateMode = false // 🆕 Default false para compatibilidade
+}) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
   const [loading, setLoading] = useState(false);
@@ -97,8 +98,11 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
   useEffect(() => {
     const backAction = () => {
       if (visible && !emailSent) {
-        // Se email não foi enviado, mostrar alerta
-        Alert.alert('Termo Obrigatório', 'Você precisa assinar o termo de responsabilidade para cadastrar pets.', [
+        const message = isNameUpdateMode 
+          ? 'Você precisa reAssinar o termo com seu nome atualizado para continuar cadastrando pets.'
+          : 'Você precisa assinar o termo de responsabilidade para cadastrar pets.';
+        
+        Alert.alert('Termo Obrigatório', message, [
           { text: 'Continuar Assinando', style: 'cancel' },
           { text: 'Voltar à Tela Anterior', onPress: handleGoBack },
         ]);
@@ -109,7 +113,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [visible, emailSent]);
+  }, [visible, emailSent, isNameUpdateMode]);
 
   // 🆕 Função para obter o token de autenticação
   const getAuthToken = async () => {
@@ -145,11 +149,13 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
     if (visible) {
       initializeModal();
     }
-  }, [visible]);
+  }, [visible, isNameUpdateMode]); // 🆕 Adicionado isNameUpdateMode como dependência
 
-  // 🆕 Função para inicializar o modal
+  // 🆕 Função ATUALIZADA para inicializar o modal
   const initializeModal = async () => {
-    console.log('🚀 Inicializando modal de termo obrigatório...');
+    const modoTexto = isNameUpdateMode ? 'atualização de nome' : 'criação inicial';
+    console.log(`🚀 Inicializando modal de termo (${modoTexto})...`);
+    
     setStep('loading');
     setEmailSent(false);
 
@@ -157,11 +163,54 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
     const token = await getAuthToken();
     setAuthToken(token);
 
-    // Verificar se usuário já possui termo
-    await checkExistingTermo();
+    // 🆕 Lógica diferente baseada no modo
+    if (isNameUpdateMode) {
+      // Modo de atualização - pular verificação e ir direto para formulário
+      console.log('🔄 Modo atualização de nome - indo direto para formulário');
+      await loadExistingTermoData(); // Carregar dados do termo existente
+      setStep('form');
+    } else {
+      // Modo normal - verificar se usuário já possui termo
+      await checkExistingTermo();
+    }
   };
 
-  // 🔧 Função para verificar termo existente
+  // 🆕 Função para carregar dados do termo existente (para pré-preencher formulário)
+  const loadExistingTermoData = async () => {
+    try {
+      console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
+      
+      const response = await getTermoDoacao();
+      
+      if (response && response.data) {
+        const termo = response.data;
+        
+        // Pré-preencher formulário com dados existentes
+        setFormData(prev => ({
+          ...prev,
+          motivoDoacao: termo.motivo_doacao || '',
+          assinaturaDigital: usuarioLogado.nome || termo.assinatura_digital || '', // 🆕 Usar nome atual do usuário
+          condicoesAdocao: termo.condicoes_adocao || '',
+          observacoes: termo.observacoes || '',
+          // Manter compromissos aceitos
+          confirmaResponsavelLegal: true,
+          autorizaVisitas: true,
+          aceitaAcompanhamento: true,
+          confirmaSaude: true,
+          autorizaVerificacao: true,
+          compromesteContato: true,
+        }));
+        
+        setTermoData(termo);
+        console.log('✅ Dados do termo carregados para atualização');
+      }
+    } catch (error) {
+      console.error('❌ Erro ao carregar dados do termo existente:', error);
+      // Em caso de erro, manter formulário vazio
+    }
+  };
+
+  // 🔧 Função para verificar termo existente (modo normal)
   const checkExistingTermo = async () => {
     try {
       console.log('🔍 Verificando se usuário já possui termo de doação...');
@@ -198,7 +247,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
     }
   };
 
-  // 🔧 Função para criar termo
+  // 🔧 Função ATUALIZADA para criar/atualizar termo
   const handleCreateTermo = async () => {
     // Validações básicas
     if (!formData.motivoDoacao.trim()) {
@@ -236,34 +285,40 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
     try {
       setLoading(true);
 
-      console.log('🆕 Criando termo de doação...');
+      const acaoTexto = isNameUpdateMode ? 'Atualizando' : 'Criando';
+      console.log(`📝 ${acaoTexto} termo de doação...`);
 
-      const response = await createTermoDoacao({
-        motivoDoacao: formData.motivoDoacao.trim(),
-        assinaturaDigital: formData.assinaturaDigital.trim(),
-        condicoesAdocao: formData.condicoesAdocao.trim() || undefined,
-        observacoes: formData.observacoes.trim() || undefined,
-        confirmaResponsavelLegal: formData.confirmaResponsavelLegal,
-        autorizaVisitas: formData.autorizaVisitas,
-        aceitaAcompanhamento: formData.aceitaAcompanhamento,
-        confirmaSaude: formData.confirmaSaude,
-        autorizaVerificacao: formData.autorizaVerificacao,
-        compromesteContato: formData.compromesteContato,
-      });
+      // 🆕 Usar função atualizada que suporta criação e atualização
+      const response = await createOrUpdateTermoDoacao(
+        {
+          motivoDoacao: formData.motivoDoacao.trim(),
+          assinaturaDigital: formData.assinaturaDigital.trim(),
+          condicoesAdocao: formData.condicoesAdocao.trim() || undefined,
+          observacoes: formData.observacoes.trim() || undefined,
+          confirmaResponsavelLegal: formData.confirmaResponsavelLegal,
+          autorizaVisitas: formData.autorizaVisitas,
+          aceitaAcompanhamento: formData.aceitaAcompanhamento,
+          confirmaSaude: formData.confirmaSaude,
+          autorizaVerificacao: formData.autorizaVerificacao,
+          compromesteContato: formData.compromesteContato,
+        },
+        isNameUpdateMode // 🆕 Passar flag de atualização
+      );
 
       if (response && response.data) {
-        console.log('✅ Termo criado com sucesso!');
+        const acaoTextoFinal = response.updated ? 'atualizado' : 'criado';
+        console.log(`✅ Termo ${acaoTextoFinal} com sucesso!`);
 
         setTermoData(response.data);
         setStep('termo');
 
-        // Enviar PDF automaticamente após criar termo
+        // Enviar PDF automaticamente após criar/atualizar termo
         await handleAutoSendEmail(response.data);
       }
     } catch (error: any) {
-      console.error('❌ Erro ao criar termo:', error);
+      console.error(`❌ Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo:`, error);
 
-      let errorMessage = 'Erro ao criar termo de responsabilidade.';
+      let errorMessage = `Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo de responsabilidade.`;
 
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Sessão Expirada', 'Sua sessão expirou. Você será redirecionado para a tela anterior.', [
@@ -301,12 +356,14 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
       console.error('❌ Erro ao enviar email:', error);
       setSendingEmail(false);
 
+      const retryText = isNameUpdateMode ? 'Tentar Reenviar' : 'Tentar Novamente';
+      
       Alert.alert(
         'Erro no Envio',
-        'Não foi possível enviar o PDF por email, mas seu termo foi criado com sucesso. Você pode tentar reenviar mais tarde.',
+        'Não foi possível enviar o PDF por email, mas seu termo foi processado com sucesso. Você pode tentar reenviar mais tarde.',
         [
           { text: 'Continuar Mesmo Assim', onPress: handleEmailSentSuccess },
-          { text: 'Tentar Novamente', onPress: () => handleAutoSendEmail(termo) },
+          { text: retryText, onPress: () => handleAutoSendEmail(termo) },
         ]
       );
     }
@@ -320,7 +377,8 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
 
     // Aguardar 3 segundos e liberar o usuário
     setTimeout(() => {
-      console.log('🎉 Termo concluído, liberando acesso à tela...');
+      const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
+      console.log(`🎉 Termo ${acaoTexto}, liberando acesso à tela...`);
       onTermoCompleted();
     }, 3000);
   };
@@ -349,6 +407,29 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
     });
   };
 
+  // 🆕 Textos dinâmicos baseados no modo
+  const headerTitle = isNameUpdateMode 
+    ? 'Atualização de Termo'
+    : 'Termo de Responsabilidade';
+    
+  const headerSubtitle = isNameUpdateMode 
+    ? 'Requer nova assinatura com nome atualizado'
+    : 'Obrigatório para cadastrar pets';
+    
+  const warningText = isNameUpdateMode
+    ? 'Seu nome foi alterado no perfil. Para continuar cadastrando pets, você precisa reAssinar o termo com seu nome atualizado.'
+    : 'Para cadastrar pets para doação, você precisa assinar este termo de responsabilidade.';
+    
+  const buttonText = isNameUpdateMode ? 'Atualizar Termo' : 'Assinar Termo';
+  
+  const successTitle = isNameUpdateMode 
+    ? 'Termo Atualizado com Sucesso!'
+    : 'Termo Assinado com Sucesso!';
+    
+  const successMessage = isNameUpdateMode
+    ? 'Seu termo foi atualizado com seu nome atual e reenviado por email.'
+    : 'Seu termo de responsabilidade foi criado e enviado por email.';
+
   return (
     <Modal
       visible={visible}
@@ -364,15 +445,20 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
       <View style={styles.container}>
         {/* Header fixo */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>Termo de Responsabilidade</Text>
-          <Text style={styles.headerSubtitle}>Obrigatório para cadastrar pets</Text>
+          <Text style={styles.headerTitle}>{headerTitle}</Text>
+          <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
         </View>
 
         {/* Content */}
         {step === 'loading' && (
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4682B4" />
-            <Text style={styles.loadingText}>Verificando termo de responsabilidade...</Text>
+            <Text style={styles.loadingText}>
+              {isNameUpdateMode 
+                ? 'Carregando dados para atualização...' 
+                : 'Verificando termo de responsabilidade...'
+              }
+            </Text>
           </View>
         )}
 
@@ -382,11 +468,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
             contentContainerStyle={styles.formContentContainer}
             showsVerticalScrollIndicator={false}
           >
-            <View style={styles.warningContainer}>
-              <Text style={styles.warningIcon}>⚠️</Text>
-              <Text style={styles.warningText}>
-                Para cadastrar pets para doação, você precisa assinar este termo de responsabilidade.
-              </Text>
+            <View style={[styles.warningContainer, isNameUpdateMode && styles.updateWarningContainer]}>
+              <Text style={styles.warningIcon}>{isNameUpdateMode ? '🔄' : '⚠️'}</Text>
+              <Text style={styles.warningText}>{warningText}</Text>
             </View>
 
             <View style={styles.inputContainer}>
@@ -517,7 +601,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
                 {loading ? (
                   <ActivityIndicator color="#FFFFFF" />
                 ) : (
-                  <Text style={styles.createButtonText}>Assinar Termo</Text>
+                  <Text style={styles.createButtonText}>{buttonText}</Text>
                 )}
               </TouchableOpacity>
 
@@ -533,7 +617,12 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
             {sendingEmail ? (
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#1E88E5" />
-                <Text style={styles.loadingText}>Enviando PDF por email...</Text>
+                <Text style={styles.loadingText}>
+                  {isNameUpdateMode 
+                    ? 'Enviando termo atualizado por email...' 
+                    : 'Enviando PDF por email...'
+                  }
+                </Text>
                 <Text style={styles.subLoadingText}>Seu termo está sendo enviado para {termoData.doador_email}</Text>
               </View>
             ) : (
@@ -581,8 +670,8 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ visible, us
         {step === 'email-sent' && (
           <View style={styles.successContainer}>
             <Text style={styles.successIcon}>✅</Text>
-            <Text style={styles.successTitle}>Termo Assinado com Sucesso!</Text>
-            <Text style={styles.successMessage}>Seu termo de responsabilidade foi criado e enviado por email.</Text>
+            <Text style={styles.successTitle}>{successTitle}</Text>
+            <Text style={styles.successMessage}>{successMessage}</Text>
             <Text style={styles.successSubMessage}>📧 Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
             <View style={styles.successTimer}>
               <ActivityIndicator size="small" color="#2E8B57" />
@@ -604,7 +693,6 @@ const styles = StyleSheet.create({
     backgroundColor: '#4682B4',
     paddingHorizontal: 20,
     paddingVertical: 20,
-    paddingTop: 50, // Status bar
   },
   headerTitle: {
     fontSize: 20,
@@ -652,6 +740,11 @@ const styles = StyleSheet.create({
     borderLeftWidth: 4,
     borderLeftColor: '#FFC107',
     alignItems: 'center',
+  },
+  // 🆕 Estilo especial para modo de atualização
+  updateWarningContainer: {
+    backgroundColor: '#E3F2FD',
+    borderLeftColor: '#2196F3',
   },
   warningIcon: {
     fontSize: 24,

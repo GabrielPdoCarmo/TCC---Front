@@ -96,7 +96,7 @@ export default function ConfigScreen() {
 
               // Verificar se a exclusão foi bem-sucedida
               if (result.success === false) {
-                Alert.alert('Erro', result.message || 'Não foi possível excluir a conta.');
+                Alert.alert('Erro ao Excluir Conta', result.message || 'Não foi possível excluir a conta.');
                 return;
               }
 
@@ -110,7 +110,7 @@ export default function ConfigScreen() {
               router.replace('/');
             } catch (error) {
               console.error('Error deleting account:', error);
-              Alert.alert('Erro', 'Não foi possível excluir a conta. Tente novamente.');
+              Alert.alert('Erro ao Excluir Conta', 'Não foi possível excluir a conta. Tente novamente.');
             }
           },
         },
@@ -246,6 +246,7 @@ const styles = StyleSheet.create({
   section: {
     marginBottom: 20,
     alignItems: 'center',
+    paddingTop: 10,
   },
   sectionTitle: {
     fontSize: 24,

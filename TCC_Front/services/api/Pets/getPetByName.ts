@@ -5,7 +5,6 @@ export const getPetByName = async (nome: string) => {
     const response = await api.get(`/pets/nome/${nome}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao carregar pet por nome', error);
     return null;
   }
 };

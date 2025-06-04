@@ -707,7 +707,6 @@ export default function PetAdoptionScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4682B4',
   },
   // Estilo para informações do usuário
   userInfoContainer: {
@@ -758,6 +757,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     marginTop: 10,
+    paddingTop: 35
   },
   headerTitle: {
     fontSize: 24,

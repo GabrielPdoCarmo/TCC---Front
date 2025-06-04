@@ -19,7 +19,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/Pets/PetsDetalhesCard';
 import { getPetById } from '@/services/api/Pets/getPetById';
-import { createMyPet } from '@/services/api/MyPets/createMypets'; 
+import { createMyPet } from '@/services/api/MyPets/createMypets';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
@@ -471,7 +471,6 @@ export default function PetDetailsScreen() {
 
   return (
     <SafeAreaView style={styles.container}>
-      <StatusBar backgroundColor="#4682B4" barStyle="light-content" />
       <ImageBackground
         source={require('../../assets/images/backgrounds/Fundo_02.png')}
         style={styles.backgroundImage}
@@ -664,7 +663,6 @@ export default function PetDetailsScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4682B4',
   },
   backgroundImage: {
     flex: 1,

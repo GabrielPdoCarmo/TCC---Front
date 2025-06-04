@@ -1,4 +1,4 @@
-// PetDonationScreen.tsx - com ícone de configuração igual ao PetAdoptionScreen
+// PetDonationScreen.tsx - Atualizado com verificação de nome
 
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -27,7 +27,7 @@ import getRacaById from '@/services/api/Raca/getRacaById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
-import { checkCanCreatePets } from '@/services/api/TermoDoacao/checkCanCreatePets';
+import { checkCanCreatePets, checkNeedsNameUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Funções atualizadas
 
 // Define a interface Pet com informações aprimoradas
 interface Pet {
@@ -85,10 +85,15 @@ export default function PetDonationScreen() {
   const [canCreatePets, setCanCreatePets] = useState(false);
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
+  
+  // 🆕 Estados para verificação de nome
+  const [nameNeedsUpdate, setNameNeedsUpdate] = useState(false);
+  const [isNameUpdateMode, setIsNameUpdateMode] = useState(false);
+  
   const checkCountRef = useRef(0);
   const lastCheckTimeRef = useRef(0);
 
-  // 🔍 Função para verificar se usuário pode cadastrar pets (SEM LOOPS)
+  // 🔍 Função ATUALIZADA para verificar se usuário pode cadastrar pets (COM VERIFICAÇÃO DE NOME)
   const checkUserPermissions = useCallback(
     async (force = false) => {
       // Evitar verificações muito frequentes (debounce de 2 segundos)
@@ -113,18 +118,36 @@ export default function PetDonationScreen() {
         setTermoLoading(true);
         lastCheckTimeRef.current = now;
 
+        console.log('🔍 Verificando permissões do usuário (com verificação de nome)...');
+
         const result = await checkCanCreatePets();
 
         if (result && result.data) {
           const podecastrar = result.data.podecastrar || false;
           const temTermo = result.data.temTermo || false;
+          const nomeDesatualizado = result.data.nomeDesatualizado || false; // 🆕
+
+          console.log('📋 Resultado da verificação:', {
+            podecastrar,
+            temTermo,
+            nomeDesatualizado,
+          });
 
           setCanCreatePets(podecastrar);
+          setNameNeedsUpdate(nomeDesatualizado); // 🆕
           setInitialCheckDone(true);
 
-          if (!podecastrar) {
+          // 🆕 Lógica atualizada para lidar com nome desatualizado
+          if (nomeDesatualizado) {
+            console.log('⚠️ Nome foi alterado, mostrando modal para reAssinatura...');
+            setIsNameUpdateMode(true);
             setTermoModalVisible(true);
-          } else {
+          } else if (!podecastrar && !temTermo) {
+            console.log('📝 Usuário não possui termo, mostrando modal...');
+            setIsNameUpdateMode(false);
+            setTermoModalVisible(true);
+          } else if (podecastrar) {
+            console.log('✅ Usuário pode cadastrar pets normalmente');
             setTermoModalVisible(false);
           }
         }
@@ -140,6 +163,8 @@ export default function PetDonationScreen() {
 
         console.log('ℹ️ Assumindo primeira vez devido ao erro');
         setCanCreatePets(false);
+        setNameNeedsUpdate(false);
+        setIsNameUpdateMode(false);
         setTermoModalVisible(true);
         setInitialCheckDone(true);
       } finally {
@@ -274,6 +299,8 @@ export default function PetDonationScreen() {
       } catch (error) {
         console.error('❌ Erro na inicialização:', error);
         setCanCreatePets(false);
+        setNameNeedsUpdate(false);
+        setIsNameUpdateMode(false);
         setTermoModalVisible(true);
         setTermoLoading(false);
         setInitialCheckDone(true);
@@ -285,12 +312,12 @@ export default function PetDonationScreen() {
 
   // 🔄 Recarregar pets quando permissões mudarem (CONTROLADO)
   useEffect(() => {
-    if (canCreatePets && initialCheckDone) {
+    if (canCreatePets && initialCheckDone && !nameNeedsUpdate) {
       fetchUserPets();
-    } else if (initialCheckDone && !canCreatePets) {
+    } else if (initialCheckDone && (!canCreatePets || nameNeedsUpdate)) {
       setLoading(false);
     }
-  }, [canCreatePets, initialCheckDone]); // Adicionado initialCheckDone para controle
+  }, [canCreatePets, initialCheckDone, nameNeedsUpdate]); // 🆕 Adicionado nameNeedsUpdate
 
   // 👀 Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
@@ -312,28 +339,34 @@ export default function PetDonationScreen() {
     }, [initialCheckDone, termoLoading, isCheckingPermissions, checkUserPermissions])
   );
 
-  // 🎉 Callback quando termo for concluído (SEM LOOPS)
+  // 🎉 Callback ATUALIZADO quando termo for concluído (SEM LOOPS)
   const handleTermoCompleted = useCallback(() => {
-    console.log('🎉 Termo concluído! Liberando acesso à tela...');
+    const modoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
+    console.log(`🎉 Termo ${modoTexto}! Liberando acesso à tela...`);
+    
     setTermoModalVisible(false);
     setCanCreatePets(true);
+    setNameNeedsUpdate(false); // 🆕 Reset flag
+    setIsNameUpdateMode(false); // 🆕 Reset modo
 
     // Reset contador para permitir nova verificação
     checkCountRef.current = 0;
 
     // Verificação final após término do termo (APENAS UMA VEZ)
     setTimeout(() => {
-      console.log('🔄 Verificação final pós-termo');
+      console.log(`🔄 Verificação final pós-${modoTexto}`);
       checkUserPermissions(true);
     }, 2000);
-  }, [checkUserPermissions]);
+  }, [checkUserPermissions, isNameUpdateMode]);
 
   // Função para abrir o modal no modo de adição
   const handleOpenModal = () => {
-    if (!canCreatePets) {
-      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade antes de cadastrar pets.', [
-        { text: 'OK' },
-      ]);
+    if (!canCreatePets || nameNeedsUpdate) {
+      const message = nameNeedsUpdate 
+        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado antes de cadastrar pets.'
+        : 'Você precisa assinar o termo de responsabilidade antes de cadastrar pets.';
+      
+      Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
 
@@ -342,13 +375,22 @@ export default function PetDonationScreen() {
     setPetModalVisible(true);
   };
 
-  // Função para fechar o modal e atualizar a lista de pets
+  // ========================================
+  // MODIFICADO: Função para fechar o modal com limpeza melhorada
+  // ========================================
   const handleCloseModal = () => {
     setPetModalVisible(false);
     setCurrentPet(null);
     setIsEditMode(false);
-    // Recarrega a lista de pets após fechar o modal
-    fetchUserPets();
+
+    // IMPORTANTE: Pequeno delay para garantir que o modal seja fechado
+    // antes de recarregar os pets, evitando problemas de renderização
+    // e permitindo que a limpeza de erros do modal seja concluída
+    setTimeout(() => {
+      if (canCreatePets && !nameNeedsUpdate) {
+        fetchUserPets();
+      }
+    }, 200); // Aumentado de 100ms para 200ms para melhor sincronia
   };
 
   // Função para processar os dados do formulário
@@ -383,8 +425,12 @@ export default function PetDonationScreen() {
 
   // Função para enviar pet para adoção
   const handleAdoptPet = (petId: number) => {
-    if (!canCreatePets) {
-      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+    if (!canCreatePets || nameNeedsUpdate) {
+      const message = nameNeedsUpdate 
+        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+        : 'Você precisa assinar o termo de responsabilidade.';
+      
+      Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
 
@@ -429,8 +475,12 @@ export default function PetDonationScreen() {
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
-    if (!canCreatePets) {
-      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+    if (!canCreatePets || nameNeedsUpdate) {
+      const message = nameNeedsUpdate 
+        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+        : 'Você precisa assinar o termo de responsabilidade.';
+      
+      Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
 
@@ -457,8 +507,12 @@ export default function PetDonationScreen() {
 
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
-    if (!canCreatePets) {
-      Alert.alert('Termo Necessário', 'Você precisa assinar o termo de responsabilidade.', [{ text: 'OK' }]);
+    if (!canCreatePets || nameNeedsUpdate) {
+      const message = nameNeedsUpdate 
+        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+        : 'Você precisa assinar o termo de responsabilidade.';
+      
+      Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
 
@@ -583,7 +637,7 @@ export default function PetDonationScreen() {
           isEditMode={isEditMode}
         />
 
-        {/* Modal de Termo de Doação - Automático */}
+        {/* 🆕 Modal de Termo de Doação - Automático COM MODO DE ATUALIZAÇÃO */}
         {currentUser && (
           <TermoDoacaoModalAuto
             visible={termoModalVisible}
@@ -594,6 +648,7 @@ export default function PetDonationScreen() {
               telefone: currentUser.telefone,
             }}
             onTermoCompleted={handleTermoCompleted}
+            isNameUpdateMode={isNameUpdateMode} // 🆕 Indicar se é atualização de nome
           />
         )}
       </ImageBackground>
@@ -604,7 +659,6 @@ export default function PetDonationScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4682B4',
   },
   activeCircle: {
     backgroundColor: '#E8F1F8',
@@ -621,7 +675,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'flex-start',
     paddingHorizontal: 20,
-    paddingTop: 15,
+    paddingTop: 45,
   },
   header: {
     flexDirection: 'row',

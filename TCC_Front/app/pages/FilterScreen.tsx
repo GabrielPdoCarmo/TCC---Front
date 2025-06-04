@@ -652,12 +652,12 @@ export default function FilterScreen() {
     if (hasActiveSearch && searchQuery.trim() !== '') {
       filters.searchQuery = searchQuery.trim();
       // Filtrar apenas pets com status_id = 2 (redundante mas garante)
-      const filteredResults = searchResults.filter(pet => pet.status_id === 2);
+      const filteredResults = searchResults.filter((pet) => pet.status_id === 2);
       filters.searchResults = filteredResults;
     }
 
     // VALIDAÇÃO: Verificar se pelo menos um filtro foi aplicado
-    const hasAnyFilter = 
+    const hasAnyFilter =
       selectedEspecieIds.length > 0 ||
       selectedFaixasEtarias.length > 0 ||
       selectedRacaIds.length > 0 ||
@@ -667,11 +667,9 @@ export default function FilterScreen() {
       (hasActiveSearch && searchQuery.trim() !== '');
 
     if (!hasAnyFilter) {
-      Alert.alert(
-        'Nenhum Filtro Aplicado',
-        'Aplique pelo menos um dos filtros avançados para avançar',
-        [{ text: 'OK' }]
-      );
+      Alert.alert('Nenhum Filtro Aplicado', 'Aplique pelo menos um dos filtros avançados para avançar', [
+        { text: 'OK' },
+      ]);
       return;
     }
 
@@ -719,8 +717,8 @@ export default function FilterScreen() {
             {/* Botão X integrado com animação */}
             {searchQuery.length > 0 && (
               <Animated.View style={{ opacity: fadeAnim }}>
-                <TouchableOpacity 
-                  onPress={clearSearch} 
+                <TouchableOpacity
+                  onPress={clearSearch}
                   style={styles.clearSearchIconButtonNew}
                   activeOpacity={0.7}
                   hitSlop={{ top: 10, bottom: 10, left: 10, right: 10 }}
@@ -928,9 +926,7 @@ export default function FilterScreen() {
           </View>
           <View style={[styles.emptyStateContainer, styles.emptyStateAttached]}>
             <Text style={styles.emptyStateText}>
-              {searchRaca.trim()
-                ? `Nenhuma raça encontrada para "${searchRaca}"`
-                : 'Nenhuma raça disponível'}
+              {searchRaca.trim() ? `Nenhuma raça encontrada para "${searchRaca}"` : 'Nenhuma raça disponível'}
             </Text>
           </View>
         </>
@@ -975,9 +971,7 @@ export default function FilterScreen() {
                       ]}
                       onPress={() => toggleSelection(raca.id, racas, setRacas, 'raca')}
                     >
-                      <Text style={[styles.filterItemText, raca.selected && styles.selectedItemText]}>
-                        {raca.nome}
-                      </Text>
+                      <Text style={[styles.filterItemText, raca.selected && styles.selectedItemText]}>{raca.nome}</Text>
                       {raca.selected && (
                         <View style={styles.checkmark}>
                           <Text style={styles.checkmarkText}>✓</Text>
@@ -1045,9 +1039,7 @@ export default function FilterScreen() {
           </View>
           <View style={[styles.emptyStateContainer, styles.emptyStateAttached]}>
             <Text style={styles.emptyStateText}>
-              {searchCidade.trim()
-                ? `Nenhuma cidade encontrada para "${searchCidade}"`
-                : 'Nenhuma cidade disponível'}
+              {searchCidade.trim() ? `Nenhuma cidade encontrada para "${searchCidade}"` : 'Nenhuma cidade disponível'}
             </Text>
           </View>
         </>
@@ -1327,11 +1319,7 @@ export default function FilterScreen() {
             </>
           )}
 
-          {racasExpanded && hasSelectedEspecies() && (
-            <View style={styles.expandedSection}>
-              {renderRacasItems()}
-            </View>
-          )}
+          {racasExpanded && hasSelectedEspecies() && <View style={styles.expandedSection}>{renderRacasItems()}</View>}
 
           {/* Seção Região */}
           <TouchableOpacity style={styles.filterSection} onPress={() => setRegiaoExpanded(!regiaoExpanded)}>
@@ -1387,9 +1375,7 @@ export default function FilterScreen() {
               )}
 
               {cidadesExpanded && hasSelectedEstados() && (
-                <View style={styles.subExpandedSection}>
-                  {renderCidadesItems()}
-                </View>
+                <View style={styles.subExpandedSection}>{renderCidadesItems()}</View>
               )}
             </View>
           )}
@@ -1432,7 +1418,6 @@ export default function FilterScreen() {
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#FFF',
   },
   backgroundImage: {
     flex: 1,
@@ -1443,6 +1428,7 @@ const styles = StyleSheet.create({
   scrollView: {
     flex: 1,
     padding: 20,
+    paddingTop: 40,
   },
   backButton: {
     flexDirection: 'row',
@@ -1775,7 +1761,7 @@ const styles = StyleSheet.create({
     fontWeight: '500',
     marginLeft: 8,
   },
-  
+
   // ESTILOS ATUALIZADOS PARA BUSCA POR NOME COM BOTÃO X MELHORADO
   searchNameContainer: {
     backgroundColor: '#FFF',
@@ -1824,7 +1810,7 @@ const styles = StyleSheet.create({
     width: 20,
     height: 20,
   },
-  
+
   // NOVOS ESTILOS: Botão X melhorado
   clearSearchIconButtonNew: {
     width: 26,

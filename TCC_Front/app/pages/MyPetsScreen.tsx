@@ -1,4 +1,5 @@
-// MyPetsScreen.tsx - Corrigindo sequência de modais iOS
+// MyPetsScreen.tsx - Atualizado com verificação de nome para termos de compromisso
+
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -27,7 +28,7 @@ import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getFavorito from '@/services/api/Favoritos/getFavorito';
 import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
-import getTermoByPet from '@/services/api/Termo/getTermoByPet';
+import { checkCanAdopt } from '@/services/api/TermoCompromisso/checkCanAdopt'; // 🆕 Importações atualizadas
 import updateStatus from '@/services/api/Status/updateStatus';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
@@ -92,8 +93,8 @@ interface FilterParams {
   statusIds?: number[];
 }
 
-// 🆕 Estados dos modais seguindo sequência iOS
-type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled';
+// 🆕 Estados dos modais seguindo sequência iOS ATUALIZADA
+type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled' | 'name-update-needed';
 
 const { width } = Dimensions.get('window');
 
@@ -110,14 +111,16 @@ export default function MyPetsScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
-  // 🆕 Estados para controlar sequência de modais iOS
+  // 🆕 Estados para controlar sequência de modais iOS ATUALIZADOS
   const [modalState, setModalState] = useState<ModalState>('closed');
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [hasExistingTermo, setHasExistingTermo] = useState<boolean>(false);
-  // 🔧 NOVO: Estado separado para controlar se o email foi enviado
   const [emailWasSent, setEmailWasSent] = useState<boolean>(false);
-  // 🆕 NOVO: Estado para rastrear de onde veio o modal do termo
-  const [termoModalOrigin, setTermoModalOrigin] = useState<'obter' | 'ver'>('obter');
+  const [termoModalOrigin, setTermoModalOrigin] = useState<'obter' | 'ver' | 'update'>('obter');
+
+  // 🆕 NOVOS ESTADOS para verificação de nome
+  const [nameNeedsUpdate, setNameNeedsUpdate] = useState<boolean>(false);
+  const [isNameUpdateMode, setIsNameUpdateMode] = useState<boolean>(false);
 
   // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
@@ -505,7 +508,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 FUNÇÃO PRINCIPAL: handleCommunicate - SEMPRE começa com primeiro modal
+  // 🆕 FUNÇÃO PRINCIPAL ATUALIZADA: handleCommunicate - COM VERIFICAÇÃO DE NOME
   const handleCommunicate = async (pet: Pet) => {
     try {
       console.log('📱 Iniciando comunicação para o pet:', pet.nome);
@@ -523,35 +526,55 @@ export default function MyPetsScreen() {
         return;
       }
 
-      // 🎯 SEMPRE começar com o primeiro modal (WhatsApp inicial ou habilitado)
+      // 🎯 NOVA LÓGICA: Verificar se pode adotar com verificação de nome
       setSelectedPet(pet);
-      // 🔧 RESETAR estados ao abrir novo modal
       setEmailWasSent(false);
-      setTermoModalOrigin('obter'); // 🔧 RESETAR origem do modal
-      
-      // Verificar silenciosamente se já tem termo para definir estado correto
+      setTermoModalOrigin('obter');
+
+      console.log('🔍 Verificando se pode adotar pet com verificação de nome...');
+
       try {
-        const termoResponse = await getTermoByPet(pet.id);
-        
-        if (termoResponse && termoResponse.data) {
-          console.log('✅ Pet já tem termo, mas verificando se pode usar WhatsApp...');
-          setHasExistingTermo(true);
-          
-          // 🔧 LÓGICA CORRIGIDA: Mesmo que tenha termo, se email não foi enviado, volta para inicial
-          // Por agora, assumimos que se tem termo, pode usar WhatsApp
-          // (ideal seria ter uma flag no backend indicando se email foi enviado)
+        const verificacao = await checkCanAdopt(pet.id);
+
+        const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
+
+        console.log('📋 Resultado da verificação:', {
+          podeAdotar,
+          temTermo,
+          nomeDesatualizado,
+        });
+
+        setHasExistingTermo(temTermo);
+        setNameNeedsUpdate(nomeDesatualizado);
+
+        if (nomeDesatualizado) {
+          console.log('⚠️ Nome foi alterado, mostrando modal para atualização...');
+          setIsNameUpdateMode(true);
+          setTermoModalOrigin('update');
+          setModalState('termo-creation'); // Ir direto para criação/atualização
+        } else if (temTermo && podeAdotar) {
+          console.log('✅ Tem termo válido, pode usar WhatsApp');
+          setIsNameUpdateMode(false);
           setModalState('whatsapp-enabled');
+        } else if (temTermo && !podeAdotar) {
+          console.log('🚫 Pet já tem termo de outro usuário');
+          Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
+            { text: 'OK' },
+          ]);
+          return;
         } else {
-          console.log('ℹ️ Pet não tem termo, mostrando modal WhatsApp inicial');
-          setHasExistingTermo(false);
+          console.log('📝 Não tem termo, mostrar modal inicial');
+          setIsNameUpdateMode(false);
           setModalState('whatsapp-initial');
         }
       } catch (error) {
-        console.log('ℹ️ Erro ao verificar termo (provavelmente não existe), mostrando modal inicial');
+        console.error('❌ Erro ao verificar se pode adotar:', error);
+        // Em caso de erro, assumir que não tem termo
         setHasExistingTermo(false);
+        setNameNeedsUpdate(false);
+        setIsNameUpdateMode(false);
         setModalState('whatsapp-initial');
       }
-
     } catch (error: any) {
       console.error('Erro ao iniciar comunicação:', error);
       Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
@@ -561,7 +584,8 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO: Obter Termo (vai do primeiro modal para o modal de criação)
   const handleObterTermo = () => {
     console.log('📋 Clicou em Obter Termo, abrindo modal de criação');
-    setTermoModalOrigin('obter'); // 🔧 Marca que veio do botão "Obter Termo"
+    setTermoModalOrigin('obter');
+    setIsNameUpdateMode(false);
     setModalState('termo-creation');
   };
 
@@ -573,29 +597,36 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO: Ver termo (para modal habilitado)
   const handleViewTermo = () => {
     console.log('👁️ Clicou em Ver Termo, abrindo modal de visualização');
-    setTermoModalOrigin('ver'); // 🔧 Marca que veio do botão "Ver Termo"
+    setTermoModalOrigin('ver');
+    setIsNameUpdateMode(false);
     setModalState('termo-creation');
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: Fechar modal do termo com lógica baseada na origem
+  // 🔧 FUNÇÃO CORRIGIDA: Fechar modal do termo com lógica baseada na origem ATUALIZADA
   const handleTermoModalClose = () => {
     console.log('🔙 Fechando modal do termo, verificando origem...');
-    
-    // 🔧 LÓGICA CORRIGIDA: Se veio de "Ver Termo", volta sempre para WhatsApp habilitado
+
     if (termoModalOrigin === 'ver') {
       console.log('✅ Veio de "Ver Termo", voltando para WhatsApp habilitado');
       setModalState('whatsapp-enabled');
+    } else if (termoModalOrigin === 'update') {
+      // 🆕 LÓGICA PARA ATUALIZAÇÃO DE NOME
+      if (emailWasSent) {
+        console.log('✅ Atualização de nome concluída e email enviado, habilitando WhatsApp');
+        setModalState('whatsapp-enabled');
+      } else {
+        console.log('⚠️ Atualização de nome não concluída, fechando tudo');
+        setModalState('closed');
+      }
     } else if (termoModalOrigin === 'obter') {
-      // Se veio de "Obter Termo", verifica se email foi enviado
       if (emailWasSent) {
         console.log('✅ Veio de "Obter Termo" e email foi enviado, habilitando WhatsApp');
         setModalState('whatsapp-enabled');
       } else {
-        console.log('⚠️ Veio de "Obter Termo" mas email NÃO foi enviado, voltando para WhatsApp inicial (bloqueado)');
+        console.log('⚠️ Veio de "Obter Termo" mas email NÃO foi enviado, voltando para WhatsApp inicial');
         setModalState('whatsapp-initial');
       }
     } else {
-      // Fallback para caso não tenha origem definida
       console.log('⚠️ Origem não definida, usando lógica do email');
       if (emailWasSent) {
         setModalState('whatsapp-enabled');
@@ -605,19 +636,22 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 FUNÇÃO: Termo foi criado com sucesso (mantém no modal do termo para enviar email)
+  // 🆕 FUNÇÃO: Termo foi criado/atualizado com sucesso
   const handleTermoCreated = () => {
-    console.log('✅ Termo criado com sucesso, mantendo no modal para enviar email');
+    const action = isNameUpdateMode ? 'atualizado' : 'criado';
+    console.log(`✅ Termo ${action} com sucesso, mantendo no modal para enviar email`);
     setHasExistingTermo(true);
-    // 🔧 NÃO seta emailWasSent aqui, pois ainda precisa enviar o email
-    // NÃO muda o modal state aqui - permanece no termo para enviar email
+    setNameNeedsUpdate(false); // 🆕 Reset flag de nome desatualizado
   };
 
   // 🔧 FUNÇÃO CORRIGIDA: Email enviado com sucesso
   const handleEmailSent = () => {
-    console.log('📧 Email enviado com sucesso, habilitando WhatsApp');
+    const action = isNameUpdateMode ? 'atualizado' : 'criado';
+    console.log(`📧 Email do termo ${action} enviado com sucesso, habilitando WhatsApp`);
     setHasExistingTermo(true);
-    setEmailWasSent(true); // 🔧 AGORA sim marca que email foi enviado
+    setEmailWasSent(true);
+    setNameNeedsUpdate(false); // 🆕 Reset flag
+    setIsNameUpdateMode(false); // 🆕 Reset modo
     setModalState('whatsapp-enabled');
   };
 
@@ -639,9 +673,10 @@ export default function MyPetsScreen() {
 
         Alert.alert(
           'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${selectedPet.usuario_email
-            ? `Você pode tentar entrar em contato pelo email: ${selectedPet.usuario_email}`
-            : 'Tente entrar em contato através do app posteriormente.'
+          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
+            selectedPet.usuario_email
+              ? `Você pode tentar entrar em contato pelo email: ${selectedPet.usuario_email}`
+              : 'Tente entrar em contato através do app posteriormente.'
           }`,
           [{ text: 'OK' }]
         );
@@ -747,8 +782,12 @@ Agradeço desde já! 🐾❤️`;
     setModalState('closed');
     setSelectedPet(null);
     setHasExistingTermo(false);
-    setEmailWasSent(false); // 🔧 RESETAR também o estado do email
-    setTermoModalOrigin('obter'); // 🔧 RESETAR origem do modal do termo
+    setEmailWasSent(false);
+    setTermoModalOrigin('obter');
+
+    // 🆕 Reset estados de nome
+    setNameNeedsUpdate(false);
+    setIsNameUpdateMode(false);
   };
 
   // Remover pet dos meus pets usando deleteMyPet
@@ -996,11 +1035,12 @@ Agradeço desde já! 🐾❤️`;
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {hasActiveSearch && searchQuery.trim() !== ''
-                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${activeFilters ? ' e filtros aplicados' : ''
-                  }`
+                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${
+                      activeFilters ? ' e filtros aplicados' : ''
+                    }`
                   : activeFilters
-                    ? 'Nenhum pet encontrado com os filtros selecionados'
-                    : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
+                  ? 'Nenhum pet encontrado com os filtros selecionados'
+                  : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
               </Text>
               {activeFilters && (
                 <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
@@ -1026,8 +1066,8 @@ Agradeço desde já! 🐾❤️`;
           )}
         </View>
 
-        {/* 🆕 MODAIS SEGUINDO SEQUÊNCIA iOS */}
-        
+        {/* 🆕 MODAIS SEGUINDO SEQUÊNCIA iOS ATUALIZADOS */}
+
         {/* Modal de Adoção/WhatsApp (para ambos os estados: inicial e habilitado) */}
         {selectedPet && (modalState === 'whatsapp-initial' || modalState === 'whatsapp-enabled') && (
           <AdoptionModal
@@ -1035,18 +1075,20 @@ Agradeço desde já! 🐾❤️`;
             onClose={handleCloseAllModals}
             onStartAdoption={modalState === 'whatsapp-enabled' ? handleStartAdoption : handleObterTermo}
             onViewTermo={handleViewTermo}
-            pet={{
-              nome: selectedPet.nome,
-              usuario_nome: selectedPet.usuario_nome,
-              foto: selectedPet.foto,
-              // 🆕 Propriedades para controlar o comportamento do modal
-              isInitialState: modalState === 'whatsapp-initial',
-              hasExistingTermo: hasExistingTermo,
-            } as any}
+            pet={
+              {
+                nome: selectedPet.nome,
+                usuario_nome: selectedPet.usuario_nome,
+                foto: selectedPet.foto,
+                // 🆕 Propriedades para controlar o comportamento do modal
+                isInitialState: modalState === 'whatsapp-initial',
+                hasExistingTermo: hasExistingTermo,
+              } as any
+            }
           />
         )}
 
-        {/* 🆕 MODAL DO TERMO (aparece quando clica em Obter/Ver Termo) */}
+        {/* 🆕 MODAL DO TERMO ATUALIZADO (aparece quando clica em Obter/Ver/Atualizar Termo) */}
         {selectedPet && usuario && modalState === 'termo-creation' && (
           <TermoAdocaoModal
             visible={true}
@@ -1061,6 +1103,9 @@ Agradeço desde já! 🐾❤️`;
             hasExistingTermo={hasExistingTermo}
             onSuccess={handleTermoCreated}
             onEmailSent={handleEmailSent}
+            // 🆕 NOVAS PROPS para indicar modo de atualização de nome
+            isNameUpdateMode={isNameUpdateMode}
+            nameNeedsUpdate={nameNeedsUpdate}
           />
         )}
       </ImageBackground>
@@ -1068,10 +1113,10 @@ Agradeço desde já! 🐾❤️`;
   );
 }
 
+// Estilos permanecem os mesmos...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#4682B4',
   },
   petCardWrapper: {
     paddingHorizontal: 15,
@@ -1092,6 +1137,7 @@ const styles = StyleSheet.create({
     paddingVertical: 15,
     marginTop: 10,
     minHeight: 60,
+    paddingTop: 35,
   },
   backButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',

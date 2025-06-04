@@ -10,15 +10,15 @@ import {
   Platform,
   Image,
   Alert,
-  ActivityIndicator, // Adicionado para o loading
+  ActivityIndicator,
 } from 'react-native';
 import { useRouter } from 'expo-router';
 
 import RacasSelectionModal from './RacasSelectionModal';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as ImagePicker from 'expo-image-picker';
-import updatePet from '../../services/api/Pets/updatePet'; // Importando a função de atualização
-import postPet from '../../services/api/Pets/postPet'; // Importando a função de criação
+import updatePet from '../../services/api/Pets/updatePet';
+import postPet from '../../services/api/Pets/postPet';
 import getEspecies from '../../services/api/Especies/getEspecies';
 import getRacasPorEspecie from '../../services/api/Raca/getRacasPorEspecie';
 import getFaixaEtaria from '../../services/api/Faixa-etaria/getFaixaEtaria';
@@ -27,23 +27,19 @@ import getDoencasPorPetId from '../../services/api/Doenca/getDoencasPorPetId';
 import getDoencaPorId from '../../services/api/Doenca/getDoencaPorId';
 import getUsuarioByIdComCidadeEstado from '../../services/api/Usuario/getUsuarioByIdComCidadeEstado';
 
-// Updated PetDonationModalProps to include pet and isEditMode
 interface PetDonationModalProps {
   visible: boolean;
   onClose: () => void;
   onSubmit: (formData: FormData) => void;
-  pet?: any; // Pet object for editing mode
-  isEditMode?: boolean; // Flag to determine if in edit mode
+  pet?: any;
+  isEditMode?: boolean;
 }
 
-// Interface for API data
 interface Raca {
   id: string | number;
   nome: string;
-  // Add any other properties that exist in your race object
 }
 
-// Interface for payload sent to API
 interface PetPayload {
   nome: string;
   especie_id: number;
@@ -61,13 +57,12 @@ interface PetPayload {
   foto: any;
 }
 
-// Interface for the form that matches the actual structure used
 interface FormData {
   nome: string;
-  especie: any; // Complete species object from API
+  especie: any;
   raca: string;
   idade: string;
-  idadeCategoria: any; // Complete age range object from API
+  idadeCategoria: any;
   responsavel: string;
   estado: string;
   cidade: string;
@@ -79,14 +74,12 @@ interface FormData {
   foto: any;
 }
 
-// Define possible response formats from your API
 interface RacasResponse {
   data?: Raca[];
   results?: Raca[];
-  [key: string]: any; // For other possible structures
+  [key: string]: any;
 }
 
-// Interface for user data
 interface UserData {
   id: number;
   nome: string;
@@ -104,8 +97,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   visible,
   onClose,
   onSubmit,
-  pet = null, // Default to null if not provided
-  isEditMode = false, // Default to false if not provided
+  pet = null,
+  isEditMode = false,
 }) => {
   const router = useRouter();
 
@@ -121,7 +114,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // State to store logged user data
   const [userData, setUserData] = useState<UserData | null>(null);
   const [isLoading, setIsLoading] = useState<boolean>(true);
-  const [loadingFoto, setLoadingFoto] = useState<boolean>(false); // NOVO: Estado para loading da foto
+  const [loadingFoto, setLoadingFoto] = useState<boolean>(false);
 
   // States for validation errors
   const [especieErro, setEspecieErro] = useState<string>('');
@@ -135,20 +128,20 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
   const [fotoErro, setFotoErro] = useState<string>('');
 
-  // Initial form state - corrected
+  // Initial form state
   const [formData, setFormData] = useState<FormData>(() => {
     if (isEditMode && pet) {
       return {
         nome: pet.nome || '',
-        especie: '', // Será preenchido no useEffect
+        especie: '',
         raca: pet.raca_nome || '',
         idade: pet.idade ? pet.idade.toString() : '',
-        idadeCategoria: '', // Será preenchido no useEffect
-        responsavel: '', // Será preenchido com dados do usuário
+        idadeCategoria: '',
+        responsavel: '',
         estado: '',
         cidade: '',
         rgPet: pet.rg_Pet || '',
-        sexo: '', // Será preenchido no useEffect
+        sexo: '',
         possuiDoenca: '',
         doencaDescricao: '',
         motivoDoacao: pet.motivoDoacao || '',
@@ -156,7 +149,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       };
     }
 
-    // Caso contrário, retorne o estado inicial padrão
     return {
       nome: '',
       especie: '',
@@ -175,10 +167,95 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     };
   });
 
+  // ========================================
+  // FUNÇÃO ESPECÍFICA PARA LIMPAR TODOS OS ERROS
+  // ========================================
+  const limparTodosOsErros = () => {
+    console.log('🧹 Limpando todos os erros...'); // Debug
+    setEspecieErro('');
+    setFaixaEtariaErro('');
+    setSexoErro('');
+    setIdadeErro('');
+    setRacaErro('');
+    setNomeErro('');
+    setPossuiDoencaErro('');
+    setDoencaDescricaoErro('');
+    setMotivoDoacaoErro('');
+    setFotoErro('');
+    console.log('✅ Todos os erros foram limpos'); // Debug
+  };
+
+  // ========================================
+  // FUNÇÃO PARA RESETAR FORMULÁRIO COMPLETO
+  // ========================================
+  const resetarFormulario = () => {
+    console.log('🔄 Resetando formulário...'); // Debug
+    setFormData({
+      especie: '',
+      nome: '',
+      raca: '',
+      idadeCategoria: '',
+      idade: '',
+      responsavel: userData?.nome || '',
+      estado: userData?.estado?.nome || '',
+      cidade: userData?.cidade?.nome || '',
+      rgPet: '',
+      sexo: '',
+      possuiDoenca: '',
+      doencaDescricao: '',
+      motivoDoacao: '',
+      foto: null,
+    });
+    
+    // Resetar outros estados
+    setShowRacasModal(false);
+    setRacasFiltradas([]);
+    setFaixasEtariasFiltradas([]);
+    console.log('✅ Formulário resetado'); // Debug
+  };
+
+  // ========================================
+  // FUNÇÃO PRINCIPAL PARA FECHAR O MODAL (CORRIGIDA)
+  // ========================================
+  const handleCloseModal = () => {
+    console.log('🔧 INICIANDO fechamento do modal...'); // Debug
+    
+    // FORÇA a limpeza IMEDIATA dos erros
+    limparTodosOsErros();
+    
+    // FORÇA o reset do formulário
+    resetarFormulario();
+    
+    // Fechar o modal
+    onClose();
+    
+    console.log('✅ Modal fechado com sucesso!'); // Debug
+  };
+
+  // ========================================
+  // MONITORAR VISIBILIDADE DO MODAL
+  // ========================================
+  useEffect(() => {
+    console.log('👁️ Visibilidade do modal mudou:', visible); // Debug
+    
+    if (!visible) {
+      console.log('❌ Modal ficou invisível, executando limpeza adicional...'); // Debug
+      
+      // Usar setTimeout para garantir que a limpeza aconteça
+      setTimeout(() => {
+        limparTodosOsErros();
+        console.log('🧹 Limpeza adicional concluída'); // Debug
+      }, 100);
+    }
+  }, [visible]);
+
+  // ========================================
+  // RESTANTE DAS FUNÇÕES (sem alterações significativas)
+  // ========================================
+
   // Function to fetch logged user data
   const fetchUserData = async () => {
     try {
-      // Use the same '@App:userId' key that was used to store
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
@@ -188,8 +265,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
 
       const userIdNumber = parseInt(userId, 10);
-
-      // Rest of the code remains the same...
       const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
 
       if (!userData) {
@@ -215,76 +290,56 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   };
 
   // Load pet data if in edit mode
-  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
-  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
-  // Modifique o useEffect para carregamento dos dados do pet no modo de edição
   useEffect(() => {
     if (isEditMode && pet) {
       const setPetDataToForm = async () => {
         try {
           setIsLoading(true);
-          // Verifica se há dados suficientes antes de continuar
           if (especies.length === 0 || faixasEtarias.length === 0 || sexoOpcoes.length === 0) {
             console.log('Esperando carregamento completo dos dados...');
-            return; // Sai da função e aguarda o próximo ciclo quando os dados estiverem disponíveis
+            return;
           }
-          // Encontrar a espécie do pet diretamente pelo ID da espécie
+
           const especieData = especies.find((e) => e.id === pet.especie_id);
 
-          // Se não temos a espécie diretamente, tentamos encontrar pela raça
           if (!especieData && pet.raca_id) {
             const raca = racas.find((r) => r.id === pet.raca_id);
             if (raca) {
               const especiePorRaca = especies.find((e) => e.id === raca.especie_id);
               if (especiePorRaca) {
-                // Encontramos a espécie pela raça
                 await loadRacasByEspecie(especiePorRaca.id);
               }
             }
           } else if (especieData) {
-            // Se encontramos a espécie diretamente, carregamos as raças
             await loadRacasByEspecie(especieData.id);
           }
 
-          // Encontrar a faixa etária correta
           const faixaEtaria = faixasEtarias.find((f) => f.id === pet.faixa_etaria_id);
-
-          // Encontrar o sexo do pet
           const sexoData = sexoOpcoes.find((s) => s.id === pet.sexo_id);
 
-          // Buscar doenças do pet da API
           let possuiDoenca = 'Não';
           let doencaDescricao = '';
 
           try {
-            // Buscar as doenças do pet usando a API getDoencasPorPetId
             const doencasResponse = await getDoencasPorPetId(pet.id);
 
-            // Modificação no trecho onde verifica as doenças:
             if (doencasResponse && Array.isArray(doencasResponse) && doencasResponse.length > 0) {
               possuiDoenca = 'Sim';
-
-              // Use a chave correta para o ID da doença
               const doencaId = doencasResponse[0].doencaDeficiencia_id;
 
               if (doencaId) {
                 try {
                   const doencaDetalhes = await getDoencaPorId(doencaId);
-
-                  // Se a API retornou detalhes válidos da doença
                   if (doencaDetalhes && (doencaDetalhes.nome || doencaDetalhes.descricao)) {
                     doencaDescricao = doencaDetalhes.nome || doencaDetalhes.descricao;
                   } else {
-                    // Verifique se já temos o nome da doença na resposta original
                     doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
                   }
                 } catch (doencaDetalhesError) {
                   console.error('Erro ao buscar detalhes da doença:', doencaDetalhesError);
-                  // Em caso de erro, usar o nome da doença da lista inicial se disponível
                   doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
                 }
               } else {
-                // Se não houver ID válido, veja se temos o nome diretamente na resposta
                 doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
               }
             }
@@ -293,7 +348,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             Alert.alert('Erro', 'Falha ao carregar doenças do pet.');
           }
 
-          // Atualizar o formulário com os dados do pet
           setFormData({
             nome: pet.nome || '',
             especie: especieData || '',
@@ -311,7 +365,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             foto: pet.foto || null,
           });
 
-          // Se tivermos a espécie, filtramos as faixas etárias
           if (especieData) {
             const faixasFiltradas = faixasEtarias.filter((faixa) => faixa.especie_id === especieData.id);
             setFaixasEtariasFiltradas(faixasFiltradas);
@@ -324,15 +377,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         }
       };
 
-      // Só tentamos preencher o formulário quando temos todos os dados necessários carregados
       if (especies.length > 0 && faixasEtarias.length > 0 && sexoOpcoes.length > 0) {
         setPetDataToForm();
       }
     }
   }, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
-
-  // Adicione esta função para depurar os valores do formulário quando eles mudam
-  useEffect(() => {}, [formData]);
 
   // Fetch data from APIs when component mounts
   useEffect(() => {
@@ -340,18 +389,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       try {
         setIsLoading(true);
 
-        // Fetch user data
         await fetchUserData();
 
-        // Fetch species
         const especiesData = await getEspecies();
-
-        // Important: Check the structure of returned data
         if (Array.isArray(especiesData)) {
           setEspecies(especiesData);
         } else if (especiesData && typeof especiesData === 'object') {
-          // If not an array but an object, may be in a property
-          // For example: { data: [...] }
           const dataArray = especiesData.data || especiesData.results || Object.values(especiesData);
           if (Array.isArray(dataArray)) {
             setEspecies(dataArray);
@@ -364,10 +407,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           setEspecies([]);
         }
 
-        // Get age ranges
         const faixasEtariasData = await getFaixaEtaria();
-
-        // Same treatment for age ranges
         if (Array.isArray(faixasEtariasData)) {
           setFaixasEtarias(faixasEtariasData);
         } else if (faixasEtariasData && typeof faixasEtariasData === 'object') {
@@ -383,13 +423,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           setFaixasEtarias([]);
         }
 
-        // Initially we won't have filtered ranges until user selects a species
         setFaixasEtariasFiltradas([]);
 
-        // Get pet sex options
         const sexoPetData = await getSexoPet();
-
-        // Same treatment for sex options
         if (Array.isArray(sexoPetData)) {
           setSexoOpcoes(sexoPetData);
         } else if (sexoPetData && typeof sexoPetData === 'object') {
@@ -415,24 +451,17 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     fetchData();
   }, []);
 
-  // Debug useEffect to check values after loading
-  useEffect(() => {}, [especies, faixasEtarias, sexoOpcoes, userData]);
-
   // Function to load races based on selected species
   const loadRacasByEspecie = async (especieId: number) => {
     try {
-      // Reset race state in form
       setFormData((prev) => ({ ...prev, raca: '' }));
       setRacasFiltradas([]);
 
-      // Get races by species
       const racasData = await getRacasPorEspecie(especieId);
 
-      // Process race data with proper type handling
       if (Array.isArray(racasData)) {
         setRacasFiltradas(racasData as Raca[]);
       } else if (racasData && typeof racasData === 'object') {
-        // Use type assertion to tell TypeScript about the structure
         const typedData = racasData as RacasResponse;
         const dataArray = typedData.data || typedData.results || Object.values(typedData);
 
@@ -467,35 +496,26 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
   // Function to update form state
   const handleChange = (name: keyof FormData, value: string | any) => {
-    // Impedir alterações em campos do usuário (responsável, cidade, estado)
     if (name === 'responsavel' || name === 'cidade' || name === 'estado') {
-      return; // Não permite alterações nesses campos
+      return;
     }
 
-    // Caso especial para o campo de idade - otimiza a performance de digitação
     if (name === 'idade') {
-      // Verificar se o valor é apenas numérico (fazer esta verificação primeiro)
       if (value && !/^\d*$/.test(value)) {
-        return; // Não atualiza o estado se não for numérico
+        return;
       }
 
-      // Atualiza o estado primeiro para melhor experiência de digitação
       setFormData((prevState) => ({
         ...prevState,
         [name]: value,
       }));
 
-      // Se o usuário digitou um valor e temos uma faixa etária selecionada
-      // podemos validar imediatamente, mas de forma otimizada
       if (value && formData.idadeCategoria) {
-        // Verificamos se o número está dentro da faixa permitida
         const idadeNum = parseInt(value, 10);
         const idadeMin = formData.idadeCategoria.idade_min || 0;
         const idadeMax = formData.idadeCategoria.idade_max || Infinity;
 
-        // Validação simplificada e otimizada
         if ((idadeMax !== null && idadeNum > idadeMax) || idadeNum < idadeMin) {
-          // Fora da faixa permitida
           let mensagemErro;
           if (formData.idadeCategoria.idade_max === null) {
             mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
@@ -504,19 +524,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           }
           setIdadeErro(mensagemErro);
         } else {
-          // Dentro da faixa permitida
           setIdadeErro('');
         }
       } else {
-        // Se não tiver valor ou faixa etária, limpa o erro
         setIdadeErro('');
       }
 
-      // Não continua processando outros campos
       return;
     }
 
-    // Trata limites de outros campos
     if (name === 'nome') {
       if (value.length > 50) {
         value = value.slice(0, 50);
@@ -535,7 +551,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
     }
 
-    // Limpa mensagens de erro quando o campo é preenchido
     if (value) {
       switch (name) {
         case 'nome':
@@ -575,11 +590,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       [name]: value,
     }));
 
-    // Se a espécie foi alterada, filtra as faixas etárias correspondentes e carrega as raças
     if (name === 'especie' && value) {
       console.log('Espécies selecionadas:', value);
 
-      // Filtra faixas etárias por especie_id
       const faixasFiltradas = faixasEtarias.filter((faixa) => {
         console.log(`Comparação: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
         return faixa.especie_id === value.id;
@@ -588,19 +601,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       console.log('Faixas filtradas:', faixasFiltradas);
       setFaixasEtariasFiltradas(faixasFiltradas);
 
-      // Carrega raças para esta espécie
       loadRacasByEspecie(Number(value.id));
 
-      // Reseta seleção de faixa etária e idade
       setFormData((prev) => ({ ...prev, idadeCategoria: '', idade: '', raca: '' }));
       setIdadeErro('');
       setRacaErro('');
     }
 
-    // Se a faixa etária foi alterada, limpa o campo de idade
     if (name === 'idadeCategoria') {
       setFormData((prev) => ({ ...prev, idade: '' }));
-      // Limpa qualquer erro existente ao mudar a faixa etária
       setIdadeErro('');
     }
   };
@@ -625,36 +634,28 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  // Function to check if object has description property
   const getDescricao = (obj: any) => {
     if (!obj) return '';
 
-    // Try different common properties for description
     if (obj.descricao) return obj.descricao;
     if (obj.description) return obj.description;
     if (obj.nome) return obj.nome;
     if (obj.name) return obj.name;
 
-    // If no expected property is found, return object representation
     return JSON.stringify(obj);
   };
 
   const getSelectedRacaId = () => {
-    // If race not selected, return null
     if (!formData.raca) return null;
 
-    // Find race that matches selected name
     const racaEncontrada = racasFiltradas.find((raca) => getDescricao(raca) === formData.raca);
 
     return racaEncontrada ? racaEncontrada.id : null;
   };
 
-  // Function to get sex ID based on description
   const getSexoIdFromDescription = (sexoDescricao: string) => {
-    // If sex not selected, return null
     if (!sexoDescricao) return null;
 
-    // Find sex that matches selected description
     const sexoEncontrado = sexoOpcoes.find((sexo) => getDescricao(sexo) === sexoDescricao);
 
     return sexoEncontrado ? sexoEncontrado.id : null;
@@ -663,13 +664,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // Function to handle form submission
   const handleSubmit = async () => {
     if (isEditMode && (!formData.especie || !formData.idadeCategoria || !formData.sexo)) {
-      // Adicione esta verificação no início do handleSubmit
       Alert.alert('Aviso', 'Aguarde o carregamento completo dos dados antes de atualizar');
       return;
     }
     let isValid = true;
 
-    // Existing validations
     if (!formData.especie) {
       setEspecieErro('Selecione uma espécie');
       isValid = false;
@@ -684,17 +683,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       setFaixaEtariaErro('');
     }
 
-    // New validation: check if age is empty when an age range is selected
     if (formData.idadeCategoria && !formData.idade) {
       setIdadeErro('Por favor insira a idade');
       isValid = false;
     } else if (formData.idade && formData.idadeCategoria) {
-      // Age validation if filled
       const idadeValida = validarIdade(formData.idade, formData.idadeCategoria);
       if (!idadeValida) {
         const idadeMin = formData.idadeCategoria.idade_min || 0;
 
-        // Special treatment for case where idade_max is null (elderly)
         let mensagemErro;
         if (formData.idadeCategoria.idade_max === null) {
           mensagemErro = `A idade deve ser ${idadeMin} ou mais`;
@@ -723,7 +719,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       setRacaErro('');
     }
 
-    // New validations
     if (!formData.nome) {
       setNomeErro('Por favor insira um nome');
       isValid = false;
@@ -738,7 +733,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       setPossuiDoencaErro('');
     }
 
-    // Validate disease description only if possuiDoenca is "Sim"
     if (formData.possuiDoenca === 'Sim' && !formData.doencaDescricao) {
       setDoencaDescricaoErro('Por favor descreva a doença/deficiência');
       isValid = false;
@@ -753,7 +747,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       setMotivoDoacaoErro('');
     }
 
-    // Only validate photo if adding a new pet (not in edit mode) or if changing the photo
     if (!isEditMode && !formData.foto) {
       setFotoErro('Selecione uma foto');
       isValid = false;
@@ -762,12 +755,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
 
     if (!isValid) {
-      Alert.alert('Error', 'Por favor, preencha todos os campos obrigatórios corretamente.');
+      Alert.alert('Campos Obrigatórios', 'Por favor, preencha todos os campos obrigatórios corretamente.');
       return;
     }
 
     try {
-      // Get user ID from AsyncStorage
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
@@ -775,12 +767,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         return;
       }
 
-      // Prepare data in format expected by API
       const petPayload: PetPayload = {
         nome: formData.nome,
         especie_id: formData.especie.id,
         raca_id: getSelectedRacaId(),
-        idade: parseInt(formData.idade, 10) || 0, // Convert to number
+        idade: parseInt(formData.idade, 10) || 0,
         faixa_etaria_id: formData.idadeCategoria.id,
         usuario_id: parseInt(userId, 10),
         estado_id: userData?.estado.id || 0,
@@ -799,10 +790,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           : null,
       };
 
-      // Show loading
       setIsLoading(true);
 
-      // Send to API - handle update or create based on isEditMode
       let response;
       if (isEditMode && pet) {
         response = await updatePet({
@@ -820,40 +809,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
 
       if (response) {
-        // Pass form data to parent through onSubmit
         onSubmit(formData);
 
-        // Reset form, keeping user data
-        setFormData({
-          especie: '',
-          nome: '',
-          raca: '',
-          idadeCategoria: '',
-          idade: '',
-          responsavel: userData?.nome || '',
-          estado: userData?.estado.nome || '',
-          cidade: userData?.cidade.nome || '',
-          rgPet: '',
-          sexo: '',
-          possuiDoenca: '',
-          doencaDescricao: '',
-          motivoDoacao: '',
-          foto: null,
-        });
+        // ========================================
+        // USAR AS NOVAS FUNÇÕES PARA LIMPEZA
+        // ========================================
+        resetarFormulario();
+        limparTodosOsErros();
 
-        // Clear errors
-        setEspecieErro('');
-        setFaixaEtariaErro('');
-        setSexoErro('');
-        setIdadeErro('');
-        setRacaErro('');
-        setNomeErro('');
-        setPossuiDoencaErro('');
-        setDoencaDescricaoErro('');
-        setMotivoDoacaoErro('');
-        setFotoErro('');
-
-        // Close modal
         onClose();
       } else {
         Alert.alert('Error', 'Não foi possível registrar o pet. Tente novamente.');
@@ -866,13 +829,13 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  // Function to handle closing and navigation
   const handleCloseAndNavigate = () => {
-    onClose(); // Close modal
-    router.push('/pages/PetDonation'); // Navigate to PetDonation screen
+    limparTodosOsErros();
+    resetarFormulario();
+    onClose();
+    router.push('/pages/PetDonation');
   };
 
-  // Function to open breed selection modal
   const openRacasModal = () => {
     if (!formData.especie) {
       setRacaErro('Selecione uma espécie primeiro');
@@ -887,7 +850,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     setShowRacasModal(true);
   };
 
-  // Function to select a breed and close modal
   const selectRaca = (raca: any) => {
     setFormData((prev) => ({
       ...prev,
@@ -897,13 +859,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     setShowRacasModal(false);
   };
 
-  // Function to get age hint for selected age range
   const getIdadePlaceholder = () => {
     if (!formData.idadeCategoria) return 'Idade específica (opcional)';
 
     const idadeMin = formData.idadeCategoria.idade_min !== undefined ? formData.idadeCategoria.idade_min : '';
 
-    // Special treatment for elderly case (idade_max is null)
     if (formData.idadeCategoria.idade_max === null) {
       return `Idade específica (${idadeMin} ou mais)`;
     } else {
@@ -912,13 +872,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  // Função para formatar a exibição dos limites de idade
   const getIdadeLimites = () => {
     if (!formData.idadeCategoria) return '';
 
     const idadeMin = formData.idadeCategoria.idade_min !== undefined ? formData.idadeCategoria.idade_min : '0';
 
-    // Tratamento especial para idosos onde idade_max é null
     if (formData.idadeCategoria.idade_max === null) {
       return `${idadeMin} anos ou mais`;
     } else {
@@ -927,12 +885,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  // NOVA FUNÇÃO: Função para selecionar uma imagem da galeria com loading
   const pickImage = async () => {
     try {
-      setLoadingFoto(true); // Inicia o loading
+      setLoadingFoto(true);
 
-      // Solicitar permissão para acessar a galeria
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
 
       if (status !== 'granted') {
@@ -940,19 +896,14 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         return;
       }
 
-      // Versão simplificada que funciona nas diferentes versões do expo-image-picker
       const result = await ImagePicker.launchImageLibraryAsync({
         allowsEditing: true,
         aspect: [4, 3],
         quality: 1,
       });
 
-      // Se não cancelou a seleção
       if (!result.canceled) {
-        // Simular um pequeno delay para processamento da imagem (opcional)
-        await new Promise(resolve => setTimeout(resolve, 500));
-        
-        // Atualizar o estado com a URI da imagem selecionada
+        await new Promise((resolve) => setTimeout(resolve, 500));
         handleChange('foto', result.assets[0].uri);
         console.log('Imagem selecionada:', result.assets[0].uri);
       }
@@ -960,33 +911,24 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     } finally {
-      setLoadingFoto(false); // Finaliza o loading
+      setLoadingFoto(false);
     }
   };
 
   const formatRG = (text: string): string => {
-    // Remove todos os caracteres não numéricos
     const digits = text.replace(/\D/g, '');
-
-    // Limita a 9 dígitos (padrão RG)
     const limitedDigits = digits.slice(0, 9);
-
-    // Aplica a formatação 00.000.000-0
     let formatted = '';
 
     if (limitedDigits.length > 0) {
-      // Primeiros 2 dígitos
       formatted = limitedDigits.slice(0, 2);
 
-      // Adiciona um ponto após os primeiros 2 dígitos
       if (limitedDigits.length > 2) {
         formatted += '.' + limitedDigits.slice(2, 5);
 
-        // Adiciona outro ponto após o 5º dígito
         if (limitedDigits.length > 5) {
           formatted += '.' + limitedDigits.slice(5, 8);
 
-          // Adiciona hífen e o último dígito
           if (limitedDigits.length > 8) {
             formatted += '-' + limitedDigits.slice(8, 9);
           }
@@ -997,10 +939,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     return formatted;
   };
 
-  // Exibir loading enquanto os dados são carregados
   if (isLoading) {
     return (
-      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleCloseModal}>
         <View style={styles.loadingContainer}>
           <ActivityIndicator size="large" color="#4B99FB" />
           <Text style={styles.loadingText}>Carregando dados...</Text>
@@ -1010,18 +951,19 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   }
 
   return (
-    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
+    <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleCloseModal}>
       <View style={styles.modalContainer}>
         <View style={styles.modalContent}>
-          {/* Título do Formulário */}
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Dados Do Pet</Text>
-            <TouchableOpacity onPress={handleCloseAndNavigate}>
+            {/* ========================================
+                BOTÃO CORRIGIDO PARA USAR handleCloseModal
+                ======================================== */}
+            <TouchableOpacity onPress={handleCloseModal}>
               <Image source={require('../../assets/images/Icone/close-icon.png')} style={styles.closeIcon} />
             </TouchableOpacity>
           </View>
 
-          {/* Formulário em ScrollView */}
           <ScrollView style={styles.formContainer}>
             {/* Espécie */}
             <View style={styles.fieldContainer}>
@@ -1065,7 +1007,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 placeholder="Nome"
                 value={formData.nome}
                 onChangeText={(value) => handleChange('nome', value)}
-                maxLength={50} // Limitar a 50 caracteres
+                maxLength={50}
               />
               {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
             </View>
@@ -1083,7 +1025,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               </TouchableOpacity>
               {racaErro ? <Text style={styles.errorText}>{racaErro}</Text> : null}
 
-              {/* Informa ao usuário para selecionar uma espécie primeiro, se aplicável */}
               {!formData.especie && (
                 <Text style={styles.infoText}>Selecione uma espécie para ver as raças disponíveis</Text>
               )}
@@ -1133,7 +1074,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
               {faixaEtariaErro ? <Text style={styles.errorText}>{faixaEtariaErro}</Text> : null}
 
-              {/* Campo de idade específica - somente visível quando uma faixa etária é selecionada */}
               {formData.idadeCategoria ? (
                 <View>
                   <TextInput
@@ -1142,12 +1082,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                     value={formData.idade}
                     keyboardType="numeric"
                     onChangeText={(value) => handleChange('idade', value)}
-                    onBlur={validateIdade} // Adicionado: validar ao perder foco
+                    onBlur={validateIdade}
                     maxLength={50}
                   />
                   {idadeErro ? <Text style={styles.errorText}>{idadeErro}</Text> : null}
 
-                  {/* Mensagem informativa sobre os limites da faixa etária */}
                   {formData.idadeCategoria && (
                     <Text style={styles.infoText}>Faixa etária selecionada: {getIdadeLimites()}</Text>
                   )}
@@ -1164,7 +1103,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 style={[styles.input, styles.readonlyInput]}
                 placeholder="Responsável"
                 value={formData.responsavel}
-                editable={false} // Torna o campo não editável
+                editable={false}
               />
               <Text style={styles.infoText}>Campo preenchido automaticamente com seu nome</Text>
             </View>
@@ -1178,7 +1117,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 style={[styles.input, styles.readonlyInput]}
                 placeholder="Estado"
                 value={formData.estado}
-                editable={false} // Torna o campo não editável
+                editable={false}
               />
               <Text style={styles.infoText}>Campo preenchido automaticamente com seu estado</Text>
             </View>
@@ -1192,7 +1131,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 style={[styles.input, styles.readonlyInput]}
                 placeholder="Cidade"
                 value={formData.cidade}
-                editable={false} // Torna o campo não editável
+                editable={false}
               />
               <Text style={styles.infoText}>Campo preenchido automaticamente com sua cidade</Text>
             </View>
@@ -1206,7 +1145,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 keyboardType="numeric"
                 value={formData.rgPet || ''}
                 onChangeText={(value) => {
-                  // Formata o valor antes de atualizar o estado
                   const formattedValue = formatRG(value);
                   handleChange('rgPet', formattedValue);
                 }}
@@ -1274,7 +1212,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                   style={styles.input}
                   placeholder="Doença/Deficiência"
                   value={formData.doencaDescricao}
-                  maxLength={300} // Limitar a 300 caracteres
+                  maxLength={300}
                   onChangeText={(value) => handleChange('doencaDescricao', value)}
                 />
                 {doencaDescricaoErro ? <Text style={styles.errorText}>{doencaDescricaoErro}</Text> : null}
@@ -1303,17 +1241,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
               </Text>
-              <TouchableOpacity 
-                style={[
-                  styles.photoUploadButton, 
-                  loadingFoto && styles.photoUploadDisabled,
-                  fotoErro ? styles.errorBorder : {}
-                ]} 
+              <TouchableOpacity
+                style={[styles.photoUploadButton, loadingFoto && styles.photoUploadDisabled]}
                 onPress={pickImage}
-                disabled={loadingFoto} // Desabilita o botão durante o loading
+                disabled={loadingFoto}
               >
                 {loadingFoto ? (
-                  // Mostra loading durante seleção da foto
                   <View style={styles.photoLoadingContainer}>
                     <ActivityIndicator size="large" color="#4B99FB" />
                     <Text style={styles.photoLoadingText}>Processando imagem...</Text>
@@ -1333,20 +1266,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             </View>
 
             {/* BOTÃO SALVAR MODIFICADO COM LOADING */}
-            <TouchableOpacity 
-              style={[
-                styles.saveButton, 
-                (isLoading || loadingFoto) && styles.saveButtonDisabled
-              ]} 
+            <TouchableOpacity
+              style={[styles.saveButton, (isLoading || loadingFoto) && styles.saveButtonDisabled]}
               onPress={handleSubmit}
-              disabled={isLoading || loadingFoto} // Desabilita se estiver carregando ou processando foto
+              disabled={isLoading || loadingFoto}
             >
               {isLoading ? (
                 <View style={styles.loadingButtonContainer}>
                   <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
-                  <Text style={styles.saveButtonText}>
-                    {isEditMode ? 'Atualizando...' : 'Salvando...'}
-                  </Text>
+                  <Text style={styles.saveButtonText}>{isEditMode ? 'Atualizando...' : 'Salvando...'}</Text>
                 </View>
               ) : loadingFoto ? (
                 <View style={styles.loadingButtonContainer}>
@@ -1527,7 +1455,6 @@ const styles = StyleSheet.create({
   photoUploadButton: {
     marginTop: 5,
   },
-  // NOVOS ESTILOS PARA O LOADING DA FOTO
   photoUploadDisabled: {
     opacity: 0.7,
   },
@@ -1569,7 +1496,6 @@ const styles = StyleSheet.create({
     marginTop: 20,
     marginBottom: 40,
   },
-  // NOVOS ESTILOS PARA O BOTÃO COM LOADING
   saveButtonDisabled: {
     backgroundColor: '#B0B0B0',
     opacity: 0.7,
