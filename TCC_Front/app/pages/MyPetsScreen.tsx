@@ -1,9 +1,4 @@
-// MyPetsScreen.tsx - VERSÃO SIMPLIFICADA - Sempre vai pelo modal do termo
-// 🔧 PRINCIPAIS MUDANÇAS:
-// - Removido modal de adoção (não é mais necessário)
-// - handleCommunicate sempre abre modal do termo quando existe
-// - Fluxo mais simples e direto
-
+// MyPetsScreen.tsx - Seguindo sequência de modais iOS do Figma
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -34,11 +29,10 @@ import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getTermoByPet from '@/services/api/Termo/getTermoByPet';
 import updateStatus from '@/services/api/Status/updateStatus';
-import deleteTermoDoacao from '@/services/api/TermoDoacao/deleteTermoDoacao';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
+
 // Definindo uma interface para o tipo Pet
-// 🆕 INTERFACE PET ATUALIZADA com propriedades do termo
 interface Pet {
   id: number;
   nome: string;
@@ -67,12 +61,8 @@ interface Pet {
   cidade_id?: number;
   pet_especie_nome?: string;
   pet_sexo_nome?: string;
-  // 🆕 PROPRIEDADES DO TERMO
-  temTermo?: boolean;
-  termoJaEnviado?: boolean;
 }
 
-// Interface para o usuário
 interface Usuario {
   id: number;
   nome: string;
@@ -89,7 +79,6 @@ interface Usuario {
   };
 }
 
-// Interface para os filtros
 interface FilterParams {
   especieIds?: number[];
   faixaEtariaIds?: number[];
@@ -103,7 +92,9 @@ interface FilterParams {
   statusIds?: number[];
 }
 
-// Obter dimensões da tela
+// 🆕 Estados dos modais seguindo sequência iOS
+type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled';
+
 const { width } = Dimensions.get('window');
 
 export default function MyPetsScreen() {
@@ -118,17 +109,13 @@ export default function MyPetsScreen() {
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
-  // Estado para rastrear pets que já tiveram termo enviado por email
-  const [petsComTermoEnviado, setPetsComTermoEnviado] = useState<Set<number>>(new Set());
-  // 🆕 ESTADOS PARA O MODAL DO TERMO (ÚNICO MODAL NECESSÁRIO)
-  const [termoModalVisible, setTermoModalVisible] = useState(false);
-  const [selectedPetForTermo, setSelectedPetForTermo] = useState<Pet | null>(null);
-  // 🆕 Estado para trackear quando email foi enviado recentemente
-  const [recentEmailSent, setRecentEmailSent] = useState<{ [petId: number]: boolean }>({});
-  const [adoptionModalVisible, setAdoptionModalVisible] = useState(false);
-  const [selectedPetForAdoption, setSelectedPetForAdoption] = useState<Pet | null>(null);
 
-  // Botão voltar
+  // 🆕 Estados para controlar sequência de modais iOS
+  const [modalState, setModalState] = useState<ModalState>('closed');
+  const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
+  const [hasExistingTermo, setHasExistingTermo] = useState<boolean>(false);
+
+  // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
     console.log('🔄 Botão voltar clicado - navegando para tela anterior');
     try {
@@ -139,55 +126,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  const loadPetsComTermoEnviado = async () => {
-    try {
-      const stored = await AsyncStorage.getItem('@App:petsComTermoEnviado');
-      if (stored) {
-        const petIds = JSON.parse(stored);
-        setPetsComTermoEnviado(new Set(petIds));
-      }
-    } catch (error) {
-      console.error('Erro ao carregar pets com termo enviado:', error);
-    }
-  };
-  // 🆕 ADICIONAR este useEffect para carregar pets com termo enviado
-  useEffect(() => {
-    const loadPetsComTermoEnviado = async () => {
-      try {
-        console.log('📱 Carregando pets com termo enviado do AsyncStorage...');
-        const stored = await AsyncStorage.getItem('@App:petsComTermoEnviado');
-        if (stored) {
-          const petIds = JSON.parse(stored);
-          console.log('✅ Pets com termo enviado carregados:', petIds);
-          setPetsComTermoEnviado(new Set(petIds));
-        } else {
-          console.log('ℹ️ Nenhum pet com termo enviado encontrado');
-        }
-      } catch (error) {
-        console.error('❌ Erro ao carregar pets com termo enviado:', error);
-      }
-    };
-
-    loadPetsComTermoEnviado();
-  }, []); // Executar apenas uma vez na montagem
-
-  // 🗑️ REMOVER esta linha solta do código:
-  // loadPetsComTermoEnviado();
-  const handleCreateTermoFromAdoption = () => {
-    console.log('📝 Criando termo do modal de adoção');
-
-    // Fechar modal de adoção
-    setAdoptionModalVisible(false);
-
-    // Abrir modal do termo para criar
-    setSelectedPetForTermo(selectedPetForAdoption);
-    setTermoModalVisible(true);
-
-    // Manter seleção de adoção para retornar depois
-    // setSelectedPetForAdoption(null); // NÃO limpar ainda
-  };
-  loadPetsComTermoEnviado();
-  // Filtro avançado
+  // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
   const handleAdvancedFilter = () => {
     console.log('🔍 Botão filtro avançado clicado');
 
@@ -365,6 +304,9 @@ export default function MyPetsScreen() {
   // Aplicar filtros considerando busca ativa
   const applyCurrentFilters = async () => {
     console.log('Aplicando filtros atuais...');
+    console.log('Busca ativa:', hasActiveSearch);
+    console.log('Query de busca:', searchQuery);
+    console.log('Filtros ativos:', activeFilters);
 
     try {
       let baseData: Pet[];
@@ -382,18 +324,22 @@ export default function MyPetsScreen() {
 
         if (activeFilters.onlyFavorites && usuarioId) {
           filteredData = filteredData.filter((pet) => pet.favorito === true);
+          console.log('Após filtro de favoritos:', filteredData.length, 'pets');
         }
 
         if (activeFilters.especieIds && activeFilters.especieIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.especieIds?.includes(pet.especie_id || 0));
+          console.log('Após filtro de espécies:', filteredData.length, 'pets');
         }
 
         if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.racaIds?.includes(pet.raca_id));
+          console.log('Após filtro de raças:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.faixaEtariaIds?.includes(pet.faixa_etaria_id));
+          console.log('Após filtro de faixa etária:', filteredData.length, 'pets');
         }
 
         if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
@@ -401,6 +347,7 @@ export default function MyPetsScreen() {
             const petEstadoId = pet.usuario_estado_id || pet.estado_id;
             return activeFilters.estadoIds?.includes(petEstadoId || 0);
           });
+          console.log('Após filtro de estados:', filteredData.length, 'pets');
         }
 
         if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
@@ -408,6 +355,7 @@ export default function MyPetsScreen() {
             const petCidadeId = pet.usuario_cidade_id || pet.cidade_id;
             return activeFilters.cidadeIds?.includes(petCidadeId || 0);
           });
+          console.log('Após filtro de cidades:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixasEtariaIdades && Object.keys(activeFilters.faixasEtariaIdades).length > 0) {
@@ -422,6 +370,7 @@ export default function MyPetsScreen() {
 
             return true;
           });
+          console.log('Após filtro de idades específicas:', filteredData.length, 'pets');
         }
 
         console.log('Pets após aplicar TODOS os filtros:', filteredData.length);
@@ -552,19 +501,16 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: handleCommunicate com validação melhorada
-  // 🔧 FUNÇÃO ATUALIZADA: handleCommunicate - sempre abre modal do WhatsApp
+  // 🆕 FUNÇÃO PRINCIPAL: handleCommunicate - SEMPRE começa com primeiro modal
   const handleCommunicate = async (pet: Pet) => {
     try {
-      console.log('📋 Verificando comunicação para o pet:', pet.nome);
+      console.log('📱 Iniciando comunicação para o pet:', pet.nome);
 
-      // Verificar se o usuário está logado
       if (!usuarioId || !usuario) {
         Alert.alert('Erro', 'Você precisa estar logado para se comunicar.');
         return;
       }
 
-      // Verificar se não é o próprio pet do usuário
       if (pet.usuario_id === usuarioId) {
         Alert.alert(
           'Informação',
@@ -573,180 +519,102 @@ export default function MyPetsScreen() {
         return;
       }
 
-      // 🆕 VERIFICAR SE TEM TERMO (para definir estado do botão)
-      let temTermo = false;
-      let termoJaEnviado = false;
-
-      // Verificar se já foi enviado por email (AsyncStorage)
-      if (petsComTermoEnviado.has(pet.id)) {
-        console.log('✅ Termo já foi enviado por email');
-        temTermo = true;
-        termoJaEnviado = true;
-      } else {
-        // Verificar se existe termo no banco
-        try {
-          const termoResponse = await getTermoByPet(pet.id);
-          if (termoResponse && termoResponse.data && termoResponse.data.id) {
-            console.log('✅ Termo encontrado no banco');
-            temTermo = true;
-            termoJaEnviado = false; // Existe mas não foi enviado
-          } else {
-            console.log('ℹ️ Nenhum termo encontrado');
-            temTermo = false;
-          }
-        } catch (error) {
-          console.log('ℹ️ Erro ao verificar termo:', error);
-          temTermo = false;
+      // 🎯 SEMPRE começar com o primeiro modal (WhatsApp inicial ou habilitado)
+      setSelectedPet(pet);
+      
+      // Verificar silenciosamente se já tem termo para definir estado correto
+      try {
+        const termoResponse = await getTermoByPet(pet.id);
+        
+        if (termoResponse && termoResponse.data) {
+          console.log('✅ Pet já tem termo, verificando se email foi enviado...');
+          setHasExistingTermo(true);
+          
+          // Se termo existe, sempre ir para WhatsApp habilitado
+          // (assumindo que se tem termo, pode usar WhatsApp)
+          setModalState('whatsapp-enabled');
+        } else {
+          console.log('ℹ️ Pet não tem termo, mostrando modal WhatsApp inicial');
+          setHasExistingTermo(false);
+          setModalState('whatsapp-initial');
         }
+      } catch (error) {
+        console.log('ℹ️ Erro ao verificar termo (provavelmente não existe), mostrando modal inicial');
+        setHasExistingTermo(false);
+        setModalState('whatsapp-initial');
       }
 
-      // 🆕 SEMPRE ABRIR MODAL DO WHATSAPP com informações do termo
-      console.log('📱 Abrindo AdoptionModal com estado do termo:', { temTermo, termoJaEnviado });
-
-      // Adicionar propriedades de termo ao pet
-      const petComTermoInfo = {
-        ...pet,
-        temTermo,
-        termoJaEnviado,
-      };
-
-      setSelectedPetForAdoption(petComTermoInfo);
-      setAdoptionModalVisible(true);
     } catch (error: any) {
-      console.error('❌ Erro em handleCommunicate:', error);
-      // Em caso de erro, assumir que não tem termo
-      const petComTermoInfo = {
-        ...pet,
-        temTermo: false,
-        termoJaEnviado: false,
-      };
-      setSelectedPetForAdoption(petComTermoInfo);
-      setAdoptionModalVisible(true);
+      console.error('Erro ao iniciar comunicação:', error);
+      Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
     }
   };
 
-  // FUNÇÃO PARA ABRIR WHATSAPP DIRETAMENTE (quando status_id = 4)
+  // 🆕 FUNÇÃO: Obter Termo (vai do primeiro modal para o modal de criação)
+  const handleObterTermo = () => {
+    console.log('📋 Clicou em Obter Termo, abrindo modal de criação');
+    setModalState('termo-creation');
+  };
 
-  // 🆕 FUNÇÃO SIMPLIFICADA para fechar modal do termo
-  const handleCloseTermoModal = () => {
-    console.log('❌ Fechando modal do termo');
-    setTermoModalVisible(false);
-    setSelectedPetForTermo(null);
+  // 🆕 FUNÇÃO: Iniciar processo de adoção (para modal habilitado)
+  const handleStartAdoption = async () => {
+    await handleStartWhatsApp();
+  };
 
-    // 🆕 SE TEM PET SELECIONADO PARA ADOÇÃO, REABRIR O MODAL DE ADOÇÃO
-    if (selectedPetForAdoption) {
-      console.log('🔄 Reabrindo modal de adoção');
-      // Reabrir modal de adoção após um pequeno delay
-      setTimeout(() => {
-        setAdoptionModalVisible(true);
-      }, 300);
+  // 🆕 FUNÇÃO: Ver termo (para modal habilitado)
+  const handleViewTermo = () => {
+    console.log('👁️ Clicou em Ver Termo, abrindo modal de visualização');
+    setModalState('termo-creation');
+  };
+
+  // 🆕 FUNÇÃO: Fechar modal do termo e voltar para estado apropriado
+  const handleTermoModalClose = () => {
+    console.log('🔙 Fechando modal do termo, voltando para WhatsApp');
+    
+    // Se já tem termo existente (ou foi criado), vai para WhatsApp habilitado
+    // Se não tem termo, volta para WhatsApp inicial
+    if (hasExistingTermo) {
+      setModalState('whatsapp-enabled');
+    } else {
+      setModalState('whatsapp-initial');
     }
   };
 
-  // 🆕 FUNÇÃO quando email for enviado (callback do modal)
-  const handleEmailSent = async (petId: number) => {
-    console.log('📧 Email enviado com sucesso para pet ID:', petId);
-
-    // Adicionar o pet ao conjunto de pets com termo enviado
-    setPetsComTermoEnviado((prev) => {
-      const newSet = new Set(prev).add(petId);
-
-      // Salvar no AsyncStorage
-      AsyncStorage.setItem('@App:petsComTermoEnviado', JSON.stringify(Array.from(newSet))).catch((error) =>
-        console.error('Erro ao salvar AsyncStorage:', error)
-      );
-
-      return newSet;
-    });
-
-    // Marcar que email foi enviado recentemente
-    setRecentEmailSent((prev) => ({
-      ...prev,
-      [petId]: true,
-    }));
-
-    // Fechar modal do termo
-    setTermoModalVisible(false);
-    setSelectedPetForTermo(null);
-
-    // 🆕 ATUALIZAR O PET SELECIONADO PARA ADOÇÃO COM NOVO STATUS
-    if (selectedPetForAdoption) {
-      const updatedPet = {
-        ...selectedPetForAdoption,
-        temTermo: true,
-        termoJaEnviado: true,
-      };
-
-      setSelectedPetForAdoption(updatedPet);
-
-      // Reabrir modal de adoção com status atualizado
-      setTimeout(() => {
-        setAdoptionModalVisible(true);
-      }, 300);
-    }
+  // 🆕 FUNÇÃO: Termo foi criado com sucesso (mantém no modal do termo para enviar email)
+  const handleTermoCreated = () => {
+    console.log('✅ Termo criado com sucesso, mantendo no modal para enviar email');
+    setHasExistingTermo(true);
+    // NÃO muda o modal state aqui - permanece no termo para enviar email
   };
 
-  // 3. ADICIONAR FUNÇÃO para ver o termo do AdoptionModal
-  const handleViewTermoFromAdoption = () => {
-    console.log('👁️ Visualizando termo do modal de adoção');
-
-    // Fechar modal de adoção
-    setAdoptionModalVisible(false);
-
-    // Abrir modal do termo para visualizar/finalizar
-    setSelectedPetForTermo(selectedPetForAdoption);
-    setTermoModalVisible(true);
-
-    // Manter seleção de adoção para retornar depois
-    // setSelectedPetForAdoption(null); // NÃO limpar ainda
+  // 🆕 FUNÇÃO: Email enviado com sucesso (vai para WhatsApp habilitado)
+  const handleEmailSent = () => {
+    console.log('📧 Email enviado com sucesso, habilitando WhatsApp');
+    setHasExistingTermo(true);
+    setModalState('whatsapp-enabled');
   };
-  // 🆕 FUNÇÃO específica para abrir WhatsApp após completar termo
-  // 🆕 FUNÇÃO específica para abrir WhatsApp após completar termo
-  const openWhatsAppForAdoption = async (pet: Pet) => {
-    if (!usuario) return;
+
+  // 🆕 FUNÇÃO: Iniciar WhatsApp (atualiza status e abre WhatsApp)
+  const handleStartWhatsApp = async () => {
+    if (!selectedPet || !usuario) return;
 
     try {
-      // 🆕 FECHAR O MODAL DE ADOÇÃO IMEDIATAMENTE
-      setAdoptionModalVisible(false);
-      setSelectedPetForAdoption(null);
+      console.log('🎯 Iniciando WhatsApp para:', selectedPet.nome);
 
-      // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" ANTES DE ABRIR WHATSAPP
-      try {
-        console.log('🔄 Atualizando status do pet para "Adotado"...');
-        await updateStatus(pet.id);
-
-        const updatedPet = {
-          ...pet,
-          status_id: 4,
-          status_nome: 'Adotado',
-        };
-
-        // Atualizar estados locais
-        setAllMyPets((prevPets) => prevPets.map((p) => (p.id === pet.id ? updatedPet : p)));
-        setFilteredMyPets((prevPets) => prevPets.map((p) => (p.id === pet.id ? updatedPet : p)));
-
-        if (hasActiveSearch) {
-          setSearchResults((prevResults) => prevResults.map((p) => (p.id === pet.id ? updatedPet : p)));
-        }
-
-        console.log('✅ Status do pet atualizado com sucesso');
-      } catch (statusError) {
-        console.error('❌ Erro ao atualizar status do pet:', statusError);
-        // Continuar mesmo se falhar a atualização do status
-      }
-
-      const donoPet = pet.usuario_nome || 'responsável';
-      const nomePet = pet.nome;
+      const donoPet = selectedPet.usuario_nome || 'responsável';
+      const nomePet = selectedPet.nome;
       const nomeInteressado = usuario.nome;
-      const telefone = pet.usuario_telefone;
+      const telefone = selectedPet.usuario_telefone;
 
       if (!telefone) {
+        setModalState('closed');
+        setSelectedPet(null);
+
         Alert.alert(
           'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
-            pet.usuario_email
-              ? `Você pode tentar entrar em contato pelo email: ${pet.usuario_email}`
-              : 'Tente entrar em contato através do app posteriormente.'
+          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${selectedPet.usuario_email
+            ? `Você pode tentar entrar em contato pelo email: ${selectedPet.usuario_email}`
+            : 'Tente entrar em contato através do app posteriormente.'
           }`,
           [{ text: 'OK' }]
         );
@@ -775,13 +643,54 @@ Agradeço desde já! 🐾❤️`;
 
       const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
 
+      console.log('📱 Tentando abrir WhatsApp para:', numeroLimpo);
+
       const canOpen = await Linking.canOpenURL(whatsappUrl);
 
       if (canOpen) {
+        // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" (status_id: 4)
+        try {
+          console.log('🔄 Atualizando status do pet para "Adotado"...');
+          await updateStatus(selectedPet.id);
+
+          // Atualizar estados locais
+          const updatedPet = {
+            ...selectedPet,
+            status_id: 4,
+            status_nome: 'Adotado',
+          };
+
+          setAllMyPets((prevPets) => prevPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
+          setFilteredMyPets((prevPets) => prevPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
+
+          if (hasActiveSearch) {
+            setSearchResults((prevResults) => prevResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
+          }
+
+          console.log('✅ Status do pet atualizado com sucesso para "Adotado"');
+        } catch (statusError) {
+          console.error('❌ Erro ao atualizar status do pet:', statusError);
+        }
+
+        // Fechar modal
+        setModalState('closed');
+        setSelectedPet(null);
+
+        // Abrir WhatsApp
         await Linking.openURL(whatsappUrl);
 
-        setTimeout(() => {}, 1500);
+        // Mostrar confirmação
+        setTimeout(() => {
+          Alert.alert(
+            'Processo de Adoção Iniciado! 🎉',
+            `Uma conversa foi iniciada com ${donoPet} e o status do ${nomePet} foi atualizado para "Adotado". Complete a conversa para finalizar o processo de adoção.`,
+            [{ text: 'Perfeito!' }]
+          );
+        }, 1500);
       } else {
+        setModalState('closed');
+        setSelectedPet(null);
+
         Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${donoPet}:`, [
           {
             text: 'Ver número',
@@ -789,17 +698,14 @@ Agradeço desde já! 🐾❤️`;
               Alert.alert('Telefone', telefone, [{ text: 'OK' }]);
             },
           },
-          {
-            text: 'Ver mensagem',
-            onPress: () => {
-              Alert.alert('Mensagem sugerida', mensagem, [{ text: 'OK' }]);
-            },
-          },
           { text: 'OK' },
         ]);
       }
     } catch (error) {
       console.error('Erro ao abrir WhatsApp:', error);
+      setModalState('closed');
+      setSelectedPet(null);
+
       Alert.alert(
         'Erro na comunicação',
         'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
@@ -808,7 +714,15 @@ Agradeço desde já! 🐾❤️`;
     }
   };
 
-  // Remover pet dos meus pets
+  // 🆕 FUNÇÃO: Fechar todos os modais
+  const handleCloseAllModals = () => {
+    console.log('🔒 Fechando todos os modais');
+    setModalState('closed');
+    setSelectedPet(null);
+    setHasExistingTermo(false);
+  };
+
+  // Remover pet dos meus pets usando deleteMyPet
   const handleRemovePet = async (pet: Pet) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
@@ -847,11 +761,7 @@ Agradeço desde já! 🐾❤️`;
       Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
     }
   };
-  const handleCloseAdoptionModal = () => {
-    console.log('❌ Fechando modal de adoção');
-    setAdoptionModalVisible(false);
-    setSelectedPetForAdoption(null);
-  };
+
   // Função para favoritar/desfavoritar um pet
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
@@ -1057,12 +967,11 @@ Agradeço desde já! 🐾❤️`;
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {hasActiveSearch && searchQuery.trim() !== ''
-                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${
-                      activeFilters ? ' e filtros aplicados' : ''
-                    }`
+                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${activeFilters ? ' e filtros aplicados' : ''
+                  }`
                   : activeFilters
-                  ? 'Nenhum pet encontrado com os filtros selecionados'
-                  : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
+                    ? 'Nenhum pet encontrado com os filtros selecionados'
+                    : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
               </Text>
               {activeFilters && (
                 <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>
@@ -1088,31 +997,41 @@ Agradeço desde já! 🐾❤️`;
           )}
         </View>
 
-        {/* 🆕 MODAL DO TERMO (ÚNICO MODAL NECESSÁRIO) */}
-        {/* 🆕 MODAL DO TERMO */}
-        {selectedPetForTermo && usuario && (
+        {/* 🆕 MODAIS SEGUINDO SEQUÊNCIA iOS */}
+        
+        {/* Modal de Adoção/WhatsApp (para ambos os estados: inicial e habilitado) */}
+        {selectedPet && (modalState === 'whatsapp-initial' || modalState === 'whatsapp-enabled') && (
+          <AdoptionModal
+            visible={true}
+            onClose={handleCloseAllModals}
+            onStartAdoption={modalState === 'whatsapp-enabled' ? handleStartAdoption : handleObterTermo}
+            onViewTermo={handleViewTermo}
+            pet={{
+              nome: selectedPet.nome,
+              usuario_nome: selectedPet.usuario_nome,
+              foto: selectedPet.foto,
+              // 🆕 Propriedades para controlar o comportamento do modal
+              isInitialState: modalState === 'whatsapp-initial',
+              hasExistingTermo: hasExistingTermo,
+            } as any}
+          />
+        )}
+
+        {/* 🆕 MODAL DO TERMO (aparece quando clica em Obter/Ver Termo) */}
+        {selectedPet && usuario && modalState === 'termo-creation' && (
           <TermoAdocaoModal
-            visible={termoModalVisible}
-            onClose={handleCloseTermoModal} // 🆕 Função atualizada
-            onEmailSent={handleEmailSent} // 🆕 Função atualizada
-            pet={selectedPetForTermo}
+            visible={true}
+            onClose={handleTermoModalClose}
+            pet={selectedPet}
             usuarioLogado={{
               id: usuario.id,
               nome: usuario.nome,
               email: usuario.email || '',
               telefone: usuario.telefone,
             }}
-          />
-        )}
-
-        {/* 🆕 MODAL DE ADOÇÃO ATUALIZADO */}
-        {selectedPetForAdoption && (
-          <AdoptionModal
-            visible={adoptionModalVisible}
-            onClose={handleCloseAdoptionModal} // 🆕 Função atualizada
-            onStartAdoption={() => openWhatsAppForAdoption(selectedPetForAdoption)}
-            onViewTermo={handleViewTermoFromAdoption} // 🆕 Função atualizada
-            pet={selectedPetForAdoption}
+            hasExistingTermo={hasExistingTermo}
+            onSuccess={handleTermoCreated}
+            onEmailSent={handleEmailSent}
           />
         )}
       </ImageBackground>

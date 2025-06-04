@@ -1,4 +1,4 @@
-// AdoptionModal.tsx
+// AdoptionModal.tsx - Atualizado para sequência iOS
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 
@@ -6,16 +6,29 @@ interface AdoptionModalProps {
   visible: boolean;
   onClose: () => void;
   onStartAdoption: () => void;
-  onViewTermo: () => void; // Novo callback para ver termo
+  onViewTermo: () => void;
   pet: {
     nome: string;
     usuario_nome?: string;
     foto?: string;
+    // 🆕 Props para controlar o comportamento do modal
+    isInitialState?: boolean;
+    hasExistingTermo?: boolean;
   } | null;
 }
 
-const AdoptionModal: React.FC<AdoptionModalProps> = ({ visible, onClose, onStartAdoption, onViewTermo, pet }) => {
+const AdoptionModal: React.FC<AdoptionModalProps> = ({ 
+  visible, 
+  onClose, 
+  onStartAdoption, 
+  onViewTermo, 
+  pet 
+}) => {
   if (!pet) return null;
+
+  // Determinar se é o estado inicial ou habilitado
+  const isInitialState = pet.isInitialState ?? false;
+  const hasExistingTermo = pet.hasExistingTermo ?? false;
 
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
@@ -23,8 +36,10 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({ visible, onClose, onStart
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Image source={require('@/assets/images/Icone/estampa-de-cachorro.png')} style={styles.iconImage} />
-            <Text style={styles.title}>Processo de Adoção</Text>
+            <Text style={styles.iconText}>🐾</Text>
+            <Text style={styles.title}>
+              {isInitialState ? 'Comunicação' : 'Processo de Adoção'}
+            </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
@@ -37,32 +52,72 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({ visible, onClose, onStart
               {pet.foto ? (
                 <Image source={{ uri: pet.foto }} style={styles.petImage} />
               ) : (
-                <View style={styles.placeholderImage}></View>
+                <View style={styles.placeholderImage}>
+                  <Text style={styles.placeholderText}>🐕</Text>
+                </View>
               )}
             </View>
 
-            {/* Informações */}
-            <Text style={styles.question}>
-              Deseja iniciar o processo de adoção do pet <Text style={styles.petName}>{pet.nome}</Text>?
-            </Text>
+            {/* Informações - Dinâmicas baseadas no estado */}
+            {isInitialState ? (
+              <>
+                <Text style={styles.question}>
+                  Para conversar com o dono do <Text style={styles.petName}>{pet.nome}</Text>, você precisa primeiro obter o termo de adoção.
+                </Text>
 
-            <Text style={styles.ownerInfo}>
-              Dono: <Text style={styles.ownerName}>{pet.usuario_nome || 'Desconhecido'}</Text>
-            </Text>
+                <Text style={styles.ownerInfo}>
+                  Dono: <Text style={styles.ownerName}>{pet.usuario_nome || 'Desconhecido'}</Text>
+                </Text>
 
-            <Text style={styles.description}>
-              O termo de responsabilidade já foi assinado. Agora você pode conversar diretamente com o responsável pelo
-              WhatsApp.
-            </Text>
+                <Text style={styles.description}>
+                  O termo de responsabilidade é obrigatório para garantir uma adoção segura e responsável.
+                </Text>
+              </>
+            ) : (
+              <>
+                <Text style={styles.question}>
+                  Você já possui o termo de adoção para <Text style={styles.petName}>{pet.nome}</Text>! Agora pode conversar com o dono.
+                </Text>
 
-            {/* Botões */}
+                <Text style={styles.ownerInfo}>
+                  Dono: <Text style={styles.ownerName}>{pet.usuario_nome || 'Desconhecido'}</Text>
+                </Text>
+
+                <Text style={styles.description}>
+                  O termo foi assinado e enviado por email. Agora você pode iniciar a conversa no WhatsApp.
+                </Text>
+              </>
+            )}
+
+            {/* Botões - Dinâmicos baseados no estado */}
             <View style={styles.buttonContainer}>
-              <TouchableOpacity style={styles.adoptButton} onPress={onStartAdoption}>
-                <Text style={styles.adoptButtonText}>Conversar no WhatsApp</Text>
-              </TouchableOpacity>
+              {isInitialState ? (
+                <>
+                  {/* Estado inicial: WhatsApp desabilitado + Obter Termo */}
+                  <TouchableOpacity style={styles.disabledButton} disabled>
+                    <Text style={styles.disabledButtonText}>Comunicar via WhatsApp</Text>
+                  </TouchableOpacity>
 
-              <TouchableOpacity style={styles.viewTermButton} onPress={onViewTermo}>
-                <Text style={styles.viewTermButtonText}>Ver Termo</Text>
+                  <TouchableOpacity style={styles.primaryButton} onPress={onStartAdoption}>
+                    <Text style={styles.primaryButtonText}>Obter Termo</Text>
+                  </TouchableOpacity>
+                </>
+              ) : (
+                <>
+                  {/* Estado habilitado: WhatsApp habilitado + Ver Termo */}
+                  <TouchableOpacity style={styles.adoptButton} onPress={onStartAdoption}>
+                    <Text style={styles.adoptButtonText}>Conversar no WhatsApp</Text>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity style={styles.viewTermButton} onPress={onViewTermo}>
+                    <Text style={styles.viewTermButtonText}>Ver Termo</Text>
+                  </TouchableOpacity>
+                </>
+              )}
+
+              {/* Botão Cancelar (sempre presente) */}
+              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
+                <Text style={styles.cancelButtonText}>Cancelar</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -107,6 +162,12 @@ const styles = StyleSheet.create({
     fontSize: 20,
     fontWeight: 'bold',
     color: '#FFFFFF',
+    flex: 1,
+    textAlign: 'center',
+  },
+  iconText: {
+    fontSize: 24,
+    color: '#FFFFFF',
   },
   closeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -140,10 +201,6 @@ const styles = StyleSheet.create({
     borderWidth: 4,
     borderColor: '#4682B4',
   },
-  iconImage: {
-    width: 35,
-    height: 35,
-  },
   placeholderImage: {
     width: 120,
     height: 120,
@@ -158,7 +215,7 @@ const styles = StyleSheet.create({
     fontSize: 40,
   },
   question: {
-    fontSize: 18,
+    fontSize: 16,
     color: '#333',
     textAlign: 'center',
     marginBottom: 10,
@@ -169,7 +226,7 @@ const styles = StyleSheet.create({
     color: '#4682B4',
   },
   ownerInfo: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#666',
     textAlign: 'center',
     marginBottom: 15,
@@ -189,18 +246,24 @@ const styles = StyleSheet.create({
     width: '100%',
     gap: 12,
   },
+  // Botão WhatsApp habilitado (verde)
   adoptButton: {
     backgroundColor: '#25D366',
     paddingVertical: 15,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
   },
   adoptButtonText: {
     color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // Botão Ver Termo (azul)
   viewTermButton: {
     backgroundColor: '#4682B4',
     paddingVertical: 12,
@@ -209,9 +272,40 @@ const styles = StyleSheet.create({
   },
   viewTermButtonText: {
     color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  // Botão primário - Obter Termo (azul)
+  primaryButton: {
+    backgroundColor: '#4682B4',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 3,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 3 },
+    shadowOpacity: 0.2,
+    shadowRadius: 5,
+  },
+  primaryButtonText: {
+    color: '#FFFFFF',
     fontSize: 16,
     fontWeight: 'bold',
   },
+  // Botão desabilitado (cinza)
+  disabledButton: {
+    backgroundColor: '#E9ECEF',
+    paddingVertical: 15,
+    borderRadius: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#CED4DA',
+  },
+  disabledButtonText: {
+    color: '#6C757D',
+    fontSize: 16,
+  },
+  // Botão cancelar
   cancelButton: {
     backgroundColor: '#F5F5F5',
     paddingVertical: 12,
