@@ -73,14 +73,14 @@ interface TermoModalProps {
   onEmailSent?: () => void;
 }
 
-const TermoAdocaoModal: React.FC<TermoModalProps> = ({ 
-  visible, 
-  onClose, 
-  pet, 
-  usuarioLogado, 
+const TermoAdocaoModal: React.FC<TermoModalProps> = ({
+  visible,
+  onClose,
+  pet,
+  usuarioLogado,
   hasExistingTermo = false,
   onSuccess,
-  onEmailSent
+  onEmailSent,
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
@@ -212,7 +212,10 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           onSuccess();
         }
 
-        Alert.alert('Sucesso', 'Termo de compromisso criado com sucesso! Agora envie por email para habilitar o WhatsApp.');
+        Alert.alert(
+          'Sucesso',
+          'Termo de compromisso criado com sucesso! Agora envie por email para habilitar o WhatsApp.'
+        );
       } else {
         throw new Error('Resposta inválida da API');
       }
@@ -234,12 +237,12 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           errorMessage = 'Este pet já possui um termo de compromisso.';
           console.log('ℹ️ Termo já existe, carregando dados...');
           await loadTermoCompleto();
-          
+
           // 🆕 Notificar que termo existe (para o fluxo iOS)
           if (onSuccess) {
             onSuccess();
           }
-          
+
           Alert.alert('Informação', 'Este pet já possui um termo de compromisso. Exibindo o termo existente.');
           return;
         } else if (message.includes('não pode adotar seu próprio pet')) {
@@ -321,7 +324,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
             text: 'OK',
             onPress: () => {
               console.log('📧 Email enviado com sucesso, notificando fluxo iOS...');
-              
+
               // 🆕 Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
               if (onEmailSent) {
                 onEmailSent();
@@ -396,12 +399,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           <View style={styles.header}>
             <Text style={styles.headerTitle}>Termo de Compromisso</Text>
             <View style={styles.headerActions}>
-              {/* 🆕 Botão de refresh quando estiver visualizando termo */}
-              {step === 'termo' && (
-                <TouchableOpacity onPress={refreshTermo} style={styles.refreshButton} disabled={loading}>
-                  <Text style={styles.refreshButtonText}>🔄</Text>
-                </TouchableOpacity>
-              )}
               <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
                 <Text style={styles.closeButtonText}>✕</Text>
               </TouchableOpacity>
@@ -460,7 +457,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   numberOfLines={3}
                 />
               </View>
-              
+
               <TouchableOpacity
                 style={[styles.createButton, loading && styles.disabledButton]}
                 onPress={handleCreateTermo}

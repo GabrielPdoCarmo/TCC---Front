@@ -17,18 +17,11 @@ interface AdoptionModalProps {
   } | null;
 }
 
-const AdoptionModal: React.FC<AdoptionModalProps> = ({ 
-  visible, 
-  onClose, 
-  onStartAdoption, 
-  onViewTermo, 
-  pet 
-}) => {
+const AdoptionModal: React.FC<AdoptionModalProps> = ({ visible, onClose, onStartAdoption, onViewTermo, pet }) => {
   if (!pet) return null;
 
   // Determinar se é o estado inicial ou habilitado
   const isInitialState = pet.isInitialState ?? false;
-  const hasExistingTermo = pet.hasExistingTermo ?? false;
 
   return (
     <Modal visible={visible} transparent={true} animationType="fade" onRequestClose={onClose}>
@@ -36,10 +29,8 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({
         <View style={styles.container}>
           {/* Header */}
           <View style={styles.header}>
-            <Text style={styles.iconText}>🐾</Text>
-            <Text style={styles.title}>
-              {isInitialState ? 'Comunicação' : 'Processo de Adoção'}
-            </Text>
+            <Image source={require('../../assets/images/Icone/estampa-de-cachorro.png')} style={styles.iconPet} />
+            <Text style={styles.title}>Processo de Adoção</Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
               <Text style={styles.closeButtonText}>✕</Text>
             </TouchableOpacity>
@@ -62,7 +53,8 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({
             {isInitialState ? (
               <>
                 <Text style={styles.question}>
-                  Para conversar com o dono do <Text style={styles.petName}>{pet.nome}</Text>, você precisa primeiro obter o termo de adoção.
+                  Para conversar com o dono do <Text style={styles.petName}>{pet.nome}</Text>, você precisa primeiro
+                  obter o termo de adoção.
                 </Text>
 
                 <Text style={styles.ownerInfo}>
@@ -76,7 +68,8 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({
             ) : (
               <>
                 <Text style={styles.question}>
-                  Você já possui o termo de adoção para <Text style={styles.petName}>{pet.nome}</Text>! Agora pode conversar com o dono.
+                  Você já possui o termo de adoção para <Text style={styles.petName}>{pet.nome}</Text>! Agora pode
+                  conversar com o dono.
                 </Text>
 
                 <Text style={styles.ownerInfo}>
@@ -114,11 +107,6 @@ const AdoptionModal: React.FC<AdoptionModalProps> = ({
                   </TouchableOpacity>
                 </>
               )}
-
-              {/* Botão Cancelar (sempre presente) */}
-              <TouchableOpacity style={styles.cancelButton} onPress={onClose}>
-                <Text style={styles.cancelButtonText}>Cancelar</Text>
-              </TouchableOpacity>
             </View>
           </View>
         </View>
@@ -165,9 +153,9 @@ const styles = StyleSheet.create({
     flex: 1,
     textAlign: 'center',
   },
-  iconText: {
-    fontSize: 24,
-    color: '#FFFFFF',
+  iconPet: {
+    width: 30,
+    height: 30
   },
   closeButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
@@ -278,7 +266,7 @@ const styles = StyleSheet.create({
   // Botão primário - Obter Termo (azul)
   primaryButton: {
     backgroundColor: '#4682B4',
-    paddingVertical: 15,
+    paddingVertical: 10,
     borderRadius: 12,
     alignItems: 'center',
     elevation: 3,

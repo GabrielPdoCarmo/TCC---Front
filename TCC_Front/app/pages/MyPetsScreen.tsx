@@ -1,4 +1,4 @@
-// MyPetsScreen.tsx - Seguindo sequência de modais iOS do Figma
+// MyPetsScreen.tsx - Corrigindo sequência de modais iOS
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -114,6 +114,10 @@ export default function MyPetsScreen() {
   const [modalState, setModalState] = useState<ModalState>('closed');
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [hasExistingTermo, setHasExistingTermo] = useState<boolean>(false);
+  // 🔧 NOVO: Estado separado para controlar se o email foi enviado
+  const [emailWasSent, setEmailWasSent] = useState<boolean>(false);
+  // 🆕 NOVO: Estado para rastrear de onde veio o modal do termo
+  const [termoModalOrigin, setTermoModalOrigin] = useState<'obter' | 'ver'>('obter');
 
   // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
@@ -521,17 +525,21 @@ export default function MyPetsScreen() {
 
       // 🎯 SEMPRE começar com o primeiro modal (WhatsApp inicial ou habilitado)
       setSelectedPet(pet);
+      // 🔧 RESETAR estados ao abrir novo modal
+      setEmailWasSent(false);
+      setTermoModalOrigin('obter'); // 🔧 RESETAR origem do modal
       
       // Verificar silenciosamente se já tem termo para definir estado correto
       try {
         const termoResponse = await getTermoByPet(pet.id);
         
         if (termoResponse && termoResponse.data) {
-          console.log('✅ Pet já tem termo, verificando se email foi enviado...');
+          console.log('✅ Pet já tem termo, mas verificando se pode usar WhatsApp...');
           setHasExistingTermo(true);
           
-          // Se termo existe, sempre ir para WhatsApp habilitado
-          // (assumindo que se tem termo, pode usar WhatsApp)
+          // 🔧 LÓGICA CORRIGIDA: Mesmo que tenha termo, se email não foi enviado, volta para inicial
+          // Por agora, assumimos que se tem termo, pode usar WhatsApp
+          // (ideal seria ter uma flag no backend indicando se email foi enviado)
           setModalState('whatsapp-enabled');
         } else {
           console.log('ℹ️ Pet não tem termo, mostrando modal WhatsApp inicial');
@@ -553,6 +561,7 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO: Obter Termo (vai do primeiro modal para o modal de criação)
   const handleObterTermo = () => {
     console.log('📋 Clicou em Obter Termo, abrindo modal de criação');
+    setTermoModalOrigin('obter'); // 🔧 Marca que veio do botão "Obter Termo"
     setModalState('termo-creation');
   };
 
@@ -564,19 +573,35 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO: Ver termo (para modal habilitado)
   const handleViewTermo = () => {
     console.log('👁️ Clicou em Ver Termo, abrindo modal de visualização');
+    setTermoModalOrigin('ver'); // 🔧 Marca que veio do botão "Ver Termo"
     setModalState('termo-creation');
   };
 
-  // 🆕 FUNÇÃO: Fechar modal do termo e voltar para estado apropriado
+  // 🔧 FUNÇÃO CORRIGIDA: Fechar modal do termo com lógica baseada na origem
   const handleTermoModalClose = () => {
-    console.log('🔙 Fechando modal do termo, voltando para WhatsApp');
+    console.log('🔙 Fechando modal do termo, verificando origem...');
     
-    // Se já tem termo existente (ou foi criado), vai para WhatsApp habilitado
-    // Se não tem termo, volta para WhatsApp inicial
-    if (hasExistingTermo) {
+    // 🔧 LÓGICA CORRIGIDA: Se veio de "Ver Termo", volta sempre para WhatsApp habilitado
+    if (termoModalOrigin === 'ver') {
+      console.log('✅ Veio de "Ver Termo", voltando para WhatsApp habilitado');
       setModalState('whatsapp-enabled');
+    } else if (termoModalOrigin === 'obter') {
+      // Se veio de "Obter Termo", verifica se email foi enviado
+      if (emailWasSent) {
+        console.log('✅ Veio de "Obter Termo" e email foi enviado, habilitando WhatsApp');
+        setModalState('whatsapp-enabled');
+      } else {
+        console.log('⚠️ Veio de "Obter Termo" mas email NÃO foi enviado, voltando para WhatsApp inicial (bloqueado)');
+        setModalState('whatsapp-initial');
+      }
     } else {
-      setModalState('whatsapp-initial');
+      // Fallback para caso não tenha origem definida
+      console.log('⚠️ Origem não definida, usando lógica do email');
+      if (emailWasSent) {
+        setModalState('whatsapp-enabled');
+      } else {
+        setModalState('whatsapp-initial');
+      }
     }
   };
 
@@ -584,13 +609,15 @@ export default function MyPetsScreen() {
   const handleTermoCreated = () => {
     console.log('✅ Termo criado com sucesso, mantendo no modal para enviar email');
     setHasExistingTermo(true);
+    // 🔧 NÃO seta emailWasSent aqui, pois ainda precisa enviar o email
     // NÃO muda o modal state aqui - permanece no termo para enviar email
   };
 
-  // 🆕 FUNÇÃO: Email enviado com sucesso (vai para WhatsApp habilitado)
+  // 🔧 FUNÇÃO CORRIGIDA: Email enviado com sucesso
   const handleEmailSent = () => {
     console.log('📧 Email enviado com sucesso, habilitando WhatsApp');
     setHasExistingTermo(true);
+    setEmailWasSent(true); // 🔧 AGORA sim marca que email foi enviado
     setModalState('whatsapp-enabled');
   };
 
@@ -720,6 +747,8 @@ Agradeço desde já! 🐾❤️`;
     setModalState('closed');
     setSelectedPet(null);
     setHasExistingTermo(false);
+    setEmailWasSent(false); // 🔧 RESETAR também o estado do email
+    setTermoModalOrigin('obter'); // 🔧 RESETAR origem do modal do termo
   };
 
   // Remover pet dos meus pets usando deleteMyPet
