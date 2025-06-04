@@ -13,7 +13,10 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { createOrUpdateTermoCompromisso, getTermoByPetWithNameCheck } from '@/services/api/TermoCompromisso/checkCanAdopt'; // 🆕 Funções atualizadas
+import {
+  createOrUpdateTermoCompromisso,
+  getTermoByPetWithNameCheck,
+} from '@/services/api/TermoCompromisso/checkCanAdopt'; // 🆕 Funções atualizadas
 import { sendTermoEmail } from '@/services/api/TermoCompromisso/sendTermoEmail';
 
 interface Pet {
@@ -155,7 +158,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   const initializeModal = async () => {
     const modoTexto = isNameUpdateMode ? 'atualização de nome' : hasExistingTermo ? 'visualização' : 'criação inicial';
     console.log(`🚀 Inicializando modal do termo (${modoTexto})...`);
-    
+
     setStep('loading');
 
     // Carregar token
@@ -189,16 +192,16 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   const loadExistingTermoData = async () => {
     try {
       console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
-      
+
       const response = await getTermoByPetWithNameCheck(pet.id);
-      
+
       if (response && response.data) {
         const termo = response.data;
-        
+
         // Pré-preencher formulário com dados existentes, MAS com nome atual do usuário
         setAssinaturaDigital(usuarioLogado.nome || termo.assinatura_digital || ''); // 🆕 Usar nome atual do usuário
         setObservacoes(termo.observacoes || '');
-        
+
         setTermoData(termo);
         console.log('✅ Dados do termo carregados para atualização');
       }
@@ -249,10 +252,10 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           onSuccess();
         }
 
-        const mensagemSucesso = isNameUpdateMode 
+        const mensagemSucesso = isNameUpdateMode
           ? 'Termo de compromisso atualizado com seu nome atual! Agora envie por email para habilitar o WhatsApp.'
           : 'Termo de compromisso criado com sucesso! Agora envie por email para habilitar o WhatsApp.';
-        
+
         Alert.alert('Sucesso', mensagemSucesso);
       } else {
         throw new Error('Resposta inválida da API');
@@ -352,31 +355,27 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
       const response = await sendTermoEmail(termoData.id);
 
-      const mensagemSucesso = isNameUpdateMode 
+      const mensagemSucesso = isNameUpdateMode
         ? `O termo foi atualizado e enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.`
         : `O termo foi enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.`;
 
-      Alert.alert(
-        'Email Enviado! 📧',
-        mensagemSucesso,
-        [
-          {
-            text: 'OK',
-            onPress: () => {
-              const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
-              console.log(`📧 Email do termo ${acaoTexto} enviado com sucesso, notificando fluxo iOS...`);
+      Alert.alert('Email Enviado! 📧', mensagemSucesso, [
+        {
+          text: 'OK',
+          onPress: () => {
+            const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
+            console.log(`📧 Email do termo ${acaoTexto} enviado com sucesso, notificando fluxo iOS...`);
 
-              // 🆕 Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
-              if (onEmailSent) {
-                onEmailSent();
-              } else {
-                // Fallback: fechar modal
-                handleClose();
-              }
-            },
+            // 🆕 Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
+            if (onEmailSent) {
+              onEmailSent();
+            } else {
+              // Fallback: fechar modal
+              handleClose();
+            }
           },
-        ]
-      );
+        },
+      ]);
 
       console.log('✅ Email enviado com sucesso:', response.data);
     } catch (error: any) {
@@ -433,21 +432,17 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   };
 
   // 🆕 Textos dinâmicos baseados no modo
-  const headerTitle = isNameUpdateMode 
-    ? 'Atualização de Termo'
-    : 'Termo de Compromisso';
-    
-  const formTitle = isNameUpdateMode
-    ? 'Atualizar Termo de Adoção'
-    : 'Criar Termo de Adoção';
-    
+  const headerTitle = isNameUpdateMode ? 'Atualização de Termo' : 'Termo de Compromisso';
+
+  const formTitle = isNameUpdateMode ? 'Atualizar Termo de Adoção' : 'Criar Termo de Adoção';
+
   const buttonText = isNameUpdateMode ? 'Atualizar Termo' : 'Criar Termo';
-  
+
   const loadingText = isNameUpdateMode
     ? 'Carregando dados para atualização...'
-    : hasExistingTermo 
-      ? 'Carregando termo existente...' 
-      : 'Preparando criação do termo...';
+    : hasExistingTermo
+    ? 'Carregando termo existente...'
+    : 'Preparando criação do termo...';
 
   return (
     <Modal visible={visible} animationType="slide" transparent>
@@ -484,7 +479,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                 <View style={styles.updateWarningContainer}>
                   <Text style={styles.updateWarningIcon}>🔄</Text>
                   <Text style={styles.updateWarningText}>
-                    Seu nome foi alterado no perfil. Para continuar com o processo de adoção, você precisa atualizar o termo com seu nome atual.
+                    Seu nome foi alterado no perfil. Para continuar com o processo de adoção, você precisa atualizar o
+                    termo com seu nome atual.
                   </Text>
                 </View>
               )}
@@ -501,7 +497,10 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
               </View>
 
               <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Assinatura Digital *</Text>
+                <Text style={styles.inputLabel}>
+                  Assinatura Digital
+                  <Text style={styles.required}> *</Text>
+                </Text>
                 <TextInput
                   style={styles.textInput}
                   value={assinaturaDigital}
@@ -753,6 +752,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#333',
     marginBottom: 5,
+  },
+  required: {
+    color: 'red',
   },
   // 🆕 Texto de ajuda para inputs
   inputHelperText: {
