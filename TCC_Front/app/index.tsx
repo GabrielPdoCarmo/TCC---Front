@@ -1,38 +1,63 @@
-// app/index.tsx - Solução definitiva com AuthProvider
+// app/index.tsx - Solução com redirecionamento inteligente e tipagem correta
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { router } from 'expo-router';
-import { AuthProvider, useAuth } from '../contexts/AuthContext';
+import { useAuth } from '../contexts/AuthContext';
 
-// Componente que usa o contexto de autenticação
-function IndexScreenContent() {
-  const { isAuthenticated, loading } = useAuth();
+// ✅ Definir rotas válidas do app
+type ValidRoutes = 
+  | '/pages/LoginScreen'
+  | '/pages/PetAdoptionScreen'
+  | '/pages/MyPetsScreen'
+  | '/pages/ConfigScreen'
+  | '/pages/ProfileScreen'
+  | '/pages/PetDonation';
+
+// ✅ Função helper para validar e redirecionar
+const safeRedirect = (route: string) => {
+  // Mapear rotas conhecidas para tipos válidos
+  const routeMap: { [key: string]: ValidRoutes } = {
+    '/pages/LoginScreen': '/pages/LoginScreen',
+    '/pages/PetAdoptionScreen': '/pages/PetAdoptionScreen',
+    '/pages/MyPetsScreen': '/pages/MyPetsScreen',
+    '/pages/ConfigScreen': '/pages/ConfigScreen',
+    '/pages/ProfileScreen': '/pages/ProfileScreen',
+    '/pages/PetDonation': '/pages/PetDonation',
+  };
+
+  // Se a rota existir no mapa, usar ela; senão, usar rota padrão
+  const validRoute = routeMap[route] || '/pages/PetAdoptionScreen';
+  
+  console.log(`🎯 Redirecionando de "${route}" para "${validRoute}"`);
+  router.replace(validRoute);
+};
+
+export default function IndexScreen() {
+  const { loading, getRedirectRoute } = useAuth();
 
   useEffect(() => {
     if (!loading) {
-      if (isAuthenticated) {
-        router.replace('/pages/PetAdoptionScreen');
-      } else {
-        router.replace('/pages/LoginScreen');
-      }
+      // ✅ Usar a nova função para obter a rota correta
+      const redirectRoute = getRedirectRoute();
+      console.log('🎯 Rota obtida do contexto:', redirectRoute);
+      
+      // ✅ Pequeno delay para evitar problemas de navegação
+      setTimeout(() => {
+        safeRedirect(redirectRoute);
+      }, 100);
     }
-  }, [isAuthenticated, loading]);
+  }, [loading, getRedirectRoute]);
 
   return (
     <View style={styles.container}>
       {/* Logo do app enquanto carrega */}
-      <Image source={require('../assets/images/Icone/Pets_Up.png')} style={styles.logo} resizeMode="contain" />
+      <Image 
+        source={require('../assets/images/Icone/Pets_Up.png')} 
+        style={styles.logo} 
+        resizeMode="contain" 
+      />
       <ActivityIndicator size="large" color="#FFFFFF" style={styles.loader} />
     </View>
-  );
-}
-
-// Componente principal que envolve com AuthProvider
-export default function IndexScreen() {
-  return (
-    <AuthProvider>
-      <IndexScreenContent />
-    </AuthProvider>
   );
 }
 

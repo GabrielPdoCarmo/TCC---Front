@@ -28,7 +28,7 @@ import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
 import { checkCanCreatePets, checkNeedsDataUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Funções atualizadas
-
+import { useAuth } from '@/contexts/AuthContext';
 // Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;
@@ -92,7 +92,29 @@ export default function PetDonationScreen() {
 
   const checkCountRef = useRef(0);
   const lastCheckTimeRef = useRef(0);
+  const { setLastRoute, isAuthenticated, loading: authLoading } = useAuth();
 
+  // ✅ NOVO: Salvar esta tela como última rota visitada
+  // ✅ CORREÇÃO: No console.log (apenas linha 82)
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      // ✅ ANTES (incorreto):
+      // console.log('💾 Salvando PetAdoptionScreen como última rota');
+
+      // ✅ DEPOIS (correto):
+      console.log('💾 Salvando PetDonation como última rota');
+      setLastRoute('/pages/PetDonation');
+    }
+  }, [authLoading, isAuthenticated, setLastRoute]);
+
+  // Verificar se está autenticado
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      console.log('🚫 Usuário não autenticado, redirecionando para login...');
+      router.replace('/pages/LoginScreen');
+      return;
+    }
+  }, [isAuthenticated, authLoading]);
   // 🔍 Função ATUALIZADA para verificar se usuário pode cadastrar pets (COM VERIFICAÇÃO DE DADOS COMPLETOS)
   const checkUserPermissions = useCallback(
     async (force = false) => {
@@ -527,7 +549,19 @@ export default function PetDonationScreen() {
       onFavorite={() => handleFavoritePet(item.id)}
     />
   );
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={{ color: '#FFFFFF', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
 
+  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  if (!isAuthenticated) {
+    return null;
+  }
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_03.png')} style={styles.backgroundImage}>

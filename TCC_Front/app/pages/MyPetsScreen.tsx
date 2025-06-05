@@ -32,7 +32,7 @@ import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt'; // �
 import updateStatus from '@/services/api/Status/updateStatus';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
-
+import { useAuth } from '@/contexts/AuthContext';
 // Definindo uma interface para o tipo Pet
 interface Pet {
   id: number;
@@ -121,16 +121,26 @@ export default function MyPetsScreen() {
   // 🆕 NOVOS ESTADOS para verificação de nome
   const [nameNeedsUpdate, setNameNeedsUpdate] = useState<boolean>(false);
   const [isNameUpdateMode, setIsNameUpdateMode] = useState<boolean>(false);
+  const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
 
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('💾 Salvando MyPetsScreen como última rota');
+      setLastRoute('/pages/MyPetsScreen');
+    }
+  }, [authLoading, isAuthenticated, setLastRoute]);
+
+  // ✅ Verificar autenticação
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      console.log('🚫 Usuário não autenticado na MyPetsScreen, redirecionando...');
+      router.replace('/pages/LoginScreen');
+    }
+  }, [isAuthenticated, authLoading]);
   // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
-    console.log('🔄 Botão voltar clicado - navegando para tela anterior');
-    try {
-      router.back();
-    } catch (error) {
-      console.error('Erro ao voltar:', error);
-      router.push('/pages/PetAdoptionScreen');
-    }
+    console.log('🔄 Botão voltar clicado - navegando para PetAdoptionScreen');
+    router.push('/pages/PetAdoptionScreen');
   };
 
   // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
@@ -965,7 +975,19 @@ Agradeço desde já! 🐾❤️`;
 
     return 'Todos os meus pets';
   };
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={{ color: '#FFFFFF', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
 
+  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  if (!isAuthenticated) {
+    return null;
+  }
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>

@@ -385,8 +385,8 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
   // 🔙 Função para voltar à tela anterior
   const handleGoBack = () => {
-    console.log('🔙 Voltando à tela anterior...');
-    router.back();
+    console.log('🔙 Voltando para tela de pets...');
+    router.push('/pages/PetAdoptionScreen');
   };
 
   // Função para atualizar campo do formulário

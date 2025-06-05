@@ -1,4 +1,4 @@
-// PetAdoptionScreen.tsx - com atualização automática
+// PetAdoptionScreen.tsx - Versão corrigida SEM AuthProvider duplicado
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -28,8 +28,8 @@ import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
 
-// Importar AuthProvider e AuthContext
-import { AuthProvider, useAuth } from '@/contexts/AuthContext';
+// ✅ Importar APENAS o hook do contexto (AuthProvider já existe no _layout.tsx)
+import { useAuth } from '@/contexts/AuthContext';
 
 // Definindo uma interface para o tipo Pet
 interface Pet {
@@ -70,7 +70,8 @@ interface FilterParams {
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
-function PetAdoptionScreenContent() {
+// ✅ Componente principal SEM AuthProvider duplicado
+export default function PetAdoptionScreen() {
   const params = useLocalSearchParams();
   const [allPets, setAllPets] = useState<Pet[]>([]);
   const [filteredPets, setFilteredPets] = useState<Pet[]>([]);
@@ -81,13 +82,20 @@ function PetAdoptionScreenContent() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
-  // Usar AuthContext
-  const { user, token, isAuthenticated, loading: authLoading } = useAuth();
+  // ✅ Usar AuthContext (que já existe no _layout.tsx)
+  const { user, token, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
   const usuarioId = user?.id || null;
 
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('💾 Salvando PetAdoptionScreen como última rota');
+      setLastRoute('/pages/PetAdoptionScreen');
+    }
+  }, [authLoading, isAuthenticated, setLastRoute]);
   // Verificar se está autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
+      console.log('🚫 Usuário não autenticado, redirecionando para login...');
       router.replace('/pages/LoginScreen');
       return;
     }
@@ -288,22 +296,26 @@ function PetAdoptionScreenContent() {
       setLoading(true);
       setError(null);
 
+      console.log('🔄 Recarregando dados dos pets...');
       const response = await getPetsByStatus();
 
       if (!response || response.length === 0) {
+        console.log('📭 Nenhum pet encontrado');
         setAllPets([]);
         setFilteredPets([]);
         setLoading(false);
         return;
       }
 
+      console.log(`📦 ${response.length} pets encontrados, carregando detalhes...`);
       const petsWithDetails = await loadPetsWithDetails(response);
 
       setAllPets(petsWithDetails);
+      console.log('✅ Dados dos pets atualizados');
 
       setLoading(false);
     } catch (err) {
-      console.error('Erro ao recarregar pets:', err);
+      console.error('❌ Erro ao recarregar pets:', err);
       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
       setLoading(false);
     }
@@ -331,18 +343,18 @@ function PetAdoptionScreenContent() {
     checkForFilters();
   }, [params.applyFilters]);
 
-  // **NOVA IMPLEMENTAÇÃO: useFocusEffect para atualizar sempre que a tela ganhar foco**
+  // ✅ useFocusEffect para atualizar sempre que a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
       // Só carregar se estiver autenticado e não estiver carregando
       if (usuarioId && !authLoading && isAuthenticated) {
-        console.log('🔄 Tela ganhou foco - recarregando dados...');
+        console.log('🎯 Tela ganhou foco - recarregando dados...');
         refreshData();
       }
     }, [usuarioId, authLoading, isAuthenticated, refreshData])
   );
 
-  // **ALTERNATIVA: useEffect melhorado que também detecta mudanças nos parâmetros**
+  // ✅ useEffect melhorado que também detecta mudanças nos parâmetros
   useEffect(() => {
     // Carregar dados sempre que o usuário estiver disponível ou quando houver mudança nos parâmetros
     if (usuarioId && !authLoading && isAuthenticated) {
@@ -555,6 +567,21 @@ function PetAdoptionScreenContent() {
     return 'Todos os pets disponíveis';
   };
 
+  // ✅ Loading de verificação de autenticação
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#4682B4' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={{ color: '#FFFFFF', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
+
+  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
@@ -677,15 +704,6 @@ function PetAdoptionScreenContent() {
   );
 }
 
-// Componente principal que envolve com AuthProvider
-export default function PetAdoptionScreen() {
-  return (
-    <AuthProvider>
-      <PetAdoptionScreenContent />
-    </AuthProvider>
-  );
-}
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -739,7 +757,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 15,
     paddingVertical: 15,
     marginTop: 10,
-    paddingTop: 35
+    paddingTop: 35,
   },
   headerTitle: {
     fontSize: 24,

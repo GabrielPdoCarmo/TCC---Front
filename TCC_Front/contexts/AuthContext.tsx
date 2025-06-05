@@ -1,4 +1,4 @@
-// contexts/AuthContext.tsx - Versão otimizada
+// contexts/AuthContext.tsx - Versão com sistema de última rota melhorado
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -24,28 +24,35 @@ interface AuthContextType {
   login: (userData: User, authToken: string) => Promise<void>;
   logout: () => Promise<void>;
   setLastRoute: (route: string) => void;
-  updateUser: (userData: User) => Promise<void>; // Nova função para atualizar usuário
+  updateUser: (userData: User) => Promise<void>;
+  getRedirectRoute: () => string; // ✅ Nova função para obter rota de redirecionamento
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
-// Constantes para melhor organização
+// ✅ Constantes para melhor organização
 const STORAGE_KEYS = {
-  TOKEN: '@App:userToken',
+  TOKEN: '@App:token',
   USER_ID: '@App:userId', 
   USER_DATA: '@App:userData',
   LAST_ROUTE: '@App:lastRoute'
 } as const;
 
+// ✅ Rotas que NÃO devem ser salvas como última rota
 const EXCLUDED_ROUTES = [
   '/',
   '/index',
   '/pages/LoginScreen',
   '/pages/userCadastro', 
   '/pages/ForgotPasswordScreen',
-  '/pages/FilterScreen',
-  '/pages/MypetsFilter',
 ] as const;
+
+// ✅ NOVO: Mapeamento de rotas de filtro para suas telas pai
+const FILTER_ROUTE_MAPPING: { [key: string]: string } = {
+  '/pages/FilterScreen': '/pages/PetAdoptionScreen',
+  '/pages/MypetsFilter': '/pages/MyPetsScreen',
+  // Adicione outras rotas de filtro aqui conforme necessário
+};
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [isAuthenticated, setIsAuthenticated] = useState(false);
@@ -73,7 +80,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         if (userData) {
           parsedUser = JSON.parse(userData);
         } else {
-          // Fallback se não há dados do usuário
           parsedUser = { 
             id: parseInt(savedUserId), 
             nome: 'Usuário', 
@@ -150,19 +156,47 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     }
   };
 
+  // ✅ FUNÇÃO ATUALIZADA: setLastRoute com tratamento de rotas de filtro
   const setLastRoute = async (route: string) => {
     try {
+      // Verificar se é uma rota excluída
       if (EXCLUDED_ROUTES.includes(route as any)) {
-        console.log('🚫 Rota excluída:', route);
+        console.log('🚫 Rota excluída do lastRoute:', route);
         return;
       }
 
-      console.log('💾 Salvando rota:', route);
-      await AsyncStorage.setItem(STORAGE_KEYS.LAST_ROUTE, route);
-      setLastRouteState(route);
+      // ✅ NOVO: Se for uma rota de filtro, salvar a rota pai
+      let routeToSave = route;
+      if (FILTER_ROUTE_MAPPING[route]) {
+        routeToSave = FILTER_ROUTE_MAPPING[route];
+        console.log(`🔄 Rota de filtro detectada: ${route} → salvando como: ${routeToSave}`);
+      }
+
+      console.log('💾 Salvando última rota:', routeToSave);
+      await AsyncStorage.setItem(STORAGE_KEYS.LAST_ROUTE, routeToSave);
+      setLastRouteState(routeToSave);
     } catch (error) {
       console.error('❌ Erro ao salvar rota:', error);
     }
+  };
+
+  // ✅ NOVA FUNÇÃO: Obter rota de redirecionamento
+  const getRedirectRoute = (): string => {
+    // Se não estiver autenticado, sempre ir para login
+    if (!isAuthenticated) {
+      console.log('🚪 Não autenticado → redirecionando para login');
+      return '/pages/LoginScreen';
+    }
+
+    // Se tiver última rota salva, usar ela
+    if (lastRoute) {
+      console.log('📍 Redirecionando para última rota:', lastRoute);
+      return lastRoute;
+    }
+
+    // Rota padrão para usuários autenticados
+    console.log('🏠 Redirecionando para rota padrão');
+    return '/pages/PetAdoptionScreen';
   };
 
   return (
@@ -176,7 +210,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         login, 
         logout, 
         setLastRoute,
-        updateUser
+        updateUser,
+        getRedirectRoute // ✅ Nova função
       }}
     >
       {children}

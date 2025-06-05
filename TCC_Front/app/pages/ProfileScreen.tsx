@@ -26,7 +26,7 @@ import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import { cpf } from 'cpf-cnpj-validator';
 import checkDuplicateFieldsProfile from '@/services/api/Usuario/checkDuplicateFieldsProfile';
-
+import { useAuth } from '@/contexts/AuthContext';
 interface Usuario {
   id: number;
   nome: string;
@@ -277,7 +277,21 @@ export default function ProfileScreen() {
   useEffect(() => {
     initializeData();
   }, []);
+  const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('💾 Salvando ProfileScreen como última rota');
+      setLastRoute('/pages/ProfileScreen');
+    }
+  }, [authLoading, isAuthenticated, setLastRoute]);
 
+  // ✅ Verificar autenticação
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      console.log('🚫 Usuário não autenticado na ProfileScreen, redirecionando...');
+      router.replace('/pages/LoginScreen');
+    }
+  }, [isAuthenticated, authLoading]);
   // Função para inicializar todos os dados necessários
   const initializeData = async () => {
     try {
@@ -869,7 +883,19 @@ export default function ProfileScreen() {
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={{ color: '#FFFFFF', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
 
+  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  if (!isAuthenticated) {
+    return null;
+  }
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_04.png')} style={styles.backgroundImage}>

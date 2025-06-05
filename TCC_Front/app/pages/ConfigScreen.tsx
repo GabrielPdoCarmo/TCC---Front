@@ -1,6 +1,6 @@
-// ConfigScreen.tsx
+// ConfigScreen.tsx - Versão corrigida com AuthContext
 import { router } from 'expo-router';
-import React, { useState } from 'react'; // Adicionado o useState
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -10,19 +10,41 @@ import {
   ImageBackground,
   Image,
   Alert,
-  Linking, // Adicionado para abrir links externos
-  ScrollView, // Adicionado ScrollView
+  Linking,
+  ScrollView,
+  ActivityIndicator,
 } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 import { StatusBar } from 'expo-status-bar';
 import AdocaoResponsavelModal from '@/components/Pets/AdocaoResponsavelModal';
 import deleteUsuario from '@/services/api/Usuario/deleteUsuario';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
+
+// ✅ Importar o hook do AuthContext
+import { useAuth } from '@/contexts/AuthContext';
+
 export default function ConfigScreen() {
   // Estado para controlar a visibilidade do modal
   const [modalVisible, setModalVisible] = useState(false);
 
-  // Function to handle logout
+  // ✅ Usar o AuthContext
+  const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
+
+  useEffect(() => {
+    if (!authLoading && isAuthenticated) {
+      console.log('💾 Salvando ConfigScreen como última rota');
+      setLastRoute('/pages/ConfigScreen');
+    }
+  }, [authLoading, isAuthenticated, setLastRoute]);
+
+  // ✅ Verificar autenticação
+  useEffect(() => {
+    if (!authLoading && !isAuthenticated) {
+      console.log('🚫 Usuário não autenticado na ConfigScreen, redirecionando...');
+      router.replace('/pages/LoginScreen');
+    }
+  }, [isAuthenticated, authLoading]);
+
+  // ✅ Função de logout usando o contexto
   const handleLogout = async () => {
     Alert.alert(
       'Deslogar',
@@ -36,14 +58,17 @@ export default function ConfigScreen() {
           text: 'Deslogar',
           onPress: async () => {
             try {
-              // Clear the user data from AsyncStorage
-              await AsyncStorage.removeItem('@App:userId');
-              await AsyncStorage.removeItem('@App:userToken');
+              console.log('🚪 Realizando logout...');
 
-              // Navigate to login screen
-              router.replace('/');
+              // ✅ Usar a função logout do contexto
+              await logout();
+
+              console.log('✅ Logout realizado com sucesso');
+
+              // Navegar para a tela de login
+              router.replace('/pages/LoginScreen');
             } catch (error) {
-              console.error('Error during logout:', error);
+              console.error('❌ Erro durante logout:', error);
               Alert.alert('Erro', 'Não foi possível fazer logout. Tente novamente.');
             }
           },
@@ -53,8 +78,13 @@ export default function ConfigScreen() {
     );
   };
 
-  // Function to handle delete account
+  // ✅ Função para excluir conta usando o contexto
   const handleDeleteAccount = () => {
+    if (!user?.id) {
+      Alert.alert('Erro', 'Não foi possível identificar o usuário.');
+      return;
+    }
+
     Alert.alert(
       'Excluir Conta',
       'Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.',
@@ -68,27 +98,18 @@ export default function ConfigScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              // Obter o ID do usuário logado
-              const userId = await AsyncStorage.getItem('@App:userId');
-              console.log('ID do usuário:', userId);
-              if (!userId) {
-                throw new Error('ID do usuário não encontrado');
-              }
+              console.log('🗑️ Excluindo conta do usuário:', user.nome);
 
-              // Converter para número
-              const userIdNumber = parseInt(userId);
-              console.log('ID do usuário convertido:', userIdNumber);
               // Verificar se o usuário existe antes de excluir
-              const usuario = await getUsuarioById(userIdNumber);
-              console.log('Usuário encontrado:', usuario);
+              const usuario = await getUsuarioById(user.id);
+              console.log('👤 Usuário encontrado:', usuario);
+
               if (!usuario || !usuario.id) {
                 throw new Error('Usuário não encontrado');
               }
 
-              console.log('Excluindo usuário:', usuario.nome);
-
               // Chamar a API para excluir o usuário
-              const result = await deleteUsuario(userIdNumber);
+              const result = await deleteUsuario(user.id);
 
               if (!result) {
                 throw new Error('Falha ao excluir a conta');
@@ -100,16 +121,22 @@ export default function ConfigScreen() {
                 return;
               }
 
-              // Clear user data from AsyncStorage
-              await AsyncStorage.removeItem('@App:userId');
-              await AsyncStorage.removeItem('@App:userToken');
+              console.log('✅ Conta excluída com sucesso');
 
-              Alert.alert('Sucesso', 'Sua conta foi excluída com sucesso.');
+              // ✅ Limpar dados usando a função logout do contexto
+              await logout();
 
-              // Navigate to login screen
-              router.replace('/');
+              Alert.alert('Sucesso', 'Sua conta foi excluída com sucesso.', [
+                {
+                  text: 'OK',
+                  onPress: () => {
+                    // Navegar para a tela de login
+                    router.replace('/pages/LoginScreen');
+                  },
+                },
+              ]);
             } catch (error) {
-              console.error('Error deleting account:', error);
+              console.error('❌ Erro ao excluir conta:', error);
               Alert.alert('Erro ao Excluir Conta', 'Não foi possível excluir a conta. Tente novamente.');
             }
           },
@@ -121,7 +148,6 @@ export default function ConfigScreen() {
 
   // Função para abrir site sobre combate ao abandono de animais
   const handleLearnMore = async () => {
-    // URL de um site sobre combate ao abandono de animais
     const url = 'https://www.worldanimalprotection.org.br';
 
     try {
@@ -143,6 +169,21 @@ export default function ConfigScreen() {
     setModalVisible(true);
   };
 
+  // ✅ Loading de verificação de autenticação
+  if (authLoading) {
+    return (
+      <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
+        <ActivityIndicator size="large" color="#FFFFFF" />
+        <Text style={{ color: '#FFFFFF', marginTop: 20 }}>Verificando autenticação...</Text>
+      </View>
+    );
+  }
+
+  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  if (!isAuthenticated) {
+    return null;
+  }
+
   return (
     <ImageBackground
       source={require('../../assets/images/backgrounds/Fundo_05.png')}
@@ -154,7 +195,8 @@ export default function ConfigScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.title}>Configurações</Text>
 
-        {/* Adicionado ScrollView aqui */}
+        {/* ✅ Adicionar informações do usuário */}
+
         <ScrollView
           style={styles.scrollView}
           showsVerticalScrollIndicator={false}
@@ -166,7 +208,6 @@ export default function ConfigScreen() {
               <Text style={[styles.phoneNumber, styles.centerText]}>Disque: 181 ou 190</Text>
             </View>
 
-            {/* Todos os botões agora estão no mesmo nível de hierarquia */}
             <TouchableOpacity style={styles.button} onPress={handleLearnMore}>
               <Text style={styles.buttonText}>Saiba Mais sobre o{'\n'}Abandono de Animais</Text>
               <Text style={styles.arrowIcon}>›</Text>
@@ -200,9 +241,12 @@ export default function ConfigScreen() {
             <Text style={styles.navText}>Pets</Text>
           </TouchableOpacity>
 
-          <TouchableOpacity style={styles.navItem} onPress={() => router.push('/pages/ProfileScreen')}>
-            <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
-            <Text style={styles.navText}>Perfil</Text>
+          <TouchableOpacity style={styles.navItem}>
+            {/* ✅ Indicar que esta é a tela ativa */}
+            <View style={styles.activeCircle}>
+              <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
+            </View>
+            <Text style={styles.activeNavText}>Perfil</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
@@ -230,7 +274,21 @@ const styles = StyleSheet.create({
     marginTop: 40,
     marginBottom: 20,
   },
-  // Adicionados novos estilos para o ScrollView
+  // ✅ Novo estilo para informações do usuário
+  userInfoContainer: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    marginHorizontal: 20,
+    paddingHorizontal: 15,
+    paddingVertical: 8,
+    borderRadius: 15,
+    marginBottom: 10,
+  },
+  welcomeText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4682B4',
+    textAlign: 'center',
+  },
   scrollView: {
     flex: 1,
   },
@@ -328,5 +386,17 @@ const styles = StyleSheet.create({
     fontSize: 12,
     marginTop: 3,
     color: '#000',
+  },
+  // ✅ Novos estilos para navegação ativa
+  activeNavText: {
+    fontSize: 12,
+    marginTop: 3,
+    color: '#4682B4',
+    fontWeight: 'bold',
+  },
+  activeCircle: {
+    backgroundColor: '#E8F1F8',
+    borderRadius: 20,
+    padding: 5,
   },
 });
