@@ -1,4 +1,4 @@
-// TermoDoacaoModalAuto.tsx - Modal automático ATUALIZADO com modo de atualização de nome
+// TermoDoacaoModalAuto.tsx - Modal automático ATUALIZADO com verificação de dados completos
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -50,8 +50,8 @@ interface TermoDoacaoModalAutoProps {
   };
   // Callback para quando termo for concluído e usuário puder usar a tela
   onTermoCompleted: () => void;
-  // 🆕 Prop para indicar se é modo de atualização de nome
-  isNameUpdateMode?: boolean;
+  // 🆕 Prop para indicar se é modo de atualização de dados (nome, email, telefone)
+  isDataUpdateMode?: boolean;
 }
 
 interface FormData {
@@ -67,11 +67,11 @@ interface FormData {
   compromesteContato: boolean;
 }
 
-const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({ 
-  visible, 
-  usuarioLogado, 
-  onTermoCompleted, 
-  isNameUpdateMode = false // 🆕 Default false para compatibilidade
+const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
+  visible,
+  usuarioLogado,
+  onTermoCompleted,
+  isDataUpdateMode = false, // 🆕 Default false para compatibilidade
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
@@ -98,10 +98,10 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
   useEffect(() => {
     const backAction = () => {
       if (visible && !emailSent) {
-        const message = isNameUpdateMode 
-          ? 'Você precisa reAssinar o termo com seu nome atualizado para continuar cadastrando pets.'
+        const message = isDataUpdateMode
+          ? 'Você precisa reAssinar o termo com seus dados atualizados para continuar cadastrando pets.'
           : 'Você precisa assinar o termo de responsabilidade para cadastrar pets.';
-        
+
         Alert.alert('Termo Obrigatório', message, [
           { text: 'Continuar Assinando', style: 'cancel' },
           { text: 'Voltar à Tela Anterior', onPress: handleGoBack },
@@ -113,7 +113,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [visible, emailSent, isNameUpdateMode]);
+  }, [visible, emailSent, isDataUpdateMode]);
 
   // 🆕 Função para obter o token de autenticação
   const getAuthToken = async () => {
@@ -149,13 +149,13 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
     if (visible) {
       initializeModal();
     }
-  }, [visible, isNameUpdateMode]); // 🆕 Adicionado isNameUpdateMode como dependência
+  }, [visible, isDataUpdateMode]); // 🆕 Adicionado isDataUpdateMode como dependência
 
   // 🆕 Função ATUALIZADA para inicializar o modal
   const initializeModal = async () => {
-    const modoTexto = isNameUpdateMode ? 'atualização de nome' : 'criação inicial';
+    const modoTexto = isDataUpdateMode ? 'atualização de dados' : 'criação inicial';
     console.log(`🚀 Inicializando modal de termo (${modoTexto})...`);
-    
+
     setStep('loading');
     setEmailSent(false);
 
@@ -164,9 +164,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
     setAuthToken(token);
 
     // 🆕 Lógica diferente baseada no modo
-    if (isNameUpdateMode) {
+    if (isDataUpdateMode) {
       // Modo de atualização - pular verificação e ir direto para formulário
-      console.log('🔄 Modo atualização de nome - indo direto para formulário');
+      console.log('🔄 Modo atualização de dados - indo direto para formulário');
       await loadExistingTermoData(); // Carregar dados do termo existente
       setStep('form');
     } else {
@@ -179,17 +179,17 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
   const loadExistingTermoData = async () => {
     try {
       console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
-      
+
       const response = await getTermoDoacao();
-      
+
       if (response && response.data) {
         const termo = response.data;
-        
+
         // Pré-preencher formulário com dados existentes
-        setFormData(prev => ({
+        setFormData((prev) => ({
           ...prev,
           motivoDoacao: termo.motivo_doacao || '',
-          assinaturaDigital: usuarioLogado.nome || termo.assinatura_digital || '', // 🆕 Usar nome atual do usuário
+          assinaturaDigital: usuarioLogado.nome || termo.assinatura_digital || '', // 🆕 Usar dados atuais do usuário
           condicoesAdocao: termo.condicoes_adocao || '',
           observacoes: termo.observacoes || '',
           // Manter compromissos aceitos
@@ -200,7 +200,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
           autorizaVerificacao: true,
           compromesteContato: true,
         }));
-        
+
         setTermoData(termo);
         console.log('✅ Dados do termo carregados para atualização');
       }
@@ -285,7 +285,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
     try {
       setLoading(true);
 
-      const acaoTexto = isNameUpdateMode ? 'Atualizando' : 'Criando';
+      const acaoTexto = isDataUpdateMode ? 'Atualizando' : 'Criando';
       console.log(`📝 ${acaoTexto} termo de doação...`);
 
       // 🆕 Usar função atualizada que suporta criação e atualização
@@ -302,7 +302,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
           autorizaVerificacao: formData.autorizaVerificacao,
           compromesteContato: formData.compromesteContato,
         },
-        isNameUpdateMode // 🆕 Passar flag de atualização
+        isDataUpdateMode // 🆕 Passar flag de atualização
       );
 
       if (response && response.data) {
@@ -316,9 +316,9 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
         await handleAutoSendEmail(response.data);
       }
     } catch (error: any) {
-      console.error(`❌ Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo:`, error);
+      console.error(`❌ Erro ao ${isDataUpdateMode ? 'atualizar' : 'criar'} termo:`, error);
 
-      let errorMessage = `Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo de responsabilidade.`;
+      let errorMessage = `Erro ao ${isDataUpdateMode ? 'atualizar' : 'criar'} termo de responsabilidade.`;
 
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Sessão Expirada', 'Sua sessão expirou. Você será redirecionado para a tela anterior.', [
@@ -356,8 +356,8 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
       console.error('❌ Erro ao enviar email:', error);
       setSendingEmail(false);
 
-      const retryText = isNameUpdateMode ? 'Tentar Reenviar' : 'Tentar Novamente';
-      
+      const retryText = isDataUpdateMode ? 'Tentar Reenviar' : 'Tentar Novamente';
+
       Alert.alert(
         'Erro no Envio',
         'Não foi possível enviar o PDF por email, mas seu termo foi processado com sucesso. Você pode tentar reenviar mais tarde.',
@@ -377,7 +377,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
 
     // Aguardar 3 segundos e liberar o usuário
     setTimeout(() => {
-      const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
+      const acaoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
       console.log(`🎉 Termo ${acaoTexto}, liberando acesso à tela...`);
       onTermoCompleted();
     }, 3000);
@@ -408,27 +408,59 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
   };
 
   // 🆕 Textos dinâmicos baseados no modo
-  const headerTitle = isNameUpdateMode 
-    ? 'Atualização de Termo'
-    : 'Termo de Responsabilidade';
-    
-  const headerSubtitle = isNameUpdateMode 
-    ? 'Requer nova assinatura com nome atualizado'
+  const headerTitle = isDataUpdateMode ? 'Atualização de Termo' : 'Termo de Responsabilidade';
+
+  const headerSubtitle = isDataUpdateMode
+    ? 'Requer nova assinatura com dados atualizados'
     : 'Obrigatório para cadastrar pets';
-    
-  const warningText = isNameUpdateMode
-    ? 'Seu nome foi alterado no perfil. Para continuar cadastrando pets, você precisa reAssinar o termo com seu nome atualizado.'
+
+  const warningText = isDataUpdateMode
+    ? 'Seus dados pessoais foram alterados. Para continuar cadastrando pets, você precisa reAssinar o termo com suas informações atualizadas.'
     : 'Para cadastrar pets para doação, você precisa assinar este termo de responsabilidade.';
-    
-  const buttonText = isNameUpdateMode ? 'Atualizar Termo' : 'Assinar Termo';
-  
-  const successTitle = isNameUpdateMode 
-    ? 'Termo Atualizado com Sucesso!'
-    : 'Termo Assinado com Sucesso!';
-    
-  const successMessage = isNameUpdateMode
-    ? 'Seu termo foi atualizado com seu nome atual e reenviado por email.'
+
+  const buttonText = isDataUpdateMode ? 'Atualizar Termo' : 'Assinar Termo';
+
+  const successTitle = isDataUpdateMode ? 'Termo Atualizado com Sucesso!' : 'Termo Assinado com Sucesso!';
+
+  const successMessage = isDataUpdateMode
+    ? 'Seu termo foi atualizado com seus dados atuais e reenviado por email.'
     : 'Seu termo de responsabilidade foi criado e enviado por email.';
+
+  // 🆕 Função para mostrar os dados que foram alterados
+  const renderDataChangesInfo = () => {
+    if (!isDataUpdateMode || !termoData) return null;
+
+    const dadosAtuais = {
+      nome: usuarioLogado.nome || '',
+      email: usuarioLogado.email || '',
+      telefone: usuarioLogado.telefone || '',
+    };
+
+    const dadosNoTermo = {
+      nome: termoData.doador_nome || '',
+      email: termoData.doador_email || '',
+      telefone: termoData.doador_telefone || '',
+    };
+
+    const mudancas = [];
+    if (dadosAtuais.nome !== dadosNoTermo.nome) {
+      mudancas.push(`Nome: "${dadosNoTermo.nome}" → "${dadosAtuais.nome}"`);
+    }
+    if (dadosAtuais.email !== dadosNoTermo.email) {
+      mudancas.push(`Email: "${dadosNoTermo.email}" → "${dadosAtuais.email}"`);
+    }
+    if (dadosAtuais.telefone !== dadosNoTermo.telefone) {
+      mudancas.push(
+        `Telefone: "${dadosNoTermo.telefone || 'Não informado'}" → "${dadosAtuais.telefone || 'Não informado'}"`
+      );
+    }
+
+    // Nota: Localização (cidade/estado) seria detectada automaticamente pelo backend
+    // mas não temos acesso direto aos nomes aqui no modal
+    // Se houver necessidade, pode ser adicionado uma nova chamada à API
+
+    if (mudancas.length === 0) return null;
+  };
 
   return (
     <Modal
@@ -454,10 +486,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4682B4" />
             <Text style={styles.loadingText}>
-              {isNameUpdateMode 
-                ? 'Carregando dados para atualização...' 
-                : 'Verificando termo de responsabilidade...'
-              }
+              {isDataUpdateMode ? 'Carregando dados para atualização...' : 'Verificando termo de responsabilidade...'}
             </Text>
           </View>
         )}
@@ -468,10 +497,13 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
             contentContainerStyle={styles.formContentContainer}
             showsVerticalScrollIndicator={false}
           >
-            <View style={[styles.warningContainer, isNameUpdateMode && styles.updateWarningContainer]}>
-              <Text style={styles.warningIcon}>{isNameUpdateMode ? '🔄' : '⚠️'}</Text>
+            <View style={[styles.warningContainer, isDataUpdateMode && styles.updateWarningContainer]}>
+              <Text style={styles.warningIcon}>{isDataUpdateMode ? '🔄' : '⚠️'}</Text>
               <Text style={styles.warningText}>{warningText}</Text>
             </View>
+
+            {/* 🆕 Mostrar informações sobre os dados alterados */}
+            {renderDataChangesInfo()}
 
             <View style={styles.inputContainer}>
               <Text style={styles.inputLabel}>
@@ -618,10 +650,7 @@ const TermoDoacaoModalAuto: React.FC<TermoDoacaoModalAutoProps> = ({
               <View style={styles.loadingContainer}>
                 <ActivityIndicator size="large" color="#1E88E5" />
                 <Text style={styles.loadingText}>
-                  {isNameUpdateMode 
-                    ? 'Enviando termo atualizado por email...' 
-                    : 'Enviando PDF por email...'
-                  }
+                  {isDataUpdateMode ? 'Enviando termo atualizado por email...' : 'Enviando PDF por email...'}
                 </Text>
                 <Text style={styles.subLoadingText}>Seu termo está sendo enviado para {termoData.doador_email}</Text>
               </View>
@@ -755,6 +784,34 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#856404',
     lineHeight: 20,
+  },
+  // 🆕 Estilos para mostrar as mudanças detectadas
+  dataChangesContainer: {
+    backgroundColor: '#F0F8FF',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#4682B4',
+  },
+  dataChangesTitle: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#4682B4',
+    marginBottom: 10,
+  },
+  dataChangeItem: {
+    fontSize: 13,
+    color: '#333',
+    marginBottom: 5,
+    paddingLeft: 10,
+  },
+  dataChangeNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 8,
+    paddingLeft: 10,
   },
   inputContainer: {
     marginBottom: 15,
@@ -925,4 +982,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TermoDoacaoModalAuto;
+export default TermoDoacaoModal;

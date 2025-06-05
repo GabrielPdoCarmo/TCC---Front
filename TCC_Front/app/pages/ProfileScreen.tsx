@@ -183,28 +183,6 @@ const normalizeString = (str: string): string => {
     .trim(); // Remove extra spaces
 };
 
-// Function to fetch address data by CEP using the ViaCEP API
-const fetchAddressByCep = async (cep: string): Promise<any> => {
-  try {
-    const formattedCep = stripNonNumeric(cep);
-    if (formattedCep.length !== 8) {
-      return null;
-    }
-
-    const response = await fetch(`https://viacep.com.br/ws/${formattedCep}/json/`);
-    const data = await response.json();
-
-    if (data.erro) {
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Erro ao buscar endereço pelo CEP:', error);
-    return null;
-  }
-};
-
 // Mapping of state abbreviations to full names
 const estadosSiglaParaNome: { [key: string]: string } = {
   AC: 'Acre',
@@ -314,7 +292,6 @@ export default function ProfileScreen() {
       // Agora que os estados foram carregados, buscar dados do usuário
       await fetchUserData(estadosData);
     } catch (err) {
-      console.error('Erro ao inicializar dados:', err);
       setError('Erro ao carregar dados. Tente novamente.');
     } finally {
       setLoading(false);
@@ -350,7 +327,6 @@ export default function ProfileScreen() {
       // Salvar no cache
       cidadesCache.current[estadoKey] = data;
     } catch (err) {
-      console.error('Erro ao buscar cidades:', err);
       setCidades([]);
     } finally {
       setLoadingCidades(false);
@@ -364,7 +340,6 @@ export default function ProfileScreen() {
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.error('ID do usuário não encontrado no AsyncStorage');
         setError('Não foi possível identificar o usuário conectado.');
         return;
       }
@@ -375,7 +350,6 @@ export default function ProfileScreen() {
       const userData = await getUsuarioById(userIdNumber);
 
       if (!userData) {
-        console.error('Dados do usuário não encontrados');
         setError('Não foi possível carregar os dados do usuário.');
         return;
       }
@@ -405,7 +379,6 @@ export default function ProfileScreen() {
           // Carregar cidades do estado selecionado
           await fetchCidades(userData.estado_id);
         } else {
-          console.error('Estado não encontrado:', userData.estado_id);
           // Ainda assim define o ID para tentar carregar as cidades
           setEstadoSelecionado(userData.estado_id);
         }
@@ -427,7 +400,6 @@ export default function ProfileScreen() {
         setCidade(userData.cidade.nome);
       }
     } catch (err) {
-      console.error('Erro ao buscar dados do usuário:', err);
       setError('Não foi possível carregar os dados do perfil. Tente novamente mais tarde.');
     }
   };
@@ -547,7 +519,6 @@ export default function ProfileScreen() {
         estado: estadoNome,
       };
     } catch (error) {
-      console.error('Erro ao buscar endereço:', error);
       throw error;
     }
   }
@@ -601,13 +572,10 @@ export default function ProfileScreen() {
                 });
               }
             }
-          } catch (cidadeError) {
-            console.error('Erro ao carregar cidades:', cidadeError);
-          }
+          } catch (cidadeError) {}
         }
       }
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
       setCepErro('CEP inválido ou não encontrado.');
     } finally {
       setLoadingCep(false);
@@ -703,7 +671,6 @@ export default function ProfileScreen() {
       }
 
       // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar salvar
-      console.log('Verificando campos duplicados para edição...');
 
       const validationResponse = await checkDuplicateFieldsProfile({
         userId: usuario.id,
@@ -739,8 +706,6 @@ export default function ProfileScreen() {
           return;
         }
       }
-
-      console.log('Campos validados. Prosseguindo com a atualização...');
 
       // Preparar os dados do usuário
       const dadosUsuario: UsuarioData = {
@@ -794,12 +759,10 @@ export default function ProfileScreen() {
         }, 500);
       } else {
         const mensagemErro = resultado?.message || 'Não foi possível salvar os dados.';
-        console.error('Erro retornado pela API:', mensagemErro);
+
         Alert.alert('Erro', mensagemErro);
       }
     } catch (err: any) {
-      console.error('Erro ao salvar dados do perfil:', err);
-
       // Verificar se o erro está na resposta da API ou diretamente no error
       const serverError = err?.response?.data || err;
 
@@ -903,7 +866,6 @@ export default function ProfileScreen() {
         setFotoErro(''); // Limpar qualquer erro anterior
       }
     } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };

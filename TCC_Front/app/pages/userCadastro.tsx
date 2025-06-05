@@ -100,26 +100,6 @@ const stripNonNumeric = (text: string): string => {
 };
 
 // Function to fetch address data by CEP using the ViaCEP API
-const fetchAddressByCep = async (cep: string): Promise<any> => {
-  try {
-    const formattedCep = stripNonNumeric(cep);
-    if (formattedCep.length !== 8) {
-      return null;
-    }
-
-    const response = await fetch(`https://viacep.com.br/ws/${formattedCep}/json/`);
-    const data = await response.json();
-
-    if (data.erro) {
-      return null;
-    }
-
-    return data;
-  } catch (error) {
-    console.error('Erro ao buscar endereço pelo CEP:', error);
-    return null;
-  }
-};
 
 // Function to normalize strings for case-insensitive comparisons
 const normalizeString = (str: string): string => {
@@ -231,10 +211,8 @@ export default function CadastroUsuario() {
         // Atualizar o estado com a URI da imagem selecionada
         setFoto(result.assets[0].uri);
         setFotoErro('');
-        console.log('Imagem selecionada:', result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
@@ -272,7 +250,6 @@ export default function CadastroUsuario() {
       setCidadesCarregadas(true);
       return cidadesWithId;
     } catch (error) {
-      console.error('Erro ao carregar as cidades:', error);
       return [] as CidadeType[];
     } finally {
       setLoadingCidades(false);
@@ -296,7 +273,6 @@ export default function CadastroUsuario() {
       setCidadesFiltradas(cidadesData);
       return cidadesData; // <-- retorna as cidades carregadas
     } catch (error) {
-      console.error('Erro ao carregar cidades:', error);
       setCidades([]);
       setCidadesFiltradas([]);
       return []; // <-- retorna vazio em erro
@@ -307,8 +283,6 @@ export default function CadastroUsuario() {
 
   // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: CidadeType) => {
-    console.log('selectedCidade', selectedCidade);
-
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estado?.id || null, selectedCidade.id);
 
@@ -324,7 +298,6 @@ export default function CadastroUsuario() {
         const estadosData = await getEstados();
         setEstados(estadosData || []);
       } catch (error) {
-        console.error('Erro ao carregar os estados:', error);
         setEstados([]);
       }
     }
@@ -494,7 +467,6 @@ export default function CadastroUsuario() {
 
     try {
       // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
-      console.log('Verificando campos duplicados...');
 
       const validationResponse = await checkDuplicateFields({
         email: email,
@@ -525,8 +497,6 @@ export default function CadastroUsuario() {
           return;
         }
       }
-
-      console.log('Campos validados. Prosseguindo com o cadastro...');
 
       // Se chegou até aqui, pode prosseguir com o cadastro
       // Preparar a foto para upload
@@ -568,7 +538,6 @@ export default function CadastroUsuario() {
           },
         },
       ]);
-      console.log('Usuário cadastrado com sucesso:', response);
     } catch (error: any) {
       // Verificar se o erro está na resposta da API ou diretamente no error
       const serverError = error?.response?.data || error;
@@ -755,7 +724,6 @@ export default function CadastroUsuario() {
         estado: estadoNome, // agora vem o nome completo do estado!
       };
     } catch (error) {
-      console.error('Erro ao buscar endereço:', error);
       throw error;
     }
   }
@@ -799,12 +767,9 @@ export default function CadastroUsuario() {
               cidadeNome: cidadeEncontrada.nome,
             });
           }
-        } else {
-          console.warn('Cidade não encontrada na lista:', endereco.cidade);
         }
       }
     } catch (error) {
-      console.error('Erro ao buscar CEP:', error);
       setCepErro('CEP inválido ou não encontrado.');
     } finally {
       setLoadingCep(false);
@@ -821,16 +786,13 @@ export default function CadastroUsuario() {
     const fetchData = async () => {
       try {
         const sexosData = await getSexoUsuario();
-        console.log('sexosData:', sexosData);
 
         setSexos(sexosData || []);
 
         const estadosData = await getEstados();
-        //console.log('estadosData:', estadosData);
+
         setEstados(estadosData || []);
-      } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
-      }
+      } catch (error) {}
     };
     fetchData();
   }, []);
@@ -929,7 +891,6 @@ export default function CadastroUsuario() {
                     onPress={() => {
                       setSexo(item);
                       setSexoErro('');
-                      console.log('Sexo', item);
                     }}
                   >
                     <View style={styles.checkboxCustom}>{sexo === item && <View style={styles.checkboxInner} />}</View>

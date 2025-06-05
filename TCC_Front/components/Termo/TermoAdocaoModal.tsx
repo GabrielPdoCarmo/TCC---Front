@@ -1,4 +1,4 @@
-// TermoAdocaoModal.tsx - Atualizado com modo de atualização de nome para termos de compromisso
+// TermoAdocaoModal.tsx - Atualizado com exibição de localização completa
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -13,11 +13,8 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import {
-  createOrUpdateTermoCompromisso,
-  getTermoByPetWithNameCheck,
-} from '@/services/api/TermoCompromisso/checkCanAdopt'; // 🆕 Funções atualizadas
-import { sendTermoEmail } from '@/services/api/TermoCompromisso/sendTermoEmail';
+import { createOrUpdateTermoCompromisso, getTermoByPetWithNameCheck } from '@/services/api/TermoAdocao/checkCanAdopt';
+import { sendTermoEmail } from '@/services/api/TermoAdocao/sendTermoEmail';
 
 interface Pet {
   id: number;
@@ -32,6 +29,7 @@ interface Pet {
   pet_sexo_nome?: string;
 }
 
+// 🆕 Interface atualizada com dados de localização
 interface TermoData {
   id: number;
   pet_nome: string;
@@ -42,13 +40,23 @@ interface TermoData {
   doador_nome: string;
   doador_email: string;
   doador_telefone?: string;
+  // 🆕 Localização do doador
+  doador_cidade_nome?: string;
+  doador_estado_nome?: string;
   adotante_nome: string;
   adotante_email: string;
   adotante_telefone?: string;
+  // 🆕 Localização do adotante
+  adotante_cidade_nome?: string;
+  adotante_estado_nome?: string;
+  adotante_cpf?: string;
   assinatura_digital: string;
   data_assinatura: string;
   observacoes?: string;
   hash_documento: string;
+  // 🆕 Métodos de localização formatada
+  localizacaoDoador?: string;
+  localizacaoAdotante?: string;
 }
 
 interface TermoModalProps {
@@ -61,13 +69,13 @@ interface TermoModalProps {
     email: string;
     telefone?: string;
   };
-  // 🆕 Indica se já existe termo (para ir direto para visualização)
+  // Indica se já existe termo (para ir direto para visualização)
   hasExistingTermo?: boolean;
-  // 🆕 Callback quando termo é criado com sucesso (NÃO fecha modal)
+  // Callback quando termo é criado com sucesso (NÃO fecha modal)
   onSuccess?: () => void;
-  // 🆕 Callback quando email é enviado com sucesso (fecha modal e vai para WhatsApp)
+  // Callback quando email é enviado com sucesso (fecha modal e vai para WhatsApp)
   onEmailSent?: () => void;
-  // 🆕 NOVAS PROPS para modo de atualização de nome
+  // PROPS para modo de atualização de nome
   isNameUpdateMode?: boolean;
   nameNeedsUpdate?: boolean;
 }
@@ -80,8 +88,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   hasExistingTermo = false,
   onSuccess,
   onEmailSent,
-  isNameUpdateMode = false, // 🆕 Default false para compatibilidade
-  nameNeedsUpdate = false, // 🆕 Default false para compatibilidade
+  isNameUpdateMode = false,
+  nameNeedsUpdate = false,
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
@@ -92,13 +100,13 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
 
-  // 📱 Função para formatar telefone no padrão brasileiro
+  // 🆕 📱 Função para formatar telefone no padrão brasileiro
   const formatTelefone = (telefone: string | undefined): string => {
-    if (!telefone) return '';
+    if (!telefone) return 'Não informado';
 
     const numbers = telefone.replace(/\D/g, '');
 
-    if (!numbers) return '';
+    if (!numbers) return 'Não informado';
 
     if (numbers.length === 11) {
       return `(${numbers.slice(0, 2)}) ${numbers.slice(2, 7)}-${numbers.slice(7)}`;
@@ -117,7 +125,18 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     return numbers.replace(/(\d{4})(?=\d)/g, '$1-');
   };
 
-  // 🆕 Função para obter o token de autenticação
+  // 🆕 Função para formatar localização
+  const formatLocalizacao = (cidade?: string, estado?: string): string => {
+    if (cidade && estado) {
+      return `${cidade} - ${estado}`;
+    }
+    if (estado) {
+      return estado;
+    }
+    return 'Não informado';
+  };
+
+  // Função para obter o token de autenticação
   const getAuthToken = async () => {
     try {
       const possibleTokenKeys = ['@App:authToken', '@App:token', '@App:accessToken', '@App:userToken', '@App:jwt'];
@@ -147,14 +166,14 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🔧 Carregar token e inicializar modal quando abrir
+  // Carregar token e inicializar modal quando abrir
   useEffect(() => {
     if (visible && !initialLoadComplete) {
       initializeModal();
     }
-  }, [visible, isNameUpdateMode, nameNeedsUpdate]); // 🆕 Adicionadas dependências
+  }, [visible, isNameUpdateMode, nameNeedsUpdate]);
 
-  // 🆕 Função ATUALIZADA para inicializar o modal
+  // Função para inicializar o modal
   const initializeModal = async () => {
     const modoTexto = isNameUpdateMode ? 'atualização de nome' : hasExistingTermo ? 'visualização' : 'criação inicial';
     console.log(`🚀 Inicializando modal do termo (${modoTexto})...`);
@@ -169,7 +188,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       console.warn('⚠️ Token não encontrado, mas tentando continuar');
     }
 
-    // 🆕 Lógica ATUALIZADA baseada no modo
+    // Lógica baseada no modo
     if (isNameUpdateMode || nameNeedsUpdate) {
       // Modo de atualização de nome - carregar dados e ir para formulário
       console.log('🔄 Modo atualização de nome - carregando dados do termo para pré-preenchimento');
@@ -188,7 +207,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     setInitialLoadComplete(true);
   };
 
-  // 🆕 Função para carregar dados do termo existente (para pré-preencher formulário na atualização)
+  // Função para carregar dados do termo existente (para pré-preencher formulário na atualização)
   const loadExistingTermoData = async () => {
     try {
       console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
@@ -199,7 +218,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         const termo = response.data;
 
         // Pré-preencher formulário com dados existentes, MAS com nome atual do usuário
-        setAssinaturaDigital(usuarioLogado.nome || termo.assinatura_digital || ''); // 🆕 Usar nome atual do usuário
+        setAssinaturaDigital(usuarioLogado.nome || termo.assinatura_digital || '');
         setObservacoes(termo.observacoes || '');
 
         setTermoData(termo);
@@ -212,7 +231,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🔧 Função ATUALIZADA para criar/atualizar termo
+  // Função para criar/atualizar termo
   const handleCreateTermo = async () => {
     if (!assinaturaDigital.trim()) {
       Alert.alert('Erro', 'Por favor, digite seu nome para assinatura digital.');
@@ -225,14 +244,14 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       const acaoTexto = isNameUpdateMode ? 'Atualizando' : 'Criando';
       console.log(`📝 ${acaoTexto} termo para pet ID:`, pet.id);
 
-      // 🆕 Usar função atualizada que suporta criação e atualização
+      // Usar função que suporta criação e atualização
       const response = await createOrUpdateTermoCompromisso(
         {
           petId: pet.id,
           assinaturaDigital: assinaturaDigital.trim(),
           observacoes: observacoes.trim() || undefined,
         },
-        isNameUpdateMode // 🆕 Passar flag de atualização
+        isNameUpdateMode
       );
 
       console.log(`📨 Resposta do ${acaoTexto.toLowerCase()}:`, response);
@@ -241,20 +260,20 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         const acaoTextoFinal = response.updated ? 'atualizado' : 'criado';
         console.log(`✅ Termo ${acaoTextoFinal} com sucesso, buscando dados completos...`);
 
-        // 🔧 Pequeno delay para garantir que o backend salvou completamente
+        // Pequeno delay para garantir que o backend salvou completamente
         await new Promise((resolve) => setTimeout(resolve, 500));
 
-        // 🔧 Buscar termo completo após criação/atualização para garantir dados atualizados
+        // Buscar termo completo após criação/atualização para garantir dados atualizados
         await loadTermoCompleto();
 
-        // 🆕 Notificar que termo foi criado/atualizado (para o fluxo iOS) - MAS NÃO FECHA MODAL
+        // Notificar que termo foi criado/atualizado (para o fluxo iOS) - MAS NÃO FECHA MODAL
         if (onSuccess) {
           onSuccess();
         }
 
         const mensagemSucesso = isNameUpdateMode
-          ? 'Termo de compromisso atualizado com seu nome atual! Agora envie por email para habilitar o WhatsApp.'
-          : 'Termo de compromisso criado com sucesso! Agora envie por email para habilitar o WhatsApp.';
+          ? '✅ Termo de compromisso atualizado com seu nome atual!\n\n📧 Agora envie por email para habilitar o WhatsApp.'
+          : '✅ Termo de compromisso criado com sucesso!\n\n📧 Agora envie por email para habilitar o WhatsApp.';
 
         Alert.alert('Sucesso', mensagemSucesso);
       } else {
@@ -277,7 +296,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           console.log('ℹ️ Termo já existe, carregando dados...');
           await loadTermoCompleto();
 
-          // 🆕 Notificar que termo existe (para o fluxo iOS)
           if (onSuccess) {
             onSuccess();
           }
@@ -299,7 +317,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🆕 Função centralizada para carregar termo completo
+  // Função centralizada para carregar termo completo
   const loadTermoCompleto = async () => {
     try {
       console.log('🔄 Carregando termo completo para pet ID:', pet.id);
@@ -329,7 +347,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🆕 Função para buscar termo atualizado (útil para refresh)
+  // Função para buscar termo atualizado (útil para refresh)
   const refreshTermo = async () => {
     if (!termoData) return;
 
@@ -345,7 +363,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 📧 Função para enviar termo por email (com callback para o fluxo iOS)
+  // 🆕 📧 Função para enviar termo por email (com callback para o fluxo iOS)
   const handleSendEmail = async () => {
     if (!termoData) return;
 
@@ -355,18 +373,28 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
       const response = await sendTermoEmail(termoData.id);
 
-      const mensagemSucesso = isNameUpdateMode
-        ? `O termo foi atualizado e enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.`
-        : `O termo foi enviado com sucesso para:\n\n📧 ${response.data.destinatario}\n\nVerifique a caixa de entrada e spam.`;
+      const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
 
-      Alert.alert('Email Enviado! 📧', mensagemSucesso, [
+      // 🆕 Mensagem atualizada informando sobre envio para ambos
+      const mensagemSucesso = isNameUpdateMode
+        ? `✅ O termo foi atualizado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${
+            response.data.destinatarios?.adotante || termoData.adotante_email
+          }\n• Doador: ${
+            response.data.destinatarios?.doador || termoData.doador_email
+          }\n\n📱 Verifique a caixa de entrada e spam.`
+        : `✅ O termo foi criado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${
+            response.data.destinatarios?.adotante || termoData.adotante_email
+          }\n• Doador: ${
+            response.data.destinatarios?.doador || termoData.doador_email
+          }\n\n📱 Verifique a caixa de entrada e spam.`;
+
+      Alert.alert('Emails Enviados! 📧', mensagemSucesso, [
         {
           text: 'OK',
           onPress: () => {
-            const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
-            console.log(`📧 Email do termo ${acaoTexto} enviado com sucesso, notificando fluxo iOS...`);
+            console.log(`📧 Emails do termo ${acaoTexto} enviados com sucesso, notificando fluxo iOS...`);
 
-            // 🆕 Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
+            // Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
             if (onEmailSent) {
               onEmailSent();
             } else {
@@ -377,9 +405,9 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         },
       ]);
 
-      console.log('✅ Email enviado com sucesso:', response.data);
+      console.log('✅ Emails enviados com sucesso:', response.data);
     } catch (error: any) {
-      console.error('❌ Erro ao enviar email:', error);
+      console.error('❌ Erro ao enviar emails:', error);
 
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
@@ -388,12 +416,12 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         return;
       }
 
-      let errorMessage = 'Erro ao enviar email com o termo.';
+      let errorMessage = 'Erro ao enviar emails com o termo.';
 
-      if (error.message.includes('Email do adotante não está disponível')) {
-        errorMessage = 'Email do adotante não está disponível no sistema.';
-      } else if (error.message.includes('Falha no envio do email')) {
-        errorMessage = 'Falha no envio do email. Verifique o endereço e tente novamente.';
+      if (error.message.includes('Emails não disponíveis')) {
+        errorMessage = 'Um ou ambos os emails não estão disponíveis no sistema.';
+      } else if (error.message.includes('Falha no envio')) {
+        errorMessage = 'Falha no envio dos emails. Verifique os endereços e tente novamente.';
       } else if (error.message.includes('Termo não encontrado')) {
         errorMessage = 'Termo não encontrado no sistema.';
       }
@@ -404,7 +432,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🔧 Função de fechamento com reset completo
+  // Função de fechamento com reset completo
   const handleClose = () => {
     console.log('🔒 Fechando modal do termo e resetando estados...');
 
@@ -431,7 +459,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     });
   };
 
-  // 🆕 Textos dinâmicos baseados no modo
+  // Textos dinâmicos baseados no modo
   const headerTitle = isNameUpdateMode ? 'Atualização de Termo' : 'Termo de Compromisso';
 
   const formTitle = isNameUpdateMode ? 'Atualizar Termo de Adoção' : 'Criar Termo de Adoção';
@@ -474,13 +502,13 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
             >
               <Text style={styles.sectionTitle}>{formTitle}</Text>
 
-              {/* 🆕 Aviso especial para atualização de nome */}
+              {/* Aviso especial para atualização de nome */}
               {isNameUpdateMode && (
                 <View style={styles.updateWarningContainer}>
                   <Text style={styles.updateWarningIcon}>🔄</Text>
                   <Text style={styles.updateWarningText}>
-                    Seu nome foi alterado no perfil. Para continuar com o processo de adoção, você precisa atualizar o
-                    termo com seu nome atual.
+                    Dados pessoais do doador ou do adotante foram alterado no perfil. Para continuar com o processo de
+                    adoção, você precisa atualizar o termo de adoção.
                   </Text>
                 </View>
               )}
@@ -490,7 +518,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                 <Text style={styles.petInfoText}>Raça: {pet.raca_nome || pet.pet_raca_nome || 'Não informado'}</Text>
                 <Text style={styles.petInfoText}>Idade: {pet.idade} anos</Text>
                 <Text style={styles.petInfoText}>Dono: {pet.usuario_nome || 'Não informado'}</Text>
-                {/* 📱 Telefone formatado do dono do pet */}
+                {/* Telefone formatado do dono do pet */}
                 {pet.usuario_telefone && (
                   <Text style={styles.petInfoText}>Telefone: {formatTelefone(pet.usuario_telefone)}</Text>
                 )}
@@ -508,12 +536,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   placeholder="Digite seu nome completo"
                   placeholderTextColor="#999"
                 />
-                {/* 🆕 Texto explicativo para atualização de nome */}
-                {isNameUpdateMode && (
-                  <Text style={styles.inputHelperText}>
-                    ✅ Nome atualizado automaticamente para "{usuarioLogado.nome}"
-                  </Text>
-                )}
+                {/* Texto explicativo para atualização de nome */}
               </View>
 
               <View style={styles.inputContainer}>
@@ -565,24 +588,31 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                 <Text style={styles.dataText}>Idade: {termoData.pet_idade} anos</Text>
               </View>
 
+              {/* 🆕 Seção do doador COM localização */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
                 <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.doador_email}</Text>
-                {/* 📱 Telefone formatado do doador */}
-                {termoData.doador_telefone && (
-                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
-                )}
+                <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
+                <Text style={styles.dataText}>
+                  Localização:{' '}
+                  {termoData.localizacaoDoador ||
+                    formatLocalizacao(termoData.doador_cidade_nome, termoData.doador_estado_nome)}
+                </Text>
               </View>
 
+              {/* 🆕 Seção do adotante COM localização */}
               <View style={styles.section}>
                 <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
                 <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
                 <Text style={styles.dataText}>Email: {termoData.adotante_email}</Text>
-                {/* 📱 Telefone formatado do adotante */}
-                {termoData.adotante_telefone && (
-                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
-                )}
+                <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
+                <Text style={styles.dataText}>
+                  Localização:{' '}
+                  {termoData.localizacaoAdotante ||
+                    formatLocalizacao(termoData.adotante_cidade_nome, termoData.adotante_estado_nome)}
+                </Text>
+                {termoData.adotante_cpf && <Text style={styles.dataText}>CPF: {termoData.adotante_cpf}</Text>}
               </View>
 
               <View style={styles.section}>
@@ -612,19 +642,33 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                 <Text style={styles.hashText}>Hash: {termoData.hash_documento}</Text>
               </View>
 
+              {/* 🆕 Botão atualizado com texto indicando envio para ambos */}
               <TouchableOpacity
                 style={[styles.emailButton, sendingEmail && styles.disabledButton]}
                 onPress={handleSendEmail}
                 disabled={sendingEmail}
               >
                 {sendingEmail ? (
-                  <ActivityIndicator color="#FFFFFF" />
+                  <View style={styles.loadingContainer}>
+                    <ActivityIndicator color="#FFFFFF" />
+                    <Text style={styles.emailButtonText}>Enviando para ambos...</Text>
+                  </View>
                 ) : (
                   <Text style={styles.emailButtonText}>
-                    {isNameUpdateMode ? 'Enviar Termo Atualizado' : 'Enviar por Email'}
+                    {isNameUpdateMode ? 'Enviar Termo Atualizado (Para Ambos)' : 'Enviar por Email (Para Ambos)'}
                   </Text>
                 )}
               </TouchableOpacity>
+
+              {/* 🆕 Informação sobre os destinatários */}
+              <View style={styles.emailInfoContainer}>
+                <Text style={styles.emailInfoText}>Este termo será enviado por email para:</Text>
+                <Text style={styles.emailInfoDetail}>• Você (Adotante): {termoData.adotante_email}</Text>
+                <Text style={styles.emailInfoDetail}>• Doador: {termoData.doador_email}</Text>
+                <Text style={styles.emailInfoNote}>
+                  Cada pessoa receberá um email personalizado com as informações relevantes.
+                </Text>
+              </View>
             </ScrollView>
           )}
         </View>
@@ -706,7 +750,7 @@ const styles = StyleSheet.create({
   formContentContainer: {
     paddingBottom: 30,
   },
-  // 🆕 Estilo para aviso de atualização de nome
+  // Estilo para aviso de atualização de nome
   updateWarningContainer: {
     flexDirection: 'row',
     backgroundColor: '#E3F2FD',
@@ -756,7 +800,7 @@ const styles = StyleSheet.create({
   required: {
     color: 'red',
   },
-  // 🆕 Texto de ajuda para inputs
+  // Texto de ajuda para inputs
   inputHelperText: {
     fontSize: 12,
     color: '#2E8B57',
@@ -783,7 +827,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     marginTop: 10,
   },
-  // 🆕 Estilo especial para botão de atualização
+  // Estilo especial para botão de atualização
   updateButton: {
     backgroundColor: '#2196F3',
   },
@@ -860,8 +904,35 @@ const styles = StyleSheet.create({
   },
   emailButtonText: {
     color: '#FFFFFF',
-    fontSize: 16,
+    fontSize: 15,
     fontWeight: 'bold',
+  },
+  // 🆕 Estilos para informações sobre emails
+  emailInfoContainer: {
+    backgroundColor: '#F0F8FF',
+    padding: 15,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#B0D4F1',
+    marginTop: 10,
+  },
+  emailInfoText: {
+    fontSize: 14,
+    fontWeight: 'bold',
+    color: '#1E88E5',
+    marginBottom: 8,
+  },
+  emailInfoDetail: {
+    fontSize: 13,
+    color: '#333',
+    marginBottom: 3,
+    paddingLeft: 10,
+  },
+  emailInfoNote: {
+    fontSize: 12,
+    color: '#666',
+    fontStyle: 'italic',
+    marginTop: 8,
   },
 });
 

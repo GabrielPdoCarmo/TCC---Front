@@ -1,4 +1,4 @@
-// PetDonationScreen.tsx - Atualizado com verificação de nome
+// PetDonationScreen.tsx - Atualizado com verificação de dados completos
 
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -15,7 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import PetDonationModal from '@/components/Pets/PetDonationModal';
-import TermoDoacaoModalAuto from '@/components/Termo/TermoDoacaoModal';
+import TermoDoacaoModal from '@/components/Termo/TermoDoacaoModal';
 
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/Pets/PetCard';
@@ -27,7 +27,7 @@ import getRacaById from '@/services/api/Raca/getRacaById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
-import { checkCanCreatePets, checkNeedsNameUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Funções atualizadas
+import { checkCanCreatePets, checkNeedsDataUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Funções atualizadas
 
 // Define a interface Pet com informações aprimoradas
 interface Pet {
@@ -85,15 +85,15 @@ export default function PetDonationScreen() {
   const [canCreatePets, setCanCreatePets] = useState(false);
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
-  
-  // 🆕 Estados para verificação de nome
-  const [nameNeedsUpdate, setNameNeedsUpdate] = useState(false);
-  const [isNameUpdateMode, setIsNameUpdateMode] = useState(false);
-  
+
+  // 🆕 Estados para verificação de dados (nome, email, telefone)
+  const [dataOutdated, setDataOutdated] = useState(false);
+  const [isDataUpdateMode, setIsDataUpdateMode] = useState(false);
+
   const checkCountRef = useRef(0);
   const lastCheckTimeRef = useRef(0);
 
-  // 🔍 Função ATUALIZADA para verificar se usuário pode cadastrar pets (COM VERIFICAÇÃO DE NOME)
+  // 🔍 Função ATUALIZADA para verificar se usuário pode cadastrar pets (COM VERIFICAÇÃO DE DADOS COMPLETOS)
   const checkUserPermissions = useCallback(
     async (force = false) => {
       // Evitar verificações muito frequentes (debounce de 2 segundos)
@@ -118,42 +118,29 @@ export default function PetDonationScreen() {
         setTermoLoading(true);
         lastCheckTimeRef.current = now;
 
-        console.log('🔍 Verificando permissões do usuário (com verificação de nome)...');
-
         const result = await checkCanCreatePets();
 
         if (result && result.data) {
           const podecastrar = result.data.podecastrar || false;
           const temTermo = result.data.temTermo || false;
-          const nomeDesatualizado = result.data.nomeDesatualizado || false; // 🆕
-
-          console.log('📋 Resultado da verificação:', {
-            podecastrar,
-            temTermo,
-            nomeDesatualizado,
-          });
+          const dadosDesatualizados = result.data.dadosDesatualizados || false; // 🆕
 
           setCanCreatePets(podecastrar);
-          setNameNeedsUpdate(nomeDesatualizado); // 🆕
+          setDataOutdated(dadosDesatualizados); // 🆕
           setInitialCheckDone(true);
 
-          // 🆕 Lógica atualizada para lidar com nome desatualizado
-          if (nomeDesatualizado) {
-            console.log('⚠️ Nome foi alterado, mostrando modal para reAssinatura...');
-            setIsNameUpdateMode(true);
+          // 🆕 Lógica atualizada para lidar com dados desatualizados
+          if (dadosDesatualizados) {
+            setIsDataUpdateMode(true);
             setTermoModalVisible(true);
           } else if (!podecastrar && !temTermo) {
-            console.log('📝 Usuário não possui termo, mostrando modal...');
-            setIsNameUpdateMode(false);
+            setIsDataUpdateMode(false);
             setTermoModalVisible(true);
           } else if (podecastrar) {
-            console.log('✅ Usuário pode cadastrar pets normalmente');
             setTermoModalVisible(false);
           }
         }
       } catch (error: any) {
-        console.error('❌ Erro ao verificar permissões:', error);
-
         if (error.message && error.message.includes('Sessão expirada')) {
           Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
             { text: 'OK', onPress: () => router.back() },
@@ -161,10 +148,9 @@ export default function PetDonationScreen() {
           return;
         }
 
-        console.log('ℹ️ Assumindo primeira vez devido ao erro');
         setCanCreatePets(false);
-        setNameNeedsUpdate(false);
-        setIsNameUpdateMode(false);
+        setDataOutdated(false);
+        setIsDataUpdateMode(false);
         setTermoModalVisible(true);
         setInitialCheckDone(true);
       } finally {
@@ -188,7 +174,6 @@ export default function PetDonationScreen() {
       const userData = await getUsuarioByIdComCidadeEstado(parseInt(userId, 10));
       setCurrentUser(userData);
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do usuário:', error);
       setCurrentUser({
         id: 0,
         nome: 'Usuário',
@@ -203,7 +188,6 @@ export default function PetDonationScreen() {
   const fetchUserPets = async () => {
     // Só buscar pets se o usuário tem permissão
     if (!canCreatePets) {
-      console.log('⚠️ Usuário não tem permissão para ver pets ainda');
       setLoading(false);
       return;
     }
@@ -262,8 +246,6 @@ export default function PetDonationScreen() {
               foto: pet.foto,
             };
           } catch (error) {
-            console.error(`Erro ao enriquecer dados do pet ${pet.nome}:`, error);
-
             // Em caso de erro, retornar o pet com informações de fallback
             return {
               ...pet,
@@ -277,7 +259,6 @@ export default function PetDonationScreen() {
 
       setPets(enrichedPets);
     } catch (error) {
-      console.error('❌ Erro ao buscar pets:', error);
       setError('Ocorreu um erro ao carregar seus pets. Por favor, tente novamente.');
     } finally {
       setLoading(false);
@@ -297,10 +278,9 @@ export default function PetDonationScreen() {
         await loadUserData();
         await checkUserPermissions(true); // Force primeira verificação
       } catch (error) {
-        console.error('❌ Erro na inicialização:', error);
         setCanCreatePets(false);
-        setNameNeedsUpdate(false);
-        setIsNameUpdateMode(false);
+        setDataOutdated(false);
+        setIsDataUpdateMode(false);
         setTermoModalVisible(true);
         setTermoLoading(false);
         setInitialCheckDone(true);
@@ -312,12 +292,12 @@ export default function PetDonationScreen() {
 
   // 🔄 Recarregar pets quando permissões mudarem (CONTROLADO)
   useEffect(() => {
-    if (canCreatePets && initialCheckDone && !nameNeedsUpdate) {
+    if (canCreatePets && initialCheckDone && !dataOutdated) {
       fetchUserPets();
-    } else if (initialCheckDone && (!canCreatePets || nameNeedsUpdate)) {
+    } else if (initialCheckDone && (!canCreatePets || dataOutdated)) {
       setLoading(false);
     }
-  }, [canCreatePets, initialCheckDone, nameNeedsUpdate]); // 🆕 Adicionado nameNeedsUpdate
+  }, [canCreatePets, initialCheckDone, dataOutdated]); // 🆕 Adicionado dataOutdated
 
   // 👀 Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
@@ -341,31 +321,29 @@ export default function PetDonationScreen() {
 
   // 🎉 Callback ATUALIZADO quando termo for concluído (SEM LOOPS)
   const handleTermoCompleted = useCallback(() => {
-    const modoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
-    console.log(`🎉 Termo ${modoTexto}! Liberando acesso à tela...`);
-    
+    const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
+
     setTermoModalVisible(false);
     setCanCreatePets(true);
-    setNameNeedsUpdate(false); // 🆕 Reset flag
-    setIsNameUpdateMode(false); // 🆕 Reset modo
+    setDataOutdated(false); // 🆕 Reset flag
+    setIsDataUpdateMode(false); // 🆕 Reset modo
 
     // Reset contador para permitir nova verificação
     checkCountRef.current = 0;
 
     // Verificação final após término do termo (APENAS UMA VEZ)
     setTimeout(() => {
-      console.log(`🔄 Verificação final pós-${modoTexto}`);
       checkUserPermissions(true);
     }, 2000);
-  }, [checkUserPermissions, isNameUpdateMode]);
+  }, [checkUserPermissions, isDataUpdateMode]);
 
   // Função para abrir o modal no modo de adição
   const handleOpenModal = () => {
-    if (!canCreatePets || nameNeedsUpdate) {
-      const message = nameNeedsUpdate 
-        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado antes de cadastrar pets.'
+    if (!canCreatePets || dataOutdated) {
+      const message = dataOutdated
+        ? 'Você precisa reAssinar o termo de responsabilidade com seus dados atualizados (nome, email, telefone ou localização) antes de cadastrar pets.'
         : 'Você precisa assinar o termo de responsabilidade antes de cadastrar pets.';
-      
+
       Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
@@ -387,7 +365,7 @@ export default function PetDonationScreen() {
     // antes de recarregar os pets, evitando problemas de renderização
     // e permitindo que a limpeza de erros do modal seja concluída
     setTimeout(() => {
-      if (canCreatePets && !nameNeedsUpdate) {
+      if (canCreatePets && !dataOutdated) {
         fetchUserPets();
       }
     }, 200); // Aumentado de 100ms para 200ms para melhor sincronia
@@ -397,7 +375,6 @@ export default function PetDonationScreen() {
   const handleSubmitForm = async (formData: any) => {
     try {
       if (isEditMode && currentPet) {
-        console.log('📝 Atualizando dados do pet:', formData);
         // Atualizar o pet existente usando updatePet
         await updatePet({ ...formData, id: currentPet.id });
         Alert.alert('Sucesso!', 'Os dados do pet foram atualizados com sucesso.', [
@@ -407,7 +384,6 @@ export default function PetDonationScreen() {
           },
         ]);
       } else {
-        console.log('🆕 Cadastrando novo pet:', formData);
         // Lógica para salvar um novo pet
         // Por exemplo: await createPet(formData);
         Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
@@ -418,18 +394,17 @@ export default function PetDonationScreen() {
         ]);
       }
     } catch (error) {
-      console.error('❌ Erro ao salvar/atualizar pet:', error);
       Alert.alert('Erro', 'Ocorreu um erro ao salvar os dados do pet. Por favor, tente novamente.');
     }
   };
 
   // Função para enviar pet para adoção
   const handleAdoptPet = (petId: number) => {
-    if (!canCreatePets || nameNeedsUpdate) {
-      const message = nameNeedsUpdate 
-        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+    if (!canCreatePets || dataOutdated) {
+      const message = dataOutdated
+        ? 'Você precisa reAssinar o termo de responsabilidade com seus dados atualizados.'
         : 'Você precisa assinar o termo de responsabilidade.';
-      
+
       Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
@@ -465,7 +440,6 @@ export default function PetDonationScreen() {
             // Recarregar a lista de pets para exibir as atualizações
             fetchUserPets();
           } catch (error) {
-            console.error('❌ Erro ao disponibilizar pet para adoção:', error);
             Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
           }
         },
@@ -475,11 +449,11 @@ export default function PetDonationScreen() {
 
   // Função para editar um pet
   const handleEditPet = (petId: number) => {
-    if (!canCreatePets || nameNeedsUpdate) {
-      const message = nameNeedsUpdate 
-        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+    if (!canCreatePets || dataOutdated) {
+      const message = dataOutdated
+        ? 'Você precisa reAssinar o termo de responsabilidade com seus dados atualizados.'
         : 'Você precisa assinar o termo de responsabilidade.';
-      
+
       Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
@@ -488,8 +462,6 @@ export default function PetDonationScreen() {
     const petToEdit = pets.find((pet) => pet.id === petId);
 
     if (petToEdit) {
-      console.log(`✏️ Editando pet com ID: ${petId}`, petToEdit);
-
       // Definir o pet atual para edição com todos os dados necessários
       setCurrentPet({
         ...petToEdit,
@@ -507,11 +479,11 @@ export default function PetDonationScreen() {
 
   // Função para deletar um pet
   const handleDeletePet = (petId: number) => {
-    if (!canCreatePets || nameNeedsUpdate) {
-      const message = nameNeedsUpdate 
-        ? 'Você precisa reAssinar o termo de responsabilidade com seu nome atualizado.'
+    if (!canCreatePets || dataOutdated) {
+      const message = dataOutdated
+        ? 'Você precisa reAssinar o termo de responsabilidade com seus dados atualizados.'
         : 'Você precisa assinar o termo de responsabilidade.';
-      
+
       Alert.alert('Termo Necessário', message, [{ text: 'OK' }]);
       return;
     }
@@ -535,7 +507,6 @@ export default function PetDonationScreen() {
             // Atualizar a lista de pets após a exclusão
             fetchUserPets();
           } catch (error) {
-            console.error('❌ Erro ao excluir pet:', error);
             Alert.alert('Erro', 'Não foi possível excluir o pet. Por favor, tente novamente.');
           }
         },
@@ -544,12 +515,7 @@ export default function PetDonationScreen() {
   };
 
   // Função para favoritar um pet
-  const handleFavoritePet = (petId: number) => {
-    // Implementar lógica para favoritar/desfavoritar
-    console.log(`⭐ Favoritar/desfavoritar pet com ID: ${petId}`);
-    // Após favoritar, atualizar a lista
-    // fetchUserPets(); // Descomente quando implementar a lógica de favoritar
-  };
+  const handleFavoritePet = (petId: number) => {};
 
   // Renderizar um item da lista de pets usando o componente PetCard
   const renderPetItem = ({ item }: { item: Pet }) => (
@@ -637,9 +603,9 @@ export default function PetDonationScreen() {
           isEditMode={isEditMode}
         />
 
-        {/* 🆕 Modal de Termo de Doação - Automático COM MODO DE ATUALIZAÇÃO */}
+        {/* 🆕 Modal de Termo de Doação - Automático COM MODO DE ATUALIZAÇÃO DE DADOS */}
         {currentUser && (
-          <TermoDoacaoModalAuto
+          <TermoDoacaoModal
             visible={termoModalVisible}
             usuarioLogado={{
               id: currentUser.id,
@@ -648,7 +614,7 @@ export default function PetDonationScreen() {
               telefone: currentUser.telefone,
             }}
             onTermoCompleted={handleTermoCompleted}
-            isNameUpdateMode={isNameUpdateMode} // 🆕 Indicar se é atualização de nome
+            isDataUpdateMode={isDataUpdateMode} // 🆕 Indicar se é atualização de dados
           />
         )}
       </ImageBackground>

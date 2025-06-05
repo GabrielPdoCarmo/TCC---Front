@@ -28,7 +28,7 @@ import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getFavorito from '@/services/api/Favoritos/getFavorito';
 import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
-import { checkCanAdopt } from '@/services/api/TermoCompromisso/checkCanAdopt'; // 🆕 Importações atualizadas
+import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt'; // 🆕 Importações atualizadas
 import updateStatus from '@/services/api/Status/updateStatus';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';

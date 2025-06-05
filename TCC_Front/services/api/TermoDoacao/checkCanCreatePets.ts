@@ -1,4 +1,4 @@
-// services/api/TermoDoacao/checkCanCreatePets.ts - Atualizado com verificação de nome
+// services/api/TermoDoacao/checkCanCreatePets.ts - Corrigido com tipos consistentes
 
 import api from '../api';
 
@@ -7,34 +7,40 @@ interface CheckCanCreatePetsResponse {
   data: {
     podecastrar: boolean;
     temTermo: boolean;
-    nomeDesatualizado: boolean; // 🆕 Flag para indicar nome diferente
+    dadosDesatualizados: boolean; // 🆕 Flag para indicar dados diferentes (nome, email, telefone, cidade, estado)
   };
 }
 
+interface CreateTermoResponse {
+  message: string;
+  data: any;
+  updated: boolean;
+}
+
 /**
- * ✅ Verificar se usuário pode cadastrar pets (com verificação de nome atualizado)
+ * ✅ Verificar se usuário pode cadastrar pets (com verificação de dados atualizados)
  * @returns Promise com status de permissão para cadastrar pets
  */
 export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> => {
   try {
-    console.log('🔍 Verificando se usuário pode cadastrar pets (com verificação de nome)...');
+    console.log('🔍 Verificando se usuário pode cadastrar pets (com verificação de dados completos)...');
 
     const response = await api.get<CheckCanCreatePetsResponse>(
       '/termos-doacao/pode-cadastrar-pets'
     );
 
-    const { podecastrar, temTermo, nomeDesatualizado } = response.data.data;
+    const { podecastrar, temTermo, dadosDesatualizados } = response.data.data;
 
     console.log('📋 Resultado da verificação:', {
       podecastrar,
       temTermo,
-      nomeDesatualizado,
+      dadosDesatualizados,
       timestamp: new Date().toISOString()
     });
 
     // 🆕 Log específico para diferentes cenários
-    if (nomeDesatualizado) {
-      console.log('⚠️ Nome do usuário foi alterado - termo precisa ser reAssinado');
+    if (dadosDesatualizados) {
+      console.log('⚠️ Dados do usuário foram alterados (nome, email, telefone ou localização) - termo precisa ser reAssinado');
     } else if (temTermo && podecastrar) {
       console.log('✅ Usuário tem termo válido e pode cadastrar pets');
     } else if (temTermo && !podecastrar) {
@@ -64,7 +70,7 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
         data: {
           podecastrar: false,
           temTermo: false,
-          nomeDesatualizado: false,
+          dadosDesatualizados: false,
         },
       };
     }
@@ -81,35 +87,47 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
       data: {
         podecastrar: false,
         temTermo: false,
-        nomeDesatualizado: false,
+        dadosDesatualizados: false,
       },
     };
   }
 };
 
 /**
- * 🆕 FUNÇÃO AUXILIAR: Verificar apenas se precisa reAssinar por nome diferente
- * @returns Promise com status específico sobre atualização de nome
+ * 🆕 FUNÇÃO AUXILIAR: Verificar apenas se precisa reAssinar por dados diferentes
+ * @returns Promise com status específico sobre atualização de dados
  */
-export const checkNeedsNameUpdate = async (): Promise<{
+export const checkNeedsDataUpdate = async (): Promise<{
   needsUpdate: boolean;
   hasTerms: boolean;
-  currentUserName?: string;
-  termName?: string;
+  currentUserData?: {
+    nome?: string;
+    email?: string;
+    telefone?: string;
+    cidade?: string;
+    estado?: string;
+  };
+  termData?: {
+    nome?: string;
+    email?: string;
+    telefone?: string;
+    cidade?: string;
+    estado?: string;
+  };
 }> => {
   try {
-    console.log('🔍 Verificando especificamente se precisa atualizar nome no termo...');
+    console.log('🔍 Verificando especificamente se precisa atualizar dados no termo...');
 
     const response = await checkCanCreatePets();
-    const { podecastrar, temTermo, nomeDesatualizado } = response.data;
+    const { podecastrar, temTermo, dadosDesatualizados } = response.data;
 
-    const needsUpdate = nomeDesatualizado;
+    const needsUpdate = dadosDesatualizados;
     
-    console.log('📋 Verificação de nome:', {
+    console.log('📋 Verificação de dados:', {
       needsUpdate,
       hasTerms: temTermo,
       canCreate: podecastrar,
-      nameOutdated: nomeDesatualizado
+      dataOutdated: dadosDesatualizados
     });
 
     return {
@@ -118,7 +136,7 @@ export const checkNeedsNameUpdate = async (): Promise<{
     };
 
   } catch (error) {
-    console.error('❌ Erro ao verificar necessidade de atualização de nome:', error);
+    console.error('❌ Erro ao verificar necessidade de atualização de dados:', error);
     return {
       needsUpdate: false,
       hasTerms: false,
@@ -127,9 +145,9 @@ export const checkNeedsNameUpdate = async (): Promise<{
 };
 
 /**
- * 🆕 CRIAR/ATUALIZAR TERMO COM INDICAÇÃO DE ATUALIZAÇÃO DE NOME
+ * 🆕 CRIAR/ATUALIZAR TERMO COM INDICAÇÃO DE ATUALIZAÇÃO DE DADOS
  * @param termoData - Dados do termo
- * @param isNameUpdate - Se é atualização por mudança de nome
+ * @param isDataUpdate - Se é atualização por mudança de dados (nome, email, telefone, cidade, estado)
  * @returns Promise com dados do termo criado/atualizado
  */
 export const createOrUpdateTermoDoacao = async (
@@ -145,33 +163,31 @@ export const createOrUpdateTermoDoacao = async (
     autorizaVerificacao: boolean;
     compromesteContato: boolean;
   },
-  isNameUpdate: boolean = false
-): Promise<{
-  message: string;
-  data: any;
-  updated: boolean;
-}> => {
+  isDataUpdate: boolean = false
+): Promise<CreateTermoResponse> => {
   try {
-    const actionType = isNameUpdate ? 'Atualizando' : 'Criando';
+    const actionType = isDataUpdate ? 'Atualizando' : 'Criando';
     console.log(`📝 ${actionType} termo de doação:`, { 
-      isNameUpdate,
+      isDataUpdate,
       assinatura: termoData.assinaturaDigital,
       motivo: termoData.motivoDoacao.substring(0, 50) + '...'
     });
 
-    // 🆕 Adicionar flag de atualização de nome aos dados
+    // 🆕 Adicionar flag de atualização de dados aos dados
     const requestData = {
       ...termoData,
-      isNameUpdate, // Flag para o backend saber se é atualização
+      isDataUpdate, // Flag para o backend saber se é atualização
     };
 
-    const response = await api.post('/termos-doacao', requestData);
+    const response = await api.post<CreateTermoResponse>('/termos-doacao', requestData);
 
     const isUpdated = response.data.updated || false;
     
     console.log(`✅ Termo ${isUpdated ? 'atualizado' : 'criado'} com sucesso:`, {
       termoId: response.data.data?.id,
       doadorNome: response.data.data?.doador_nome,
+      doadorEmail: response.data.data?.doador_email,
+      doadorTelefone: response.data.data?.doador_telefone,
       dataAssinatura: response.data.data?.data_assinatura,
       isUpdate: isUpdated
     });
@@ -182,7 +198,7 @@ export const createOrUpdateTermoDoacao = async (
       updated: isUpdated,
     };
   } catch (error: any) {
-    console.error(`❌ Erro ao ${isNameUpdate ? 'atualizar' : 'criar'} termo:`, error);
+    console.error(`❌ Erro ao ${isDataUpdate ? 'atualizar' : 'criar'} termo:`, error);
 
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
@@ -224,6 +240,55 @@ export const createOrUpdateTermoDoacao = async (
 
     // Erro genérico
     throw new Error('Erro ao processar termo. Tente novamente.');
+  }
+};
+
+/**
+ * 🆕 VERIFICAR ESPECIFICAMENTE QUAIS DADOS MUDARAM
+ * @returns Promise com detalhes sobre quais campos foram alterados
+ */
+export const checkDataChanges = async (): Promise<{
+  hasChanges: boolean;
+  changes?: {
+    nome: boolean;
+    email: boolean;
+    telefone: boolean;
+    cidade: boolean;
+    estado: boolean;
+  };
+  currentData?: {
+    nome: string;
+    email: string;
+    telefone?: string;
+    cidade?: string;
+    estado?: string;
+  };
+  termData?: {
+    nome: string;
+    email: string;
+    telefone?: string;
+    cidade?: string;
+    estado?: string;
+  };
+}> => {
+  try {
+    console.log('🔍 Verificando especificamente quais dados foram alterados...');
+
+    // Esta seria uma nova endpoint no backend que retorna detalhes das mudanças
+    // Por enquanto, vamos usar a verificação geral
+    const response = await checkCanCreatePets();
+    const { dadosDesatualizados } = response.data;
+
+    return {
+      hasChanges: dadosDesatualizados,
+      // Para implementação futura: detalhes específicos dos campos alterados
+    };
+
+  } catch (error) {
+    console.error('❌ Erro ao verificar mudanças específicas:', error);
+    return {
+      hasChanges: false,
+    };
   }
 };
 
