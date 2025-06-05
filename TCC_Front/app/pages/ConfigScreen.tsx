@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import { StatusBar } from 'expo-status-bar';
 import AdocaoResponsavelModal from '@/components/Pets/AdocaoResponsavelModal';
-import deleteUsuario from '@/services/api/Usuario/deleteUsuario';
+import { verificarPodeExcluirConta, deleteUsuarioComTermo } from '@/services/api/Usuario/deleteUsuarioComTermo';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 
 // ✅ Importar o hook do AuthContext
@@ -79,71 +79,116 @@ export default function ConfigScreen() {
   };
 
   // ✅ Função para excluir conta usando o contexto
-  const handleDeleteAccount = () => {
+  const handleDeleteAccount = async () => {
     if (!user?.id) {
       Alert.alert('Erro', 'Não foi possível identificar o usuário.');
       return;
     }
 
-    Alert.alert(
-      'Excluir Conta',
-      'Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.',
-      [
-        {
-          text: 'Cancelar',
-          style: 'cancel',
-        },
-        {
-          text: 'Excluir',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              console.log('🗑️ Excluindo conta do usuário:', user.nome);
+    try {
+      console.log(`🔍 Verificando se usuário ${user.nome} pode excluir conta...`);
 
-              // Verificar se o usuário existe antes de excluir
-              const usuario = await getUsuarioById(user.id);
-              console.log('👤 Usuário encontrado:', usuario);
+      // 🔍 ETAPA 1: Verificar se pode excluir conta
+      const verificacao = await verificarPodeExcluirConta(user.id);
 
-              if (!usuario || !usuario.id) {
-                throw new Error('Usuário não encontrado');
-              }
+      console.log('📋 Resultado da verificação:', verificacao.data);
 
-              // Chamar a API para excluir o usuário
-              const result = await deleteUsuario(user.id);
+      const { podeExcluir, petCount, temTermo, termoInfo, motivoImpedimento } = verificacao.data;
 
-              if (!result) {
-                throw new Error('Falha ao excluir a conta');
-              }
+      // ❌ Se não pode excluir devido a pets cadastrados
+      if (!podeExcluir && motivoImpedimento === 'pets_cadastrados') {
+        Alert.alert(
+          'Não é possível excluir a conta',
+          `Você possui ${petCount} pet${petCount > 1 ? 's' : ''} cadastrado${petCount > 1 ? 's' : ''}. Remova ${
+            petCount > 1 ? 'todos os pets' : 'o pet'
+          } antes de excluir sua conta.`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
 
-              // Verificar se a exclusão foi bem-sucedida
-              if (result.success === false) {
-                Alert.alert('Erro ao Excluir Conta', result.message || 'Não foi possível excluir a conta.');
-                return;
-              }
+      // ✅ Pode excluir - montar mensagem do alerta
+      let alertMessage = 'Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.';
 
-              console.log('✅ Conta excluída com sucesso');
+      if (temTermo && termoInfo) {
+        alertMessage += `\n\n⚠️ ATENÇÃO: Seu termo de responsabilidade de doação também será excluído permanentemente.`;
+      }
 
-              // ✅ Limpar dados usando a função logout do contexto
-              await logout();
-
-              Alert.alert('Sucesso', 'Sua conta foi excluída com sucesso.', [
-                {
-                  text: 'OK',
-                  onPress: () => {
-                    // Navegar para a tela de login
-                    router.replace('/pages/LoginScreen');
-                  },
-                },
-              ]);
-            } catch (error) {
-              console.error('❌ Erro ao excluir conta:', error);
-              Alert.alert('Erro ao Excluir Conta', 'Não foi possível excluir a conta. Tente novamente.');
-            }
+      // 🚨 Alerta de confirmação
+      Alert.alert(
+        'Excluir Conta',
+        alertMessage,
+        [
+          {
+            text: 'Cancelar',
+            style: 'cancel',
           },
-        },
-      ],
-      { cancelable: true }
-    );
+          {
+            text: 'Excluir',
+            style: 'destructive',
+            onPress: async () => {
+              try {
+                console.log(`🗑️ Iniciando exclusão da conta de ${user.nome}...`);
+
+                // 🗑️ ETAPA 2: Excluir conta (inclui termo automaticamente)
+                const resultado = await deleteUsuarioComTermo(user.id);
+
+                console.log('✅ Resultado da exclusão:', resultado);
+
+                // ✅ Verificar se foi bem-sucedido
+                if (resultado.success) {
+                  // Preparar mensagem de sucesso
+                  let successMessage = 'Sua conta foi excluída com sucesso.';
+
+                  if (resultado.data?.termoExcluido) {
+                    successMessage += '\n\nSeu termo de responsabilidade de doação também foi removido.';
+                  }
+
+                  // ✅ Limpar dados usando a função logout do contexto
+                  await logout();
+
+                  Alert.alert('Sucesso', successMessage, [
+                    {
+                      text: 'OK',
+                      onPress: () => {
+                        // Navegar para a tela de login
+                        router.replace('/pages/LoginScreen');
+                      },
+                    },
+                  ]);
+                } else {
+                  // ❌ Erro retornado pelo backend
+                  Alert.alert(
+                    resultado.title || 'Erro ao Excluir Conta',
+                    resultado.message || 'Não foi possível excluir a conta.',
+                    [{ text: 'OK' }]
+                  );
+                }
+              } catch (error: any) {
+                console.error('❌ Erro ao excluir conta:', error);
+
+                Alert.alert(
+                  'Erro ao Excluir Conta',
+                  `Não foi possível excluir a conta. Tente novamente.\n\nDetalhes: ${
+                    error.message || 'Erro desconhecido'
+                  }`,
+                  [{ text: 'OK' }]
+                );
+              }
+            },
+          },
+        ],
+        { cancelable: true }
+      );
+    } catch (error: any) {
+      console.error('❌ Erro na verificação inicial:', error);
+
+      Alert.alert(
+        'Erro na Verificação',
+        `Não foi possível verificar os dados da conta.\n\nDetalhes: ${error.message || 'Erro desconhecido'}`,
+        [{ text: 'OK' }]
+      );
+    }
   };
 
   // Função para abrir site sobre combate ao abandono de animais

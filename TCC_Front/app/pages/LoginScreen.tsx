@@ -87,7 +87,7 @@ export default function LoginScreen() {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
-  
+
   // ✅ NOVO: Estado para controlar se deve mostrar modal
   const [showingWelcomeModal, setShowingWelcomeModal] = useState(false);
 
@@ -216,18 +216,16 @@ export default function LoginScreen() {
       setUserName(userDetails?.nome || 'usuário');
       setUserPhoto(photoUrl);
       setShowingWelcomeModal(true); // ← Impedir redirecionamento automático
-      
+
       // ✅ 5. Atualizar contexto
       await contextLogin(userDetails, loginResponse.token);
       console.log('✅ Contexto atualizado com sucesso');
 
       // ✅ 6. Mostrar modal (agora não haverá conflito)
       setWelcomeModalVisible(true);
-
     } catch (error: unknown) {
-      console.error('❌ Erro no login:', error);
       const userFriendlyMessage = getErrorMessage(error);
-      
+
       Alert.alert('Erro no Login', userFriendlyMessage, [
         {
           text: 'OK',
@@ -247,7 +245,7 @@ export default function LoginScreen() {
   const handleCloseWelcomeModal = () => {
     setWelcomeModalVisible(false);
     setShowingWelcomeModal(false); // ✅ Permitir redirecionamento agora
-    
+
     // Navegar diretamente (contexto já foi atualizado)
     router.replace('/pages/PetAdoptionScreen');
   };
@@ -267,16 +265,10 @@ export default function LoginScreen() {
   }
 
   return (
-    <ImageBackground 
-      source={require('../../assets/images/backgrounds/Fundo_01.png')} 
-      style={styles.backgroundImage}
-    >
+    <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
       <SafeAreaView style={styles.container}>
         <View style={styles.mainContent}>
-          <Image 
-            source={require('../../assets/images/Icone/Pets_Up.png')} 
-            style={styles.logoImage} 
-          />
+          <Image source={require('../../assets/images/Icone/Pets_Up.png')} style={styles.logoImage} />
           <Text style={styles.loginText}>Login:</Text>
 
           {/* Campo de E-mail */}
@@ -301,10 +293,7 @@ export default function LoginScreen() {
               value={senha}
               onChangeText={setSenha}
             />
-            <TouchableOpacity 
-              style={styles.touchableOpacity} 
-              onPress={() => setMostrarSenha(!mostrarSenha)}
-            >
+            <TouchableOpacity style={styles.touchableOpacity} onPress={() => setMostrarSenha(!mostrarSenha)}>
               <Icon name={mostrarSenha ? 'eye-off' : 'eye'} size={24} color="#555" />
             </TouchableOpacity>
           </View>
@@ -322,9 +311,7 @@ export default function LoginScreen() {
             onPress={handleLogin}
             disabled={loading}
           >
-            <Text style={styles.loginButtonText}>
-              {loading ? 'Entrando...' : 'Entrar'}
-            </Text>
+            <Text style={styles.loginButtonText}>{loading ? 'Entrando...' : 'Entrar'}</Text>
           </TouchableOpacity>
 
           <View style={styles.registerContainer}>

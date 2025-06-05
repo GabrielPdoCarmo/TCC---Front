@@ -117,7 +117,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
       console.log('✅ Login realizado:', userData.nome);
     } catch (error) {
-      console.error('❌ Erro no login:', error);
+      
       throw error;
     }
   };

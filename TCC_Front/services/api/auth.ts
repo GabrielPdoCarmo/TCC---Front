@@ -22,7 +22,7 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
   try {
     const response = await api.post('/auth/login', { email, senha });
     const responseData = response.data as LoginResponse;
-    
+
     if (!responseData || !responseData.token || !responseData.usuario) {
       throw new Error('Resposta de login inválida');
     }
@@ -31,15 +31,12 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
     await Promise.all([
       AsyncStorage.setItem('@App:token', responseData.token),
       AsyncStorage.setItem('@App:userId', responseData.usuario.id.toString()),
-      AsyncStorage.setItem('@App:userData', JSON.stringify(responseData.usuario))
+      AsyncStorage.setItem('@App:userData', JSON.stringify(responseData.usuario)),
     ]);
 
     console.log('✅ Login realizado com sucesso');
     return responseData;
-    
   } catch (error: unknown) {
-    console.error('❌ Erro de login:', error);
-    
     if (
       error &&
       typeof error === 'object' &&
