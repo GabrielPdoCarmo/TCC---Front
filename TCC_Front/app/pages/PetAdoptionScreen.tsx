@@ -1,6 +1,6 @@
-// PetAdoptionScreen.tsx - com AuthProvider próprio
-import { router, useLocalSearchParams } from 'expo-router';
-import React, { useState, useEffect } from 'react';
+// PetAdoptionScreen.tsx - com atualização automática
+import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -119,28 +119,6 @@ function PetAdoptionScreenContent() {
     console.warn('Formato de resposta não reconhecido:', response);
     return [];
   };
-
-  // Verificar se há filtros para aplicar quando a tela recebe parâmetros
-  useEffect(() => {
-    const checkForFilters = async () => {
-      if (params.applyFilters === 'true') {
-        const storedFilters = await AsyncStorage.getItem('@App:petFilters');
-        if (storedFilters) {
-          const parsedFilters = JSON.parse(storedFilters);
-
-          if (parsedFilters.searchQuery && parsedFilters.searchResults) {
-            setSearchQuery(parsedFilters.searchQuery);
-            setSearchResults(parsedFilters.searchResults);
-            setHasActiveSearch(true);
-          }
-
-          setActiveFilters(parsedFilters);
-        }
-      }
-    };
-
-    checkForFilters();
-  }, [params.applyFilters]);
 
   // Função para carregar pets com detalhes completos incluindo foto do usuário
   const loadPetsWithDetails = async (pets: Pet[]): Promise<Pet[]> => {
@@ -304,53 +282,8 @@ function PetAdoptionScreenContent() {
     }
   };
 
-  // Carregar os pets disponíveis quando o componente montar
-  useEffect(() => {
-    const fetchPets = async () => {
-      try {
-        setLoading(true);
-        setError(null);
-
-        const response = await getPetsByStatus();
-
-        if (!response || response.length === 0) {
-          setAllPets([]);
-          setFilteredPets([]);
-          setLoading(false);
-          return;
-        }
-
-        const petsWithDetails = await loadPetsWithDetails(response);
-
-        setAllPets(petsWithDetails);
-
-        if (!activeFilters && !hasActiveSearch) {
-          setFilteredPets(petsWithDetails);
-        }
-
-        setLoading(false);
-      } catch (err) {
-        console.error('Erro ao buscar pets:', err);
-        setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
-        setLoading(false);
-      }
-    };
-
-    // Só buscar pets se tiver usuário logado e autenticação completada
-    if (usuarioId && !authLoading && isAuthenticated) {
-      fetchPets();
-    }
-  }, [usuarioId, authLoading, isAuthenticated]);
-
-  // Aplicar filtros sempre que eles mudarem ou quando há mudança na busca
-  useEffect(() => {
-    if (!loading) {
-      applyCurrentFilters();
-    }
-  }, [activeFilters, hasActiveSearch, searchResults, allPets, loading]);
-
   // Função para recarregar os dados
-  const refreshData = async () => {
+  const refreshData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
@@ -374,7 +307,56 @@ function PetAdoptionScreenContent() {
       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
       setLoading(false);
     }
-  };
+  }, [usuarioId]);
+
+  // Verificar se há filtros para aplicar quando a tela recebe parâmetros
+  useEffect(() => {
+    const checkForFilters = async () => {
+      if (params.applyFilters === 'true') {
+        const storedFilters = await AsyncStorage.getItem('@App:petFilters');
+        if (storedFilters) {
+          const parsedFilters = JSON.parse(storedFilters);
+
+          if (parsedFilters.searchQuery && parsedFilters.searchResults) {
+            setSearchQuery(parsedFilters.searchQuery);
+            setSearchResults(parsedFilters.searchResults);
+            setHasActiveSearch(true);
+          }
+
+          setActiveFilters(parsedFilters);
+        }
+      }
+    };
+
+    checkForFilters();
+  }, [params.applyFilters]);
+
+  // **NOVA IMPLEMENTAÇÃO: useFocusEffect para atualizar sempre que a tela ganhar foco**
+  useFocusEffect(
+    useCallback(() => {
+      // Só carregar se estiver autenticado e não estiver carregando
+      if (usuarioId && !authLoading && isAuthenticated) {
+        console.log('🔄 Tela ganhou foco - recarregando dados...');
+        refreshData();
+      }
+    }, [usuarioId, authLoading, isAuthenticated, refreshData])
+  );
+
+  // **ALTERNATIVA: useEffect melhorado que também detecta mudanças nos parâmetros**
+  useEffect(() => {
+    // Carregar dados sempre que o usuário estiver disponível ou quando houver mudança nos parâmetros
+    if (usuarioId && !authLoading && isAuthenticated) {
+      console.log('👤 Dados do usuário disponíveis - carregando pets...');
+      refreshData();
+    }
+  }, [usuarioId, authLoading, isAuthenticated, params.refresh, refreshData]);
+
+  // Aplicar filtros sempre que eles mudarem ou quando há mudança na busca
+  useEffect(() => {
+    if (!loading) {
+      applyCurrentFilters();
+    }
+  }, [activeFilters, hasActiveSearch, searchResults, allPets, loading]);
 
   // Função para lidar com a adoção de um pet
   const handleAdopt = async (petId: number) => {
@@ -405,7 +387,7 @@ function PetAdoptionScreenContent() {
         {
           text: 'OK',
           onPress: () => {
-            // Voltar para a tela PetAdoptionScreen (recarregar dados)
+            // Recarregar dados após adoção
             refreshData();
           },
         },
