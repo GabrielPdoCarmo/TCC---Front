@@ -44,7 +44,7 @@ export const getByNomePet_StatusId = async (nome: string) => {
 
     return response.data;
   } catch (error) {
-    console.error('❌ Erro detalhado na requisição API:');
+
   }
 };
 
