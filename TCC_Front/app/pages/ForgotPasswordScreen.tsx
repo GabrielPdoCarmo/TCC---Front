@@ -16,6 +16,41 @@ import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import checkCode from '../../services/api/Codigo/checkCode';
 import sendRecoveryCode from '../../services/api/Codigo/sendRecoveryCode';
 
+// NOVA FUNÇÃO: Validação granular de senha
+const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!senha) {
+    errors.push('A senha é obrigatória');
+    return { isValid: false, errors };
+  }
+
+  // Verificar se a senha tem pelo menos 8 caracteres
+  if (senha.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(senha)) {
+    errors.push('A senha deve possuir letras minúsculas');
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(senha)) {
+    errors.push('A senha deve possuir letras maiúsculas');
+  }
+
+  // Verificar se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+    errors.push('A senha deve possuir caracteres especiais');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 export default function ForgotPasswordScreen() {
   // Estados para controlar as etapas da recuperação de senha
   const [etapa, setEtapa] = useState(1); // 1: Email, 2: Código, 3: Nova senha
@@ -28,10 +63,10 @@ export default function ForgotPasswordScreen() {
   const [mostrarConfirmarSenha, setMostrarConfirmarSenha] = useState(false);
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
 
-  // Estados para erros
+  // Estados para erros - ATUALIZADOS para validação granular
   const [erroEmail, setErroEmail] = useState('');
   const [erroCodigo, setErroCodigo] = useState('');
-  const [erroSenha, setErroSenha] = useState('');
+  const [senhaErros, setSenhaErros] = useState<string[]>([]); // MUDANÇA: Array de erros
   const [erroConfirmarSenha, setErroConfirmarSenha] = useState('');
   const [carregando, setCarregando] = useState(false);
 
@@ -65,8 +100,14 @@ export default function ForgotPasswordScreen() {
     if (codigo) setErroCodigo('');
   }, [codigo]);
 
+  // NOVA VALIDAÇÃO: Validação em tempo real para nova senha
   useEffect(() => {
-    if (novaSenha) setErroSenha('');
+    if (novaSenha) {
+      const validacaoSenha = validarSenhaCompleta(novaSenha);
+      setSenhaErros(validacaoSenha.errors);
+    } else {
+      setSenhaErros([]);
+    }
   }, [novaSenha]);
 
   useEffect(() => {
@@ -158,18 +199,21 @@ export default function ForgotPasswordScreen() {
 
   // Função para definir a nova senha
   const definirNovaSenha = async () => {
-    setErroSenha('');
+    setSenhaErros([]);
     setErroConfirmarSenha('');
 
-    // Validar senhas
+    // NOVA VALIDAÇÃO GRANULAR: Validar senhas
     let temErros = false;
 
     if (!novaSenha) {
-      setErroSenha('A senha é obrigatória');
+      setSenhaErros(['A senha é obrigatória']);
       temErros = true;
-    } else if (novaSenha.length < 8) {
-      setErroSenha('A senha deve ter pelo menos 8 caracteres');
-      temErros = true;
+    } else {
+      const validacaoSenha = validarSenhaCompleta(novaSenha);
+      if (!validacaoSenha.isValid) {
+        setSenhaErros(validacaoSenha.errors);
+        temErros = true;
+      }
     }
 
     if (!confirmarSenha) {
@@ -196,9 +240,17 @@ export default function ForgotPasswordScreen() {
       });
 
       Alert.alert('Sucesso', 'Sua senha foi alterada com sucesso!', [{ text: 'OK', onPress: () => router.push('/') }]);
-    } catch (error) {
+    } catch (error: any) {
       console.error('Erro ao atualizar senha:', error);
-      Alert.alert('Erro', 'Não foi possível alterar sua senha. Tente novamente mais tarde.');
+
+      // Verificar se o erro está relacionado à validação de senha do backend
+      const serverError = error?.response?.data || error;
+      
+      if (serverError && serverError.passwordErrors) {
+        setSenhaErros(serverError.passwordErrors);
+      } else {
+        Alert.alert('Erro', 'Não foi possível alterar sua senha. Tente novamente mais tarde.');
+      }
     } finally {
       setCarregando(false);
     }
@@ -274,10 +326,10 @@ export default function ForgotPasswordScreen() {
               <Text style={styles.textoLabel}>
                 Senha <Text style={styles.estrelaObrigatoria}>*</Text>
               </Text>
-              <View style={[styles.containerSenha, erroSenha ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View style={[styles.containerSenha, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                 <TextInput
                   style={styles.inputSenha}
-                  placeholder="Senha"
+                  placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
                   placeholderTextColor="#666"
                   secureTextEntry={!mostrarSenha}
                   value={novaSenha}
@@ -287,7 +339,14 @@ export default function ForgotPasswordScreen() {
                   <Icon name={mostrarSenha ? 'eye-off' : 'eye'} size={24} color="#555" />
                 </TouchableOpacity>
               </View>
-              {erroSenha ? <Text style={styles.textoErro}>{erroSenha}</Text> : null}
+              {/* NOVA EXIBIÇÃO: Mostrar todos os erros de senha */}
+              {senhaErros.length > 0 && (
+                <View style={styles.containerErro}>
+                  {senhaErros.map((erro, index) => (
+                    <Text key={index} style={styles.textoErro}>• {erro}</Text>
+                  ))}
+                </View>
+              )}
             </View>
 
             <View style={styles.containerInput}>
@@ -479,6 +538,11 @@ const styles = StyleSheet.create({
     marginTop: 5,
     paddingLeft: 25,
     width: '100%',
+  },
+  // NOVO ESTILO: Container para múltiplos erros
+  containerErro: {
+    marginTop: 5,
+    paddingLeft: 25,
   },
   textoTemporizador: {
     fontSize: 16,

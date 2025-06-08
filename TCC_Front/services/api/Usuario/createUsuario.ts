@@ -1,5 +1,3 @@
-// OPÇÃO 1: Validação manual (mais simples, sem biblioteca externa)
-
 import api from '../api';
 import { cpf } from 'cpf-cnpj-validator';
 
@@ -33,7 +31,7 @@ export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?
   return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
 };
 
-// NOVA FUNÇÃO: Validação de telefone
+// FUNÇÃO: Validação de telefone
 export const validateTelefone = (
   telefoneValue: string
 ): { isValid: boolean; formattedTelefone?: string; errorMessage?: string } => {
@@ -86,9 +84,56 @@ export const validateTelefone = (
   return { isValid: false, errorMessage: 'Número de telefone inválido' };
 };
 
-// Função createUsuario ATUALIZADA
+// NOVA FUNÇÃO: Validação granular de senha
+export const validateSenha = (senha: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!senha) {
+    errors.push('A senha é obrigatória');
+    return { isValid: false, errors };
+  }
+
+  // Verificar se a senha tem pelo menos 8 caracteres
+  if (senha.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(senha)) {
+    errors.push('A senha deve possuir letras minúsculas');
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(senha)) {
+    errors.push('A senha deve possuir letras maiúsculas');
+  }
+
+  // Verificar se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+    errors.push('A senha deve possuir caracteres especiais');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+// Função createUsuario ATUALIZADA com validação granular
 export const createUsuario = async (usuarioData: UsuarioPayload) => {
   try {
+    // NOVA VALIDAÇÃO GRANULAR: Validar senha antes de enviar
+    const senhaValidation = validateSenha(usuarioData.senha);
+
+    if (!senhaValidation.isValid) {
+      // Retornar erro com array de erros específicos
+      throw {
+        error: 'Senha inválida',
+        message: senhaValidation.errors.join(', '),
+        passwordErrors: senhaValidation.errors
+      };
+    }
+
     // Validar CPF antes de enviar
     const cpfValidation = validateCpf(usuarioData.cpf);
 
@@ -96,7 +141,7 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
       throw new Error(cpfValidation.errorMessage);
     }
 
-    // NOVA VALIDAÇÃO: Validar telefone antes de enviar
+    // Validar telefone antes de enviar
     const telefoneValidation = validateTelefone(usuarioData.telefone);
 
     if (!telefoneValidation.isValid) {
@@ -133,7 +178,13 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
     });
 
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
+    // Se o erro já tem a estrutura de validação granular, propagar
+    if (error.passwordErrors) {
+      throw error;
+    }
+    
+    // Para outros erros, manter comportamento original
     throw error || { error: 'Erro ao criar usuário' };
   }
 };

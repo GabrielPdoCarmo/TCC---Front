@@ -99,6 +99,41 @@ const stripNonNumeric = (text: string): string => {
   return text.replace(/\D/g, '');
 };
 
+// NOVA FUNÇÃO: Validação granular de senha
+const validarSenha = (senha: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!senha) {
+    errors.push('A senha é obrigatória');
+    return { isValid: false, errors };
+  }
+
+  // Verificar se a senha tem pelo menos 8 caracteres
+  if (senha.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(senha)) {
+    errors.push('A senha deve possuir letras minúsculas');
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(senha)) {
+    errors.push('A senha deve possuir letras maiúsculas');
+  }
+
+  // Verificar se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+    errors.push('A senha deve possuir caracteres especiais');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 // Function to fetch address data by CEP using the ViaCEP API
 
 // Function to normalize strings for case-insensitive comparisons
@@ -137,8 +172,11 @@ export default function CadastroUsuario() {
   const [estadoErro, setEstadoErro] = useState('');
   const [cidadeErro, setCidadeErro] = useState('');
   const [sexoErro, setSexoErro] = useState('');
-  const [senhaErro, setSenhaErro] = useState('');
+  
+  // NOVOS ESTADOS: Para erros granulares de senha
+  const [senhaErros, setSenhaErros] = useState<string[]>([]);
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState('');
+  
   const [email, setEmail] = useState('');
   const [emailErro, setEmailErro] = useState('');
   const [cep, setCep] = useState('');
@@ -382,7 +420,7 @@ export default function CadastroUsuario() {
     setEstadoErro('');
     setCidadeErro('');
     setSexoErro('');
-    setSenhaErro('');
+    setSenhaErros([]); // Limpar erros granulares
     setConfirmarSenhaErro('');
     setEmailErro('');
     setCepErro('');
@@ -439,12 +477,16 @@ export default function CadastroUsuario() {
       hasError = true;
     }
 
+    // NOVA VALIDAÇÃO GRANULAR DE SENHA
     if (!senha) {
-      setSenhaErro('A senha é obrigatória.');
+      setSenhaErros(['A senha é obrigatória']);
       hasError = true;
-    } else if (senha.length < 6) {
-      setSenhaErro('A senha deve ter pelo menos 6 caracteres.');
-      hasError = true;
+    } else {
+      const validacaoSenha = validarSenha(senha);
+      if (!validacaoSenha.isValid) {
+        setSenhaErros(validacaoSenha.errors);
+        hasError = true;
+      }
     }
 
     if (!confirmarSenha) {
@@ -581,9 +623,9 @@ export default function CadastroUsuario() {
             }
           }
         }
-        // 2. Tratar erro de senha
-        else if (serverError.error?.toLowerCase().includes('senha')) {
-          setSenhaErro(serverError.message || 'Senha inválida.');
+        // 2. Tratar erro de senha com validação granular
+        else if (serverError.error?.toLowerCase().includes('senha') && serverError.passwordErrors) {
+          setSenhaErros(serverError.passwordErrors);
         }
         // 3. Outros erros
         else {
@@ -617,6 +659,18 @@ export default function CadastroUsuario() {
     const formattedTelefone = formatTelefone(text);
     setTelefone(formattedTelefone);
     if (text) setTelefoneErro('');
+  };
+
+  // NOVA FUNÇÃO: Handler para senha com validação granular
+  const handleSenhaChange = (text: string) => {
+    setSenha(text);
+    
+    if (text) {
+      const validacaoSenha = validarSenha(text);
+      setSenhaErros(validacaoSenha.errors);
+    } else {
+      setSenhaErros([]);
+    }
   };
 
   // Handler for CEP with address lookups
@@ -1033,20 +1087,17 @@ export default function CadastroUsuario() {
               <Text style={styles.label}>
                 Senha <Text style={styles.required}>*</Text>
               </Text>
-              <View style={[styles.inputWithIcon, senhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                 <TextInput
                   style={{ flex: 1 }}
-                  placeholder="Senha"
+                  placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
                   secureTextEntry={!showSenha}
                   value={senha}
                   multiline={false}
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
-                  onChangeText={(text) => {
-                    setSenha(text);
-                    if (text) setSenhaErro('');
-                  }}
+                  onChangeText={handleSenhaChange}
                 />
                 <TouchableOpacity onPress={toggleSenhaVisibility} style={styles.inputIcon}>
                   {showSenha ? (
@@ -1056,7 +1107,14 @@ export default function CadastroUsuario() {
                   )}
                 </TouchableOpacity>
               </View>
-              {senhaErro ? <Text style={styles.errorText}>{senhaErro}</Text> : null}
+              {/* NOVA EXIBIÇÃO: Mostrar todos os erros de senha */}
+              {senhaErros.length > 0 && (
+                <View style={styles.errorContainer}>
+                  {senhaErros.map((erro, index) => (
+                    <Text key={index} style={styles.errorText}>• {erro}</Text>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Confirmar Senha with visibility toggle */}
@@ -1305,6 +1363,11 @@ const styles = StyleSheet.create({
     color: '#FF0000',
     fontSize: 12,
     marginTop: 2,
+    marginLeft: 10,
+  },
+  // NOVO ESTILO: Container para múltiplos erros
+  errorContainer: {
+    marginTop: 5,
     marginLeft: 10,
   },
   searchInput: {

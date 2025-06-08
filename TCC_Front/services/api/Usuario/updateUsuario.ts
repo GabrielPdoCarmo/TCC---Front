@@ -32,7 +32,7 @@ export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?
   return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
 };
 
-// NOVA FUNÇÃO: Validação de telefone
+// FUNÇÃO: Validação de telefone
 export const validateTelefone = (telefoneValue: string): { isValid: boolean; formattedTelefone?: string; errorMessage?: string } => {
   // Remove caracteres não numéricos
   const telefoneNumerico = telefoneValue.replace(/\D/g, '');
@@ -83,6 +83,41 @@ export const validateTelefone = (telefoneValue: string): { isValid: boolean; for
   return { isValid: false, errorMessage: 'Número de telefone inválido' };
 };
 
+// NOVA FUNÇÃO: Validação granular de senha
+export const validateSenha = (senha: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!senha) {
+    errors.push('A senha é obrigatória');
+    return { isValid: false, errors };
+  }
+
+  // Verificar se a senha tem pelo menos 8 caracteres
+  if (senha.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(senha)) {
+    errors.push('A senha deve possuir letras minúsculas');
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(senha)) {
+    errors.push('A senha deve possuir letras maiúsculas');
+  }
+
+  // Verificar se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+    errors.push('A senha deve possuir caracteres especiais');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
   try {
     const { id, ...usuarioInfo } = usuarioData;
@@ -101,7 +136,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
       formData.append('cpf', formattedCpf || usuarioInfo.cpf);
     }
 
-    // NOVA VALIDAÇÃO: Validar telefone se fornecido
+    // Validar telefone se fornecido
     if (usuarioInfo.telefone) {
       const telefoneValidation = validateTelefone(usuarioInfo.telefone);
       
@@ -112,6 +147,20 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
       // Usar o telefone formatado
       const formattedTelefone = telefoneValidation.formattedTelefone;
       formData.append('telefone', formattedTelefone || usuarioInfo.telefone);
+    }
+
+    // NOVA VALIDAÇÃO GRANULAR: Validar senha se fornecida
+    if (usuarioInfo.senha) {
+      const senhaValidation = validateSenha(usuarioInfo.senha);
+      
+      if (!senhaValidation.isValid) {
+        // Retornar erro com array de erros específicos
+        throw {
+          error: 'Senha inválida',
+          message: senhaValidation.errors.join(', '),
+          passwordErrors: senhaValidation.errors
+        };
+      }
     }
 
     // Adicionar campos ao FormData apenas se existirem
@@ -145,8 +194,15 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     });
 
     return response.data;
-  } catch (error) {
+  } catch (error: any) {
     console.error('Erro ao atualizar o usuário', error);
+    
+    // Se o erro já tem a estrutura de validação granular, propagar
+    if (error.passwordErrors) {
+      throw error;
+    }
+    
+    // Para outros erros, manter comportamento original
     throw error;
   }
 };

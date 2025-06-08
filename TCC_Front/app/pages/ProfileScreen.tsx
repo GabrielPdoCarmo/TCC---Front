@@ -1,4 +1,4 @@
-// ProfileScreen.tsx with added character limits and CEP validation
+// ProfileScreen.tsx with updated granular password validation
 import { router } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -27,6 +27,7 @@ import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID'
 import { cpf } from 'cpf-cnpj-validator';
 import checkDuplicateFieldsProfile from '@/services/api/Usuario/checkDuplicateFieldsProfile';
 import { useAuth } from '@/contexts/AuthContext';
+
 interface Usuario {
   id: number;
   nome: string;
@@ -174,6 +175,41 @@ const validarCep = (cep: string) => {
   return regex.test(stripNonNumeric(cep));
 };
 
+// NOVA FUNÇÃO: Validação granular de senha
+const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!senha) {
+    errors.push('A senha é obrigatória');
+    return { isValid: false, errors };
+  }
+
+  // Verificar se a senha tem pelo menos 8 caracteres
+  if (senha.length < 8) {
+    errors.push('A senha deve ter pelo menos 8 caracteres');
+  }
+
+  // Verificar se tem pelo menos uma letra minúscula
+  if (!/[a-z]/.test(senha)) {
+    errors.push('A senha deve possuir letras minúsculas');
+  }
+
+  // Verificar se tem pelo menos uma letra maiúscula
+  if (!/[A-Z]/.test(senha)) {
+    errors.push('A senha deve possuir letras maiúsculas');
+  }
+
+  // Verificar se tem pelo menos um caractere especial
+  if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
+    errors.push('A senha deve possuir caracteres especiais');
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
 // Function to normalize strings for case-insensitive comparisons
 const normalizeString = (str: string): string => {
   return str
@@ -251,7 +287,7 @@ export default function ProfileScreen() {
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoErro, setFotoErro] = useState<string>('');
 
-  // Campos de erro
+  // Campos de erro - ATUALIZADOS para validação granular
   const [nomeErro, setNomeErro] = useState<string>('');
   const [emailErro, setEmailErro] = useState<string>('');
   const [telefoneErro, setTelefoneErro] = useState<string>('');
@@ -259,7 +295,7 @@ export default function ProfileScreen() {
   const [cepErro, setCepErro] = useState<string>('');
   const [estadoErro, setEstadoErro] = useState<string>('');
   const [cidadeErro, setCidadeErro] = useState<string>('');
-  const [senhaErro, setSenhaErro] = useState<string>('');
+  const [senhaErros, setSenhaErros] = useState<string[]>([]); // MUDANÇA: Array de erros
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState<string>('');
   const [sexoErro, setSexoErro] = useState<string>('');
 
@@ -494,9 +530,16 @@ export default function ProfileScreen() {
     }
   };
 
+  // NOVA FUNÇÃO: Handler para senha com validação granular
   const handleSenhaChange = (text: string) => {
     setSenha(text);
-    setSenhaErro('');
+
+    if (text) {
+      const validacaoSenha = validarSenhaCompleta(text);
+      setSenhaErros(validacaoSenha.errors);
+    } else {
+      setSenhaErros([]);
+    }
   };
 
   const handleConfirmarSenhaChange = (text: string) => {
@@ -586,7 +629,7 @@ export default function ProfileScreen() {
                 });
               }
             }
-          } catch (cidadeError) {}
+          } catch (cidadeError) { }
         }
       }
     } catch (error) {
@@ -615,7 +658,7 @@ export default function ProfileScreen() {
     setCepErro('');
     setEstadoErro('');
     setCidadeErro('');
-    setSenhaErro('');
+    setSenhaErros([]); // Limpar erros granulares
     setConfirmarSenhaErro('');
 
     let hasError = false;
@@ -660,14 +703,17 @@ export default function ProfileScreen() {
       hasError = true;
     }
 
-    // Validar senha apenas se foi preenchida
+    // NOVA VALIDAÇÃO GRANULAR: Validar senha apenas se foi preenchida
     if (senha || confirmarSenha) {
       if (senha !== confirmarSenha) {
         setConfirmarSenhaErro('As senhas não conferem.');
         hasError = true;
-      } else if (senha && senha.length < 8) {
-        setSenhaErro('A senha deve ter pelo menos 8 caracteres.');
-        hasError = true;
+      } else if (senha) {
+        const validacaoSenha = validarSenhaCompleta(senha);
+        if (!validacaoSenha.isValid) {
+          setSenhaErros(validacaoSenha.errors);
+          hasError = true;
+        }
       }
     }
 
@@ -821,7 +867,11 @@ export default function ProfileScreen() {
             }
           }
         }
-        // 2. Outros erros
+        // 2. Tratar erro de senha com validação granular
+        else if (serverError.error?.toLowerCase().includes('senha') && serverError.passwordErrors) {
+          setSenhaErros(serverError.passwordErrors);
+        }
+        // 3. Outros erros
         else {
           Alert.alert('Erro', serverError.message || 'Não foi possível salvar os dados. Tente novamente mais tarde.');
         }
@@ -1048,9 +1098,9 @@ export default function ProfileScreen() {
                   estados={estados}
                   onSelectEstado={handleEstadoSelect}
                   showEstados={false} // esta prop está definida mas não é usada
-                  setShowEstados={() => {}} // esta prop está definida mas não é usada
+                  setShowEstados={() => { }} // esta prop está definida mas não é usada
                   estadoSearch={{ id: -1, nome: '' }} // ou seu estado real de busca
-                  setEstadoSearch={() => {}} // ou sua função real de setter
+                  setEstadoSearch={() => { }} // ou sua função real de setter
                 />
                 {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
 
@@ -1061,18 +1111,18 @@ export default function ProfileScreen() {
                   cidadesCarregadas={true} // ou seu estado real de carregamento
                   loadingCidades={false} // ou seu estado real de carregamento
                   showCidades={false} // esta prop está definida mas não é usada no componente
-                  setShowCidades={() => {}} // esta prop está definida mas não é usada no componente
+                  setShowCidades={() => { }} // esta prop está definida mas não é usada no componente
                   onSelectCidade={handleCidadeSelect}
-                  toggleCidades={() => {}} // esta prop está definida mas não é usada no componente
+                  toggleCidades={() => { }} // esta prop está definida mas não é usada no componente
                   disabled={!estadoSelecionado}
                 />
                 {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>Senha</Text>
-                <View style={[styles.inputWithIcon, senhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+                <View style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                   <TextInput
                     style={styles.inputInContainer}
-                    placeholder="Senha"
+                    placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
                     value={senha}
                     onChangeText={handleSenhaChange}
                     secureTextEntry={!showSenha}
@@ -1087,7 +1137,14 @@ export default function ProfileScreen() {
                     <Feather name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
                   </TouchableOpacity>
                 </View>
-                {senhaErro ? <Text style={styles.errorText}>{senhaErro}</Text> : null}
+                {/* NOVA EXIBIÇÃO: Mostrar todos os erros de senha */}
+                {senhaErros.length > 0 && (
+                  <View style={styles.errorContainers}>
+                    {senhaErros.map((erro, index) => (
+                      <Text key={index} style={styles.errorText}>• {erro}</Text>
+                    ))}
+                  </View>
+                )}
 
                 <Text style={styles.inputLabel}>Confirmar Senha</Text>
                 <View style={[styles.inputWithIcon, confirmarSenhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
@@ -1141,6 +1198,10 @@ export default function ProfileScreen() {
     </SafeAreaView>
   );
 }
+
+// ============================================================================
+// CORREÇÃO DO ESPAÇAMENTO - Substitua apenas a seção de estilos no final do arquivo
+// ============================================================================
 
 const styles = StyleSheet.create({
   container: {
@@ -1209,11 +1270,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
+  // CORRIGIDO: Estilo para erro único (usado na maioria dos campos)
   errorText: {
-    color: 'red',
+    color: '#FF0000',
     fontSize: 12,
-    marginTop: -10,
+    marginTop: 5, // MUDANÇA: era -10, agora 5 para melhor espaçamento
     marginLeft: 10,
+    lineHeight: 16, // ADICIONADO: altura da linha para melhor legibilidade
+  },
+  // CORRIGIDO: Container para múltiplos erros de senha
+  errorContainers: {
+    marginTop: 8, // MUDANÇA: era 5, agora 8 para mais espaço
+    marginLeft: 10,
+    paddingVertical: 5, // MUDANÇA: era padding: 4, agora vertical específico
+    paddingHorizontal: 0,
+    backgroundColor: 'rgba(255, 0, 0, 0.05)', // ADICIONADO: fundo sutil para destacar
+    borderRadius: 5, // ADICIONADO: bordas arredondadas
+    borderLeftWidth: 3, // ADICIONADO: borda esquerda para destaque
+    borderLeftColor: '#FF0000',
+  },
+  // NOVO: Estilo específico para erros dentro do container (senha)
+  passwordErrorText: {
+    color: '#FF0000',
+    fontSize: 12,
+    marginBottom: 4, // ADICIONADO: espaço entre as linhas de erro
+    lineHeight: 16, // ADICIONADO: altura da linha
+    paddingLeft: 8, // ADICIONADO: indentação para o bullet point
   },
   loadingIcon: {
     marginLeft: 10,
@@ -1337,7 +1419,7 @@ const styles = StyleSheet.create({
     borderRadius: 25,
     paddingHorizontal: 15,
     marginBottom: 15,
-    width: '100%', // Garante que o input ocupe toda a largura
+    width: '100%',
   },
   inputWithIcon: {
     flexDirection: 'row',
