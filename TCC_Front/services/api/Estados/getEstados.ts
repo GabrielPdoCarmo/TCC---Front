@@ -1,4 +1,4 @@
-import  api  from '../api';
+import api from '../api';
 export const getEstados = async () => {
   try {
     const response = await api.get('/estados');
@@ -10,7 +10,6 @@ export const getEstados = async () => {
         return a.nome.localeCompare(b.nome); // Ordenação alfabética pela propriedade 'nome'
       });
   } catch (error) {
-    console.error('Erro ao carregar os estados', error);
     return [];
   }
 };

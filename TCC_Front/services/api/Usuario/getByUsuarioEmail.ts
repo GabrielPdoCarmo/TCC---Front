@@ -7,7 +7,6 @@ export const getByUsuarioEmail = async (email: string) => {
     const response = await api.get(`/usuarios/email/${encodedEmail}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao buscar usuário pelo email:', error);
     throw error;
   }
 };

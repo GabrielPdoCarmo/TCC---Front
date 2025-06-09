@@ -1,6 +1,6 @@
 // @/services/api/Usuario/checkDuplicateFieldsProfile.ts
 
-import api from "../api";
+import api from '../api';
 
 // Função para verificar campos duplicados durante edição de perfil
 export const checkDuplicateFieldsProfile = async (userData: {
@@ -14,16 +14,16 @@ export const checkDuplicateFieldsProfile = async (userData: {
       userId: userData.userId,
       email: userData.email,
       cpf: userData.cpf?.replace(/\D/g, ''), // Remove formatação do CPF
-      telefone: userData.telefone?.replace(/\D/g, '') // Remove formatação do telefone
+      telefone: userData.telefone?.replace(/\D/g, ''), // Remove formatação do telefone
     });
-    
+
     return response.data;
   } catch (error: any) {
     // Se der erro 400, significa que há duplicação
     if (error.response?.status === 400) {
       return error.response.data;
     }
-    
+
     // Outros erros, relança a exceção
     throw error;
   }
@@ -33,24 +33,23 @@ export const checkDuplicateFieldsProfile = async (userData: {
 export const validateSingleFieldProfile = async (userId: number, field: string, value: string) => {
   try {
     const data: any = { userId };
-    
+
     // Remove formatação se necessário
     if (field === 'cpf' || field === 'telefone') {
       data[field] = value.replace(/\D/g, '');
     } else {
       data[field] = value;
     }
-    
+
     const response = await checkDuplicateFieldsProfile(data);
-    
+
     // Retorna true se o campo está duplicado
     if (response.exists && response.duplicateFields?.includes(field)) {
       return true;
     }
-    
+
     return false;
   } catch (error) {
-    console.error(`Erro ao validar ${field}:`, error);
     return false;
   }
 };

@@ -33,11 +33,8 @@ interface GetTermoResponse {
  */
 export const getTermoByPet = async (petId: number): Promise<GetTermoResponse | null> => {
   try {
-    console.log(`🔍 Buscando termo para pet ID: ${petId}`);
-
     const response = await api.get<GetTermoResponse>(`/termos-compromisso/pet/${petId}`);
 
-    console.log('✅ Termo encontrado:', response.data);
     return response.data;
   } catch (error: any) {
     // 🔧 Tratar erro 404 como caso normal (termo não existe)

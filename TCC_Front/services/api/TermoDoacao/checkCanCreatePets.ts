@@ -23,36 +23,14 @@ interface CreateTermoResponse {
  */
 export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> => {
   try {
-    console.log('🔍 Verificando se usuário pode cadastrar pets (com verificação de dados completos)...');
-
-    const response = await api.get<CheckCanCreatePetsResponse>(
-      '/termos-doacao/pode-cadastrar-pets'
-    );
+    const response = await api.get<CheckCanCreatePetsResponse>('/termos-doacao/pode-cadastrar-pets');
 
     const { podecastrar, temTermo, dadosDesatualizados } = response.data.data;
 
-    console.log('📋 Resultado da verificação:', {
-      podecastrar,
-      temTermo,
-      dadosDesatualizados,
-      timestamp: new Date().toISOString()
-    });
-
     // 🆕 Log específico para diferentes cenários
-    if (dadosDesatualizados) {
-      console.log('⚠️ Dados do usuário foram alterados (nome, email, telefone ou localização) - termo precisa ser reAssinado');
-    } else if (temTermo && podecastrar) {
-      console.log('✅ Usuário tem termo válido e pode cadastrar pets');
-    } else if (temTermo && !podecastrar) {
-      console.log('🚫 Usuário tem termo mas não pode cadastrar pets');
-    } else {
-      console.log('📝 Usuário não possui termo de responsabilidade');
-    }
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao verificar se pode cadastrar pets:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -63,7 +41,6 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
     }
 
     if (error.response?.status === 500) {
-      console.log('⚠️ Erro no servidor, assumindo que não pode cadastrar por segurança');
       // Em caso de erro no servidor, retornar resposta segura
       return {
         message: 'Erro na verificação',
@@ -81,7 +58,7 @@ export const checkCanCreatePets = async (): Promise<CheckCanCreatePetsResponse> 
     }
 
     // Para qualquer outro erro, assumir que não pode cadastrar por segurança
-    console.log('⚠️ Erro desconhecido, assumindo que não pode cadastrar por segurança');
+
     return {
       message: 'Erro na verificação',
       data: {
@@ -116,27 +93,16 @@ export const checkNeedsDataUpdate = async (): Promise<{
   };
 }> => {
   try {
-    console.log('🔍 Verificando especificamente se precisa atualizar dados no termo...');
-
     const response = await checkCanCreatePets();
     const { podecastrar, temTermo, dadosDesatualizados } = response.data;
 
     const needsUpdate = dadosDesatualizados;
-    
-    console.log('📋 Verificação de dados:', {
-      needsUpdate,
-      hasTerms: temTermo,
-      canCreate: podecastrar,
-      dataOutdated: dadosDesatualizados
-    });
 
     return {
       needsUpdate,
       hasTerms: temTermo,
     };
-
   } catch (error) {
-    console.error('❌ Erro ao verificar necessidade de atualização de dados:', error);
     return {
       needsUpdate: false,
       hasTerms: false,
@@ -166,13 +132,6 @@ export const createOrUpdateTermoDoacao = async (
   isDataUpdate: boolean = false
 ): Promise<CreateTermoResponse> => {
   try {
-    const actionType = isDataUpdate ? 'Atualizando' : 'Criando';
-    console.log(`📝 ${actionType} termo de doação:`, { 
-      isDataUpdate,
-      assinatura: termoData.assinaturaDigital,
-      motivo: termoData.motivoDoacao.substring(0, 50) + '...'
-    });
-
     // 🆕 Adicionar flag de atualização de dados aos dados
     const requestData = {
       ...termoData,
@@ -182,15 +141,6 @@ export const createOrUpdateTermoDoacao = async (
     const response = await api.post<CreateTermoResponse>('/termos-doacao', requestData);
 
     const isUpdated = response.data.updated || false;
-    
-    console.log(`✅ Termo ${isUpdated ? 'atualizado' : 'criado'} com sucesso:`, {
-      termoId: response.data.data?.id,
-      doadorNome: response.data.data?.doador_nome,
-      doadorEmail: response.data.data?.doador_email,
-      doadorTelefone: response.data.data?.doador_telefone,
-      dataAssinatura: response.data.data?.data_assinatura,
-      isUpdate: isUpdated
-    });
 
     return {
       message: response.data.message,
@@ -198,8 +148,6 @@ export const createOrUpdateTermoDoacao = async (
       updated: isUpdated,
     };
   } catch (error: any) {
-    console.error(`❌ Erro ao ${isDataUpdate ? 'atualizar' : 'criar'} termo:`, error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -272,8 +220,6 @@ export const checkDataChanges = async (): Promise<{
   };
 }> => {
   try {
-    console.log('🔍 Verificando especificamente quais dados foram alterados...');
-
     // Esta seria uma nova endpoint no backend que retorna detalhes das mudanças
     // Por enquanto, vamos usar a verificação geral
     const response = await checkCanCreatePets();
@@ -283,9 +229,7 @@ export const checkDataChanges = async (): Promise<{
       hasChanges: dadosDesatualizados,
       // Para implementação futura: detalhes específicos dos campos alterados
     };
-
   } catch (error) {
-    console.error('❌ Erro ao verificar mudanças específicas:', error);
     return {
       hasChanges: false,
     };

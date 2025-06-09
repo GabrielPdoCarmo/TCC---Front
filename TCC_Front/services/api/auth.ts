@@ -34,7 +34,6 @@ export const login = async (email: string, senha: string): Promise<LoginResponse
       AsyncStorage.setItem('@App:userData', JSON.stringify(responseData.usuario)),
     ]);
 
-    console.log('✅ Login realizado com sucesso');
     return responseData;
   } catch (error: unknown) {
     if (

@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 
 export const getUsuarios = async () => {
   try {
@@ -9,7 +9,6 @@ export const getUsuarios = async () => {
       cidade_id: usuario.cidade_id,
     }));
   } catch (error) {
-    console.error('Erro ao carregar os usuários', error);
     return [];
   }
 };

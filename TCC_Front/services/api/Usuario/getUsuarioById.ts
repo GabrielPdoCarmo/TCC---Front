@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 
 export const getUsuarioById = async (id: number) => {
   try {
@@ -9,7 +9,6 @@ export const getUsuarioById = async (id: number) => {
     // Retornar os dados completos do usuário exatamente como recebidos da API
     return response.data;
   } catch (error) {
-    console.error(`Erro ao buscar o usuário com ID ${id}:`, error);
     return null;
   }
 };

@@ -9,7 +9,7 @@ export const checkPetHasTermo = async (petId: number): Promise<boolean> => {
       return false; // Pet não tem termo
     }
     // Em caso de outros erros, assumir que não tem termo para não bloquear
-    console.warn('Erro ao verificar termo do pet, assumindo que não tem:', error);
+
     return false;
   }
 };

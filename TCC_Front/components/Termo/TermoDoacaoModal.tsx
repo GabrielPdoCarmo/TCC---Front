@@ -124,7 +124,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       for (const key of possibleTokenKeys) {
         const token = await AsyncStorage.getItem(key);
         if (token) {
-          console.log(`✅ Token encontrado na chave: ${key}`);
           return token;
         }
       }
@@ -139,7 +138,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
       return null;
     } catch (error) {
-      console.error('❌ Erro ao buscar token:', error);
       return null;
     }
   };
@@ -154,7 +152,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   // 🆕 Função ATUALIZADA para inicializar o modal
   const initializeModal = async () => {
     const modoTexto = isDataUpdateMode ? 'atualização de dados' : 'criação inicial';
-    console.log(`🚀 Inicializando modal de termo (${modoTexto})...`);
 
     setStep('loading');
     setEmailSent(false);
@@ -166,7 +163,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     // 🆕 Lógica diferente baseada no modo
     if (isDataUpdateMode) {
       // Modo de atualização - pular verificação e ir direto para formulário
-      console.log('🔄 Modo atualização de dados - indo direto para formulário');
+
       await loadExistingTermoData(); // Carregar dados do termo existente
       setStep('form');
     } else {
@@ -178,8 +175,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   // 🆕 Função para carregar dados do termo existente (para pré-preencher formulário)
   const loadExistingTermoData = async () => {
     try {
-      console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
-
       const response = await getTermoDoacao();
 
       if (response && response.data) {
@@ -202,10 +197,8 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
         }));
 
         setTermoData(termo);
-        console.log('✅ Dados do termo carregados para atualização');
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do termo existente:', error);
       // Em caso de erro, manter formulário vazio
     }
   };
@@ -213,12 +206,9 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   // 🔧 Função para verificar termo existente (modo normal)
   const checkExistingTermo = async () => {
     try {
-      console.log('🔍 Verificando se usuário já possui termo de doação...');
-
       const response = await getTermoDoacao();
 
       if (response && response.data) {
-        console.log('✅ Usuário já possui termo, enviando PDF automaticamente...');
         setTermoData(response.data);
         setStep('termo');
 
@@ -230,12 +220,10 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
           handleEmailSentSuccess();
         }
       } else {
-        console.log('ℹ️ Usuário não possui termo, mostrando formulário');
         setStep('form');
       }
     } catch (error: any) {
       if (error.message.includes('não possui um termo')) {
-        console.log('ℹ️ Confirmado: usuário não possui termo');
         setStep('form');
       } else if (error.message.includes('Sessão expirada')) {
         Alert.alert('Sessão Expirada', 'Sua sessão expirou. Você será redirecionado para a tela anterior.', [
@@ -286,7 +274,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       setLoading(true);
 
       const acaoTexto = isDataUpdateMode ? 'Atualizando' : 'Criando';
-      console.log(`📝 ${acaoTexto} termo de doação...`);
 
       // 🆕 Usar função atualizada que suporta criação e atualização
       const response = await createOrUpdateTermoDoacao(
@@ -307,7 +294,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
       if (response && response.data) {
         const acaoTextoFinal = response.updated ? 'atualizado' : 'criado';
-        console.log(`✅ Termo ${acaoTextoFinal} com sucesso!`);
 
         setTermoData(response.data);
         setStep('termo');
@@ -316,8 +302,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
         await handleAutoSendEmail(response.data);
       }
     } catch (error: any) {
-      console.error(`❌ Erro ao ${isDataUpdateMode ? 'atualizar' : 'criar'} termo:`, error);
-
       let errorMessage = `Erro ao ${isDataUpdateMode ? 'atualizar' : 'criar'} termo de responsabilidade.`;
 
       if (error.message.includes('Sessão expirada')) {
@@ -345,15 +329,11 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   const handleAutoSendEmail = async (termo: TermoDoacaoData) => {
     try {
       setSendingEmail(true);
-      console.log('📧 Enviando termo por email automaticamente...');
 
       const response = await sendTermoDoacaoEmail(termo.id);
 
-      console.log('✅ Email enviado com sucesso:', response.data);
-
       handleEmailSentSuccess();
     } catch (error: any) {
-      console.error('❌ Erro ao enviar email:', error);
       setSendingEmail(false);
 
       const retryText = isDataUpdateMode ? 'Tentar Reenviar' : 'Tentar Novamente';
@@ -378,14 +358,13 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     // Aguardar 3 segundos e liberar o usuário
     setTimeout(() => {
       const acaoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
-      console.log(`🎉 Termo ${acaoTexto}, liberando acesso à tela...`);
+
       onTermoCompleted();
     }, 3000);
   };
 
   // 🔙 Função para voltar à tela anterior
   const handleGoBack = () => {
-    console.log('🔙 Voltando para tela de pets...');
     router.push('/pages/PetAdoptionScreen');
   };
 

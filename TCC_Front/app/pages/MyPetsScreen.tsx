@@ -127,7 +127,6 @@ export default function MyPetsScreen() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('💾 Salvando MyPetsScreen como última rota');
       setLastRoute('/pages/MyPetsScreen');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
@@ -135,20 +134,16 @@ export default function MyPetsScreen() {
   // ✅ Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      console.log('🚫 Usuário não autenticado na MyPetsScreen, redirecionando...');
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
   // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
   const handleGoBack = () => {
-    console.log('🔄 Botão voltar clicado - navegando para PetAdoptionScreen');
     router.push('/pages/PetAdoptionScreen');
   };
 
   // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
   const handleAdvancedFilter = () => {
-    console.log('🔍 Botão filtro avançado clicado');
-
     if (loading) return;
 
     let currentFiltersToPass = activeFilters ? { ...activeFilters } : {};
@@ -201,7 +196,6 @@ export default function MyPetsScreen() {
           const parsedFilters = JSON.parse(storedFilters);
 
           if (parsedFilters.searchQuery && parsedFilters.searchResults) {
-            console.log('Aplicando busca por nome dos filtros:', parsedFilters.searchQuery);
             setSearchQuery(parsedFilters.searchQuery);
             setSearchResults(parsedFilters.searchResults);
             setHasActiveSearch(true);
@@ -226,7 +220,6 @@ export default function MyPetsScreen() {
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.error('ID do usuário não encontrado no AsyncStorage');
         return;
       }
 
@@ -236,22 +229,18 @@ export default function MyPetsScreen() {
       const userData = await getUsuarioById(userIdNumber);
 
       if (!userData) {
-        console.error('Dados do usuário não encontrados');
         return;
       }
 
       setUsuario(userData);
 
       await AsyncStorage.setItem('@App:userData', JSON.stringify(userData));
-    } catch (err) {
-      console.error('Erro ao buscar dados do usuário:', err);
-    }
+    } catch (err) {}
   };
 
   // Função para carregar pets com detalhes completos incluindo foto do usuário
   const loadPetsWithDetails = async (pets: Pet[]): Promise<Pet[]> => {
     if (!Array.isArray(pets) || pets.length === 0) {
-      console.log('Array de pets vazio ou inválido');
       return [];
     }
 
@@ -293,7 +282,6 @@ export default function MyPetsScreen() {
               favorito: isFavorito,
             };
           } catch (petError) {
-            console.error(`Erro ao carregar detalhes do pet ${pet.id}:`, petError);
             return {
               ...pet,
               raca_nome: pet.raca_nome || 'Desconhecido',
@@ -307,7 +295,6 @@ export default function MyPetsScreen() {
         })
       );
     } catch (error) {
-      console.error('Erro geral ao carregar detalhes dos pets:', error);
       return pets.map((pet) => ({
         ...pet,
         raca_nome: pet.raca_nome || 'Desconhecido',
@@ -322,20 +309,13 @@ export default function MyPetsScreen() {
 
   // Aplicar filtros considerando busca ativa
   const applyCurrentFilters = async () => {
-    console.log('Aplicando filtros atuais...');
-    console.log('Busca ativa:', hasActiveSearch);
-    console.log('Query de busca:', searchQuery);
-    console.log('Filtros ativos:', activeFilters);
-
     try {
       let baseData: Pet[];
 
       if (hasActiveSearch && searchQuery.trim() !== '') {
         baseData = searchResults;
-        console.log('Usando resultados da busca como base:', baseData.length, 'pets');
       } else {
         baseData = allMyPets;
-        console.log('Usando todos os meus pets como base:', baseData.length, 'pets');
       }
 
       if (activeFilters) {
@@ -343,22 +323,18 @@ export default function MyPetsScreen() {
 
         if (activeFilters.onlyFavorites && usuarioId) {
           filteredData = filteredData.filter((pet) => pet.favorito === true);
-          console.log('Após filtro de favoritos:', filteredData.length, 'pets');
         }
 
         if (activeFilters.especieIds && activeFilters.especieIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.especieIds?.includes(pet.especie_id || 0));
-          console.log('Após filtro de espécies:', filteredData.length, 'pets');
         }
 
         if (activeFilters.racaIds && activeFilters.racaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.racaIds?.includes(pet.raca_id));
-          console.log('Após filtro de raças:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixaEtariaIds && activeFilters.faixaEtariaIds.length > 0) {
           filteredData = filteredData.filter((pet) => activeFilters.faixaEtariaIds?.includes(pet.faixa_etaria_id));
-          console.log('Após filtro de faixa etária:', filteredData.length, 'pets');
         }
 
         if (activeFilters.estadoIds && activeFilters.estadoIds.length > 0) {
@@ -366,7 +342,6 @@ export default function MyPetsScreen() {
             const petEstadoId = pet.usuario_estado_id || pet.estado_id;
             return activeFilters.estadoIds?.includes(petEstadoId || 0);
           });
-          console.log('Após filtro de estados:', filteredData.length, 'pets');
         }
 
         if (activeFilters.cidadeIds && activeFilters.cidadeIds.length > 0) {
@@ -374,7 +349,6 @@ export default function MyPetsScreen() {
             const petCidadeId = pet.usuario_cidade_id || pet.cidade_id;
             return activeFilters.cidadeIds?.includes(petCidadeId || 0);
           });
-          console.log('Após filtro de cidades:', filteredData.length, 'pets');
         }
 
         if (activeFilters.faixasEtariaIdades && Object.keys(activeFilters.faixasEtariaIdades).length > 0) {
@@ -389,17 +363,13 @@ export default function MyPetsScreen() {
 
             return true;
           });
-          console.log('Após filtro de idades específicas:', filteredData.length, 'pets');
         }
 
-        console.log('Pets após aplicar TODOS os filtros:', filteredData.length);
         setFilteredMyPets(filteredData);
       } else {
-        console.log('Nenhum filtro ativo, usando dados base');
         setFilteredMyPets(baseData);
       }
     } catch (error) {
-      console.error('Erro ao aplicar filtros atuais:', error);
       if (hasActiveSearch && searchQuery.trim() !== '') {
         setFilteredMyPets(searchResults);
       } else {
@@ -412,7 +382,6 @@ export default function MyPetsScreen() {
   useEffect(() => {
     const fetchMyPets = async () => {
       if (!usuarioId) {
-        console.log('Usuário não logado, não é possível buscar pets');
         setLoading(false);
         return;
       }
@@ -421,10 +390,7 @@ export default function MyPetsScreen() {
         setLoading(true);
         setError(null);
 
-        console.log(`Carregando meus pets do usuário ID: ${usuarioId}...`);
-
         const response = await getByUsuarioId(usuarioId);
-        console.log('Resposta da API getByUsuarioId:', response);
 
         let pets: Pet[] = [];
 
@@ -437,10 +403,7 @@ export default function MyPetsScreen() {
           }
         }
 
-        console.log('Meus pets extraídos:', pets.length);
-
         if (!pets || pets.length === 0) {
-          console.log('Nenhum pet associado ao usuário encontrado');
           setAllMyPets([]);
           setFilteredMyPets([]);
           setLoading(false);
@@ -448,10 +411,8 @@ export default function MyPetsScreen() {
         }
 
         const petsWithDetails = await loadPetsWithDetails(pets);
-        console.log('Meus pets com detalhes carregados:', petsWithDetails.length);
 
         const validPets = petsWithDetails.filter((pet) => pet && pet.id);
-        console.log('Pets válidos para o estado:', validPets.length);
 
         setAllMyPets(validPets);
 
@@ -461,7 +422,6 @@ export default function MyPetsScreen() {
 
         setLoading(false);
       } catch (err) {
-        console.error('Erro ao buscar meus pets:', err);
         setError('Não foi possível carregar seus pets. Tente novamente mais tarde.');
         setLoading(false);
       }
@@ -480,7 +440,6 @@ export default function MyPetsScreen() {
   // Recarregar os dados
   const refreshData = async () => {
     if (!usuarioId) {
-      console.log('Usuário não logado, não é possível recarregar pets');
       return;
     }
 
@@ -514,7 +473,6 @@ export default function MyPetsScreen() {
       setAllMyPets(validPets);
       setLoading(false);
     } catch (err) {
-      console.error('Erro ao recarregar meus pets:', err);
       setError('Não foi possível carregar seus pets. Tente novamente mais tarde.');
       setLoading(false);
     }
@@ -523,8 +481,6 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO PRINCIPAL ATUALIZADA: handleCommunicate - COM VERIFICAÇÃO DE NOME
   const handleCommunicate = async (pet: Pet) => {
     try {
-      console.log('📱 Iniciando comunicação para o pet:', pet.nome);
-
       if (!usuarioId || !usuario) {
         Alert.alert('Erro', 'Você precisa estar logado para se comunicar.');
         return;
@@ -543,44 +499,31 @@ export default function MyPetsScreen() {
       setEmailWasSent(false);
       setTermoModalOrigin('obter');
 
-      console.log('🔍 Verificando se pode adotar pet com verificação de nome...');
-
       try {
         const verificacao = await checkCanAdopt(pet.id);
 
         const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
 
-        console.log('📋 Resultado da verificação:', {
-          podeAdotar,
-          temTermo,
-          nomeDesatualizado,
-        });
-
         setHasExistingTermo(temTermo);
         setNameNeedsUpdate(nomeDesatualizado);
 
         if (nomeDesatualizado) {
-          console.log('⚠️ Nome foi alterado, mostrando modal para atualização...');
           setIsNameUpdateMode(true);
           setTermoModalOrigin('update');
           setModalState('termo-creation'); // Ir direto para criação/atualização
         } else if (temTermo && podeAdotar) {
-          console.log('✅ Tem termo válido, pode usar WhatsApp');
           setIsNameUpdateMode(false);
           setModalState('whatsapp-enabled');
         } else if (temTermo && !podeAdotar) {
-          console.log('🚫 Pet já tem termo de outro usuário');
           Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
             { text: 'OK' },
           ]);
           return;
         } else {
-          console.log('📝 Não tem termo, mostrar modal inicial');
           setIsNameUpdateMode(false);
           setModalState('whatsapp-initial');
         }
       } catch (error) {
-        console.error('❌ Erro ao verificar se pode adotar:', error);
         // Em caso de erro, assumir que não tem termo
         setHasExistingTermo(false);
         setNameNeedsUpdate(false);
@@ -588,14 +531,12 @@ export default function MyPetsScreen() {
         setModalState('whatsapp-initial');
       }
     } catch (error: any) {
-      console.error('Erro ao iniciar comunicação:', error);
       Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
     }
   };
 
   // 🆕 FUNÇÃO: Obter Termo (vai do primeiro modal para o modal de criação)
   const handleObterTermo = () => {
-    console.log('📋 Clicou em Obter Termo, abrindo modal de criação');
     setTermoModalOrigin('obter');
     setIsNameUpdateMode(false);
     setModalState('termo-creation');
@@ -608,7 +549,6 @@ export default function MyPetsScreen() {
 
   // 🆕 FUNÇÃO: Ver termo (para modal habilitado)
   const handleViewTermo = () => {
-    console.log('👁️ Clicou em Ver Termo, abrindo modal de visualização');
     setTermoModalOrigin('ver');
     setIsNameUpdateMode(false);
     setModalState('termo-creation');
@@ -616,30 +556,22 @@ export default function MyPetsScreen() {
 
   // 🔧 FUNÇÃO CORRIGIDA: Fechar modal do termo com lógica baseada na origem ATUALIZADA
   const handleTermoModalClose = () => {
-    console.log('🔙 Fechando modal do termo, verificando origem...');
-
     if (termoModalOrigin === 'ver') {
-      console.log('✅ Veio de "Ver Termo", voltando para WhatsApp habilitado');
       setModalState('whatsapp-enabled');
     } else if (termoModalOrigin === 'update') {
       // 🆕 LÓGICA PARA ATUALIZAÇÃO DE NOME
       if (emailWasSent) {
-        console.log('✅ Atualização de nome concluída e email enviado, habilitando WhatsApp');
         setModalState('whatsapp-enabled');
       } else {
-        console.log('⚠️ Atualização de nome não concluída, fechando tudo');
         setModalState('closed');
       }
     } else if (termoModalOrigin === 'obter') {
       if (emailWasSent) {
-        console.log('✅ Veio de "Obter Termo" e email foi enviado, habilitando WhatsApp');
         setModalState('whatsapp-enabled');
       } else {
-        console.log('⚠️ Veio de "Obter Termo" mas email NÃO foi enviado, voltando para WhatsApp inicial');
         setModalState('whatsapp-initial');
       }
     } else {
-      console.log('⚠️ Origem não definida, usando lógica do email');
       if (emailWasSent) {
         setModalState('whatsapp-enabled');
       } else {
@@ -651,7 +583,7 @@ export default function MyPetsScreen() {
   // 🆕 FUNÇÃO: Termo foi criado/atualizado com sucesso
   const handleTermoCreated = () => {
     const action = isNameUpdateMode ? 'atualizado' : 'criado';
-    console.log(`✅ Termo ${action} com sucesso, mantendo no modal para enviar email`);
+
     setHasExistingTermo(true);
     setNameNeedsUpdate(false); // 🆕 Reset flag de nome desatualizado
   };
@@ -659,7 +591,7 @@ export default function MyPetsScreen() {
   // 🔧 FUNÇÃO CORRIGIDA: Email enviado com sucesso
   const handleEmailSent = () => {
     const action = isNameUpdateMode ? 'atualizado' : 'criado';
-    console.log(`📧 Email do termo ${action} enviado com sucesso, habilitando WhatsApp`);
+
     setHasExistingTermo(true);
     setEmailWasSent(true);
     setNameNeedsUpdate(false); // 🆕 Reset flag
@@ -672,8 +604,6 @@ export default function MyPetsScreen() {
     if (!selectedPet || !usuario) return;
 
     try {
-      console.log('🎯 Iniciando WhatsApp para:', selectedPet.nome);
-
       const donoPet = selectedPet.usuario_nome || 'responsável';
       const nomePet = selectedPet.nome;
       const nomeInteressado = usuario.nome;
@@ -717,14 +647,11 @@ Agradeço desde já! 🐾❤️`;
 
       const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
 
-      console.log('📱 Tentando abrir WhatsApp para:', numeroLimpo);
-
       const canOpen = await Linking.canOpenURL(whatsappUrl);
 
       if (canOpen) {
         // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" (status_id: 4)
         try {
-          console.log('🔄 Atualizando status do pet para "Adotado"...');
           await updateStatus(selectedPet.id);
 
           // Atualizar estados locais
@@ -740,11 +667,7 @@ Agradeço desde já! 🐾❤️`;
           if (hasActiveSearch) {
             setSearchResults((prevResults) => prevResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
           }
-
-          console.log('✅ Status do pet atualizado com sucesso para "Adotado"');
-        } catch (statusError) {
-          console.error('❌ Erro ao atualizar status do pet:', statusError);
-        }
+        } catch (statusError) {}
 
         // Fechar modal
         setModalState('closed');
@@ -776,7 +699,6 @@ Agradeço desde já! 🐾❤️`;
         ]);
       }
     } catch (error) {
-      console.error('Erro ao abrir WhatsApp:', error);
       setModalState('closed');
       setSelectedPet(null);
 
@@ -790,7 +712,6 @@ Agradeço desde já! 🐾❤️`;
 
   // 🆕 FUNÇÃO: Fechar todos os modais
   const handleCloseAllModals = () => {
-    console.log('🔒 Fechando todos os modais');
     setModalState('closed');
     setSelectedPet(null);
     setHasExistingTermo(false);
@@ -811,11 +732,8 @@ Agradeço desde já! 🐾❤️`;
 
     try {
       // 🔍 Primeiro, verificar se o pet tem termo de compromisso
-      console.log(`🔍 Verificando se pet ${pet.nome} (ID: ${pet.id}) possui termo...`);
 
       const temTermo = await checkPetHasTermo(pet.id);
-
-      console.log(`📋 Pet ${pet.nome} ${temTermo ? 'POSSUI' : 'NÃO POSSUI'} termo de compromisso`);
 
       // 🚨 Alerta personalizado baseado na existência do termo
       const alertTitle = 'Confirmar Remoção';
@@ -830,13 +748,9 @@ Agradeço desde já! 🐾❤️`;
           style: 'destructive',
           onPress: async () => {
             try {
-              console.log(`🗑️ Iniciando remoção do pet ${pet.nome} (ID: ${pet.id})`);
-
               // 🔄 ETAPA 1: Se tem termo, deletar termo primeiro
               if (temTermo) {
                 try {
-                  console.log(`📋 Deletando termo de compromisso do pet ${pet.nome}...`);
-
                   const termoResult = await deleteTermoByPet(pet.id);
 
                   if (termoResult) {
@@ -845,8 +759,6 @@ Agradeço desde já! 🐾❤️`;
                     console.log('ℹ️ Pet não possuía termo (verificação adicional)');
                   }
                 } catch (termoError: any) {
-                  console.error('❌ Erro ao deletar termo:', termoError);
-
                   // Se erro for de permissão, parar processo
                   if (termoError.message.includes('permissão')) {
                     Alert.alert(
@@ -876,7 +788,6 @@ Agradeço desde já! 🐾❤️`;
               }
 
               // 🔄 ETAPA 2: Deletar o pet
-              console.log(`🐾 Deletando pet ${pet.nome} dos meus pets...`);
 
               await deleteMyPet(pet.id, usuarioId);
 
@@ -894,11 +805,7 @@ Agradeço desde já! 🐾❤️`;
                 : `${pet.nome} foi removido dos seus pets.`;
 
               Alert.alert('Sucesso', successMessage);
-
-              console.log(`✅ Remoção completa do pet ${pet.nome}`);
             } catch (error: any) {
-              console.error('❌ Erro na remoção do pet:', error);
-
               Alert.alert(
                 'Erro',
                 `Não foi possível remover o pet ${pet.nome}. Tente novamente.\n\nDetalhes: ${
@@ -910,8 +817,6 @@ Agradeço desde já! 🐾❤️`;
         },
       ]);
     } catch (error: any) {
-      console.error('❌ Erro ao verificar termo do pet:', error);
-
       // Em caso de erro na verificação, perguntar se quer continuar mesmo assim
       Alert.alert(
         'Erro na Verificação',
@@ -934,7 +839,6 @@ Agradeço desde já! 🐾❤️`;
 
                 Alert.alert('Sucesso', `${pet.nome} foi removido dos seus pets.`);
               } catch (removeError) {
-                console.error('❌ Erro no fallback de remoção:', removeError);
                 Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
               }
             },
@@ -972,17 +876,13 @@ Agradeço desde já! 🐾❤️`;
         );
         setSearchResults(updatedSearchResults);
       }
-
-      console.log(`Pet ID ${petId} ${wasFavorited ? 'removido dos' : 'adicionado aos'} favoritos`);
     } catch (error) {
-      console.error('Erro ao atualizar favorito:', error);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
     }
   };
 
   // Função para limpar filtros ativos
   const clearFilters = async () => {
-    console.log('Limpando filtros...');
     await AsyncStorage.removeItem('@App:myPetsFilters');
     setActiveFilters(null);
 
@@ -996,7 +896,6 @@ Agradeço desde já! 🐾❤️`;
   // Renderizar cada item da lista de pets
   const renderMyPetItem = ({ item }: { item: Pet }) => {
     if (!item || !item.id) {
-      console.warn('Item de pet inválido encontrado:', item);
       return null;
     }
 

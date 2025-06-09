@@ -41,16 +41,7 @@ interface GetTermoDoacaoResponse {
  */
 export const getTermoDoacao = async (): Promise<GetTermoDoacaoResponse> => {
   try {
-    console.log('📄 Buscando termo de doação do usuário...');
-
     const response = await api.get<GetTermoDoacaoResponse>('/termos-doacao/meu-termo');
-
-    console.log('✅ Termo de doação encontrado:', {
-      id: response.data.data.id,
-      doador: response.data.data.doador_nome,
-      dataAssinatura: response.data.data.data_assinatura,
-      canCreatePets: response.data.canCreatePets,
-    });
 
     return response.data;
   } catch (error: any) {
@@ -88,19 +79,10 @@ export const getTermoDoacao = async (): Promise<GetTermoDoacaoResponse> => {
  */
 export const getTermoDoacaoById = async (termoId: number): Promise<GetTermoDoacaoResponse> => {
   try {
-    console.log('📄 Buscando termo de doação por ID:', termoId);
-
     const response = await api.get<GetTermoDoacaoResponse>(`/termos-doacao/${termoId}`);
-
-    console.log('✅ Termo de doação encontrado por ID:', {
-      id: response.data.data.id,
-      doador: response.data.data.doador_nome,
-    });
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar termo por ID:', error);
-
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
@@ -135,23 +117,14 @@ export const getHistoricoTermos = async (): Promise<{
   total: number;
 }> => {
   try {
-    console.log('📚 Buscando histórico de termos...');
-
     const response = await api.get<{
       message: string;
       data: GetTermoDoacaoResponse['data'][];
       total: number;
     }>('/termos-doacao/meu-historico');
 
-    console.log('✅ Histórico de termos encontrado:', {
-      total: response.data.total,
-      termos: response.data.data.map((t) => ({ id: t.id, data: t.data_assinatura })),
-    });
-
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar histórico de termos:', error);
-
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }

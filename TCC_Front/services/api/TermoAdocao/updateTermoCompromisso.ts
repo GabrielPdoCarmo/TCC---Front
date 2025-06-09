@@ -32,34 +32,19 @@ interface UpdateTermoCompromissoResponse {
  * @returns Promise com dados do termo atualizado
  */
 export const updateTermoCompromisso = async (
-  petId: number,
   termoData: UpdateTermoCompromissoRequest
 ): Promise<UpdateTermoCompromissoResponse> => {
   try {
-    console.log('🔄 Atualizando termo de compromisso para pet:', petId);
-
     // Usar a mesma rota POST com flag isNameUpdate = true
     const requestData = {
       ...termoData,
       isNameUpdate: true, // Flag para indicar que é atualização
     };
 
-    const response = await api.post<UpdateTermoCompromissoResponse>(
-      '/termos-compromisso',
-      requestData
-    );
-
-    console.log('✅ Termo de compromisso atualizado com sucesso:', {
-      termoId: response.data.data.id,
-      adotanteNome: response.data.data.adotante_nome,
-      dataAssinatura: response.data.data.data_assinatura,
-      updated: response.data.updated
-    });
+    const response = await api.post<UpdateTermoCompromissoResponse>('/termos-compromisso', requestData);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao atualizar termo de compromisso:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -67,7 +52,7 @@ export const updateTermoCompromisso = async (
 
     if (error.response?.status === 400) {
       const message = error.response.data?.message || 'Dados inválidos';
-      
+
       if (message.includes('não pode adotar seu próprio pet')) {
         throw new Error('Você não pode adotar seu próprio pet.');
       }
@@ -112,32 +97,23 @@ export const updateTermoCompromisso = async (
  * @param petId - ID do pet
  * @returns Promise com dados do termo ou null se não encontrado
  */
-export const getTermoByPet = async (petId: number): Promise<{
+export const getTermoByPet = async (
+  petId: number
+): Promise<{
   data: any;
 } | null> => {
   try {
-    console.log('📄 Buscando termo por pet:', petId);
-
     const response = await api.get(`/termos-compromisso/pet/${petId}`);
 
     if (response.data && response.data.data) {
-      console.log('✅ Termo encontrado:', {
-        termoId: response.data.data.id,
-        petId: response.data.data.pet_id,
-        adotante: response.data.data.adotante_nome
-      });
-
       return {
-        data: response.data.data
+        data: response.data.data,
       };
     }
 
     return null;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar termo por pet:', error);
-
     if (error.response?.status === 404) {
-      console.log('ℹ️ Termo não encontrado para este pet');
       return null;
     }
 
@@ -165,8 +141,6 @@ export const checkUserTermoForPet = async (
   needsNameUpdate: boolean;
 }> => {
   try {
-    console.log('🔍 Verificando termo do usuário para pet:', { petId, usuarioId });
-
     // Buscar termo geral do pet
     const termoResponse = await getTermoByPet(petId);
 
@@ -202,10 +176,7 @@ export const checkUserTermoForPet = async (
       canAdopt: isUserTermo,
       needsNameUpdate: false, // Seria necessário uma verificação adicional aqui
     };
-
   } catch (error: any) {
-    console.error('❌ Erro ao verificar termo do usuário:', error);
-    
     return {
       hasTermo: false,
       canAdopt: false,

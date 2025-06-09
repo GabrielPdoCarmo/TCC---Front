@@ -1,4 +1,4 @@
-import  api  from '../api';
+import api from '../api';
 
 export const getCidades_Estado = async (id: number, estado_id: number) => {
   try {
@@ -7,7 +7,6 @@ export const getCidades_Estado = async (id: number, estado_id: number) => {
 
     // Verifica se a resposta tem os dados esperados
     if (!response.data || !Array.isArray(response.data)) {
-      console.error('Resposta da API de cidades em formato inválido');
       return [];
     }
 
@@ -21,7 +20,7 @@ export const getCidades_Estado = async (id: number, estado_id: number) => {
       });
   } catch (error) {
     // Caso ocorra algum erro durante a requisição, trata o erro e retorna um array vazio
-    console.error('Erro ao carregar as cidades', error);
+
     return [];
   }
 };

@@ -95,14 +95,9 @@ export default function PetDonationScreen() {
   const { setLastRoute, isAuthenticated, loading: authLoading } = useAuth();
 
   // ✅ NOVO: Salvar esta tela como última rota visitada
-  // ✅ CORREÇÃO: No console.log (apenas linha 82)
+
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      // ✅ ANTES (incorreto):
-      // console.log('💾 Salvando PetAdoptionScreen como última rota');
-
-      // ✅ DEPOIS (correto):
-      console.log('💾 Salvando PetDonation como última rota');
       setLastRoute('/pages/PetDonation');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
@@ -110,7 +105,6 @@ export default function PetDonationScreen() {
   // Verificar se está autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      console.log('🚫 Usuário não autenticado, redirecionando para login...');
       router.replace('/pages/LoginScreen');
       return;
     }

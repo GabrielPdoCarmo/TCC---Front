@@ -144,7 +144,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       for (const key of possibleTokenKeys) {
         const token = await AsyncStorage.getItem(key);
         if (token) {
-          console.log(`✅ Token encontrado na chave: ${key}`);
           return token;
         }
       }
@@ -153,15 +152,12 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       if (userData) {
         const user = JSON.parse(userData);
         if (user.token || user.accessToken || user.authToken) {
-          console.log('✅ Token encontrado em userData');
           return user.token || user.accessToken || user.authToken;
         }
       }
 
-      console.warn('⚠️ Token de autenticação não encontrado no AsyncStorage');
       return null;
     } catch (error) {
-      console.error('❌ Erro ao buscar token:', error);
       return null;
     }
   };
@@ -176,7 +172,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   // Função para inicializar o modal
   const initializeModal = async () => {
     const modoTexto = isNameUpdateMode ? 'atualização de nome' : hasExistingTermo ? 'visualização' : 'criação inicial';
-    console.log(`🚀 Inicializando modal do termo (${modoTexto})...`);
 
     setStep('loading');
 
@@ -185,22 +180,21 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     setAuthToken(token);
 
     if (!token) {
-      console.warn('⚠️ Token não encontrado, mas tentando continuar');
     }
 
     // Lógica baseada no modo
     if (isNameUpdateMode || nameNeedsUpdate) {
       // Modo de atualização de nome - carregar dados e ir para formulário
-      console.log('🔄 Modo atualização de nome - carregando dados do termo para pré-preenchimento');
+
       await loadExistingTermoData();
       setStep('form');
     } else if (hasExistingTermo) {
       // Modo de visualização - carregar termo completo
-      console.log('ℹ️ Modal indicou que existe termo, buscando...');
+
       await loadTermoCompleto();
     } else {
       // Modo de criação - ir direto para formulário
-      console.log('ℹ️ Modal indicou que não existe termo, indo para formulário');
+
       setStep('form');
     }
 
@@ -210,8 +204,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   // Função para carregar dados do termo existente (para pré-preencher formulário na atualização)
   const loadExistingTermoData = async () => {
     try {
-      console.log('📋 Carregando dados do termo existente para pré-preenchimento...');
-
       const response = await getTermoByPetWithNameCheck(pet.id);
 
       if (response && response.data) {
@@ -222,10 +214,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         setObservacoes(termo.observacoes || '');
 
         setTermoData(termo);
-        console.log('✅ Dados do termo carregados para atualização');
       }
     } catch (error) {
-      console.error('❌ Erro ao carregar dados do termo existente:', error);
       // Em caso de erro, manter formulário com dados do usuário atual
       setAssinaturaDigital(usuarioLogado.nome || '');
     }
@@ -242,7 +232,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       setLoading(true);
 
       const acaoTexto = isNameUpdateMode ? 'Atualizando' : 'Criando';
-      console.log(`📝 ${acaoTexto} termo para pet ID:`, pet.id);
 
       // Usar função que suporta criação e atualização
       const response = await createOrUpdateTermoCompromisso(
@@ -254,11 +243,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         isNameUpdateMode
       );
 
-      console.log(`📨 Resposta do ${acaoTexto.toLowerCase()}:`, response);
-
       if (response && (response.data || response.message)) {
         const acaoTextoFinal = response.updated ? 'atualizado' : 'criado';
-        console.log(`✅ Termo ${acaoTextoFinal} com sucesso, buscando dados completos...`);
 
         // Pequeno delay para garantir que o backend salvou completamente
         await new Promise((resolve) => setTimeout(resolve, 500));
@@ -280,8 +266,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         throw new Error('Resposta inválida da API');
       }
     } catch (error: any) {
-      console.error(`❌ Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo:`, error);
-
       let errorMessage = `Erro ao ${isNameUpdateMode ? 'atualizar' : 'criar'} termo de compromisso.`;
 
       if (error.message.includes('Sessão expirada')) {
@@ -293,7 +277,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       if (error.message.includes('Este pet já possui um termo')) {
         if (!isNameUpdateMode) {
           errorMessage = 'Este pet já possui um termo de compromisso.';
-          console.log('ℹ️ Termo já existe, carregando dados...');
+
           await loadTermoCompleto();
 
           if (onSuccess) {
@@ -320,21 +304,15 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   // Função centralizada para carregar termo completo
   const loadTermoCompleto = async () => {
     try {
-      console.log('🔄 Carregando termo completo para pet ID:', pet.id);
-
       const response = await getTermoByPetWithNameCheck(pet.id);
 
       if (response && response.data) {
-        console.log('✅ Termo completo carregado:', response.data);
         setTermoData(response.data);
         setStep('termo');
       } else {
-        console.warn('⚠️ Termo não encontrado após criação/atualização');
         setStep('form');
       }
     } catch (error: any) {
-      console.error('❌ Erro ao carregar termo completo:', error);
-
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
           { text: 'OK', onPress: handleClose },
@@ -353,11 +331,9 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
     try {
       setLoading(true);
-      console.log('🔄 Atualizando dados do termo...');
+
       await loadTermoCompleto();
-      console.log('✅ Termo atualizado');
     } catch (error) {
-      console.error('❌ Erro ao atualizar termo:', error);
     } finally {
       setLoading(false);
     }
@@ -369,7 +345,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
     try {
       setSendingEmail(true);
-      console.log('📧 Enviando termo por email para ID:', termoData.id);
 
       const response = await sendTermoEmail(termoData.id);
 
@@ -392,8 +367,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         {
           text: 'OK',
           onPress: () => {
-            console.log(`📧 Emails do termo ${acaoTexto} enviados com sucesso, notificando fluxo iOS...`);
-
             // Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
             if (onEmailSent) {
               onEmailSent();
@@ -404,11 +377,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
           },
         },
       ]);
-
-      console.log('✅ Emails enviados com sucesso:', response.data);
     } catch (error: any) {
-      console.error('❌ Erro ao enviar emails:', error);
-
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
           { text: 'OK', onPress: handleClose },
@@ -434,8 +403,6 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
   // Função de fechamento com reset completo
   const handleClose = () => {
-    console.log('🔒 Fechando modal do termo e resetando estados...');
-
     // Reset todos os estados
     setStep('loading');
     setAssinaturaDigital(usuarioLogado.nome || '');

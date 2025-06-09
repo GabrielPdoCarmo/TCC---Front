@@ -16,7 +16,6 @@ export const getPetsByStatus = async () => {
         return a.nome.localeCompare(b.nome); // Ordenação alfabética pela propriedade 'nome'
       });
   } catch (error) {
-    console.error('Erro ao carregar os pets por status:', error);
     return [];
   }
 };

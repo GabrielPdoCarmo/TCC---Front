@@ -5,11 +5,9 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Android
 const api = axios.create({
-  baseURL: `http://192.168.1.12:3000/api`,
+  baseURL: `http://192.168.110.236:3000/api`,
   timeout: 10000,
 });
-
-console.log('Base URL:', api.defaults.baseURL);
 
 // 🆕 INTERCEPTOR DE REQUEST - Para incluir token automaticamente
 api.interceptors.request.use(
@@ -21,18 +19,14 @@ api.interceptors.request.use(
       if (token) {
         // Adicionar token no header Authorization
         config.headers.Authorization = `Bearer ${token}`;
-      } else {
-        console.warn('⚠️ Token não encontrado no AsyncStorage');
       }
 
       return config;
     } catch (error) {
-      console.error('❌ Erro no interceptor de request:', error);
       return config; // Continuar mesmo com erro
     }
   },
   (error) => {
-    console.error('❌ Erro no interceptor de request:', error);
     return Promise.reject(error);
   }
 );
@@ -47,14 +41,9 @@ api.interceptors.response.use(
 
     // 🆕 Se token expirou (401), limpar AsyncStorage
     if (error.response?.status === 401) {
-      console.log('🧹 Token expirado (401), limpando AsyncStorage...');
-
       try {
         await AsyncStorage.multiRemove(['@App:token', '@App:user', '@App:userData', '@App:userId']);
-        console.log('✅ AsyncStorage limpo');
-      } catch (storageError) {
-        console.error('Erro ao limpar storage:', storageError);
-      }
+      } catch (storageError) {}
     }
 
     return Promise.reject(errorMessage);

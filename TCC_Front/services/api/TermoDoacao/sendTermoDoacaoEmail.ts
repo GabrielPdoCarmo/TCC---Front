@@ -19,22 +19,10 @@ interface SendTermoDoacaoEmailResponse {
  */
 export const sendTermoDoacaoEmail = async (termoId: number): Promise<SendTermoDoacaoEmailResponse> => {
   try {
-    console.log('📧 Enviando termo de doação por email:', { termoId });
-
-    const response = await api.post<SendTermoDoacaoEmailResponse>(
-      `/termos-doacao/${termoId}/enviar-pdf`
-    );
-
-    console.log('✅ Email enviado com sucesso:', {
-      termoId: response.data.data.termoId,
-      destinatario: response.data.data.destinatario,
-      dataEnvio: response.data.data.dataEnvio
-    });
+    const response = await api.post<SendTermoDoacaoEmailResponse>(`/termos-doacao/${termoId}/enviar-pdf`);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao enviar termo por email:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -59,15 +47,15 @@ export const sendTermoDoacaoEmail = async (termoId: number): Promise<SendTermoDo
 
     if (error.response?.status === 500) {
       const message = error.response.data?.message || 'Erro interno do servidor';
-      
+
       if (message.includes('Falha ao enviar email')) {
         throw new Error('Falha no envio do email. Verifique o endereço e tente novamente.');
       }
-      
+
       if (message.includes('Erro no servidor de email')) {
         throw new Error('Servidor de email temporariamente indisponível. Tente novamente em alguns minutos.');
       }
-      
+
       throw new Error('Erro no servidor ao enviar email. Tente novamente.');
     }
 
@@ -88,22 +76,10 @@ export const sendTermoDoacaoEmail = async (termoId: number): Promise<SendTermoDo
  */
 export const generateAndSendTermoPDF = async (termoId: number): Promise<SendTermoDoacaoEmailResponse> => {
   try {
-    console.log('📧 Gerando e enviando PDF do termo:', { termoId });
-
-    const response = await api.post<SendTermoDoacaoEmailResponse>(
-      `/termos-doacao/${termoId}/gerar-pdf`
-    );
-
-    console.log('✅ PDF gerado e enviado com sucesso:', {
-      termoId: response.data.data.termoId,
-      destinatario: response.data.data.destinatario,
-      dataEnvio: response.data.data.dataEnvio
-    });
+    const response = await api.post<SendTermoDoacaoEmailResponse>(`/termos-doacao/${termoId}/gerar-pdf`);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao gerar e enviar PDF:', error);
-
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
     }
@@ -118,15 +94,15 @@ export const generateAndSendTermoPDF = async (termoId: number): Promise<SendTerm
 
     if (error.response?.status === 500) {
       const message = error.response.data?.message || '';
-      
+
       if (message.includes('Erro ao gerar PDF')) {
         throw new Error('Erro ao gerar PDF. Tente novamente.');
       }
-      
+
       if (message.includes('Falha ao enviar email')) {
         throw new Error('PDF gerado, mas falha no envio do email. Tente reenviar.');
       }
-      
+
       throw new Error('Erro no servidor ao processar PDF. Tente novamente.');
     }
 

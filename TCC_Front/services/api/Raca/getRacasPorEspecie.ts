@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 export type Raca = {
   id: number;
   nome: string;
@@ -10,7 +10,6 @@ export const getRacasPorEspecie = async (especie_Id: number): Promise<Raca[]> =>
     const especie = especiesResponse.data.find((e: { nome: string; id: number }) => e.id === especie_Id);
 
     if (!especie) {
-      console.error('Espécie não encontrada:', especie_Id);
       return [];
     }
 
@@ -24,7 +23,6 @@ export const getRacasPorEspecie = async (especie_Id: number): Promise<Raca[]> =>
 
     return racas.sort((a: Raca, b: Raca) => a.nome.localeCompare(b.nome)); // ✅ retorno garantido
   } catch (error) {
-    console.error('Erro ao carregar raças por espécie', error);
     return []; // ✅ retorno no catch
   }
 };

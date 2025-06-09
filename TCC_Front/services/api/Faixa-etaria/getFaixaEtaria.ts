@@ -27,7 +27,6 @@ export const getFaixaEtaria = async () => {
         (a: { nome: string }, b: { nome: string }) => ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
       );
   } catch (error) {
-    console.error('Erro ao carregar as faixas etárias', error);
     return [];
   }
 };

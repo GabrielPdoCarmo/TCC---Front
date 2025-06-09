@@ -38,7 +38,6 @@ export const validateSingleField = async (field: string, value: string) => {
 
     return false;
   } catch (error) {
-    console.error(`Erro ao validar ${field}:`, error);
     return false;
   }
 };

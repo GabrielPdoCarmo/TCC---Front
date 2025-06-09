@@ -88,14 +88,12 @@ export default function PetAdoptionScreen() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('💾 Salvando PetAdoptionScreen como última rota');
       setLastRoute('/pages/PetAdoptionScreen');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
   // Verificar se está autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      console.log('🚫 Usuário não autenticado, redirecionando para login...');
       router.replace('/pages/LoginScreen');
       return;
     }
@@ -124,7 +122,6 @@ export default function PetAdoptionScreen() {
       }
     }
 
-    console.warn('Formato de resposta não reconhecido:', response);
     return [];
   };
 
@@ -170,7 +167,6 @@ export default function PetAdoptionScreen() {
               favorito: isFavorito,
             };
           } catch (petError) {
-            console.error(`Erro ao carregar detalhes do pet ${pet.id}:`, petError);
             return {
               ...pet,
               raca_nome: pet.raca_nome || 'Desconhecido',
@@ -184,7 +180,6 @@ export default function PetAdoptionScreen() {
         })
       );
     } catch (error) {
-      console.error('Erro geral ao carregar detalhes dos pets:', error);
       return pets.map((pet) => ({
         ...pet,
         raca_nome: pet.raca_nome || 'Desconhecido',
@@ -253,7 +248,6 @@ export default function PetAdoptionScreen() {
 
       return filteredData;
     } catch (error) {
-      console.error('Erro ao aplicar filtros:', error);
       return pets;
     }
   };
@@ -281,7 +275,6 @@ export default function PetAdoptionScreen() {
         setFilteredPets(baseData);
       }
     } catch (error) {
-      console.error('Erro ao aplicar filtros atuais:', error);
       if (hasActiveSearch && searchQuery.trim() !== '') {
         setFilteredPets(searchResults);
       } else {
@@ -296,26 +289,21 @@ export default function PetAdoptionScreen() {
       setLoading(true);
       setError(null);
 
-      console.log('🔄 Recarregando dados dos pets...');
       const response = await getPetsByStatus();
 
       if (!response || response.length === 0) {
-        console.log('📭 Nenhum pet encontrado');
         setAllPets([]);
         setFilteredPets([]);
         setLoading(false);
         return;
       }
 
-      console.log(`📦 ${response.length} pets encontrados, carregando detalhes...`);
       const petsWithDetails = await loadPetsWithDetails(response);
 
       setAllPets(petsWithDetails);
-      console.log('✅ Dados dos pets atualizados');
 
       setLoading(false);
     } catch (err) {
-      console.error('❌ Erro ao recarregar pets:', err);
       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
       setLoading(false);
     }
@@ -348,7 +336,6 @@ export default function PetAdoptionScreen() {
     useCallback(() => {
       // Só carregar se estiver autenticado e não estiver carregando
       if (usuarioId && !authLoading && isAuthenticated) {
-        console.log('🎯 Tela ganhou foco - recarregando dados...');
         refreshData();
       }
     }, [usuarioId, authLoading, isAuthenticated, refreshData])
@@ -358,7 +345,6 @@ export default function PetAdoptionScreen() {
   useEffect(() => {
     // Carregar dados sempre que o usuário estiver disponível ou quando houver mudança nos parâmetros
     if (usuarioId && !authLoading && isAuthenticated) {
-      console.log('👤 Dados do usuário disponíveis - carregando pets...');
       refreshData();
     }
   }, [usuarioId, authLoading, isAuthenticated, params.refresh, refreshData]);
@@ -405,7 +391,6 @@ export default function PetAdoptionScreen() {
         },
       ]);
     } catch (error) {
-      console.error('Erro ao adicionar pet:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
     }
   };
@@ -465,7 +450,6 @@ export default function PetAdoptionScreen() {
         setSearchResults(updatedSearchResults);
       }
     } catch (error) {
-      console.error('Erro ao atualizar favorito:', error);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
     }
   };

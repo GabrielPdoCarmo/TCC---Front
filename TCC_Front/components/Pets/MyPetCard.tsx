@@ -58,7 +58,6 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
   // ✅ FUNÇÃO ATUALIZADA: Proteção contra múltiplas remoções
   const handleRemovePress = () => {
     if (isRemoving) {
-      console.log('Operação de remoção já em andamento, ignorando');
       return;
     }
 
@@ -93,10 +92,6 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
     }
     return styles.statusOneText; // Cor padrão para outros status
   };
-
-  console.log('MyPetsCard - Estado de favorito atual:', isFavorite, 'Pet favorito:', pet.favorito);
-  console.log('MyPetsCard - Removendo:', isRemoving);
-  console.log('MyPetsCard - Status ID:', pet.status_id, 'Status Nome:', pet.status_nome);
 
   return (
     <View style={[styles.container, isRemoving && styles.containerRemoving]}>

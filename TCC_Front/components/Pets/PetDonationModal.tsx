@@ -171,7 +171,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // FUNÇÃO ESPECÍFICA PARA LIMPAR TODOS OS ERROS
   // ========================================
   const limparTodosOsErros = () => {
-    console.log('🧹 Limpando todos os erros...'); // Debug
     setEspecieErro('');
     setFaixaEtariaErro('');
     setSexoErro('');
@@ -182,14 +181,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     setDoencaDescricaoErro('');
     setMotivoDoacaoErro('');
     setFotoErro('');
-    console.log('✅ Todos os erros foram limpos'); // Debug
   };
 
   // ========================================
   // FUNÇÃO PARA RESETAR FORMULÁRIO COMPLETO
   // ========================================
   const resetarFormulario = () => {
-    console.log('🔄 Resetando formulário...'); // Debug
     setFormData({
       especie: '',
       nome: '',
@@ -206,45 +203,35 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       motivoDoacao: '',
       foto: null,
     });
-    
+
     // Resetar outros estados
     setShowRacasModal(false);
     setRacasFiltradas([]);
     setFaixasEtariasFiltradas([]);
-    console.log('✅ Formulário resetado'); // Debug
   };
 
   // ========================================
   // FUNÇÃO PRINCIPAL PARA FECHAR O MODAL (CORRIGIDA)
   // ========================================
   const handleCloseModal = () => {
-    console.log('🔧 INICIANDO fechamento do modal...'); // Debug
-    
     // FORÇA a limpeza IMEDIATA dos erros
     limparTodosOsErros();
-    
+
     // FORÇA o reset do formulário
     resetarFormulario();
-    
+
     // Fechar o modal
     onClose();
-    
-    console.log('✅ Modal fechado com sucesso!'); // Debug
   };
 
   // ========================================
   // MONITORAR VISIBILIDADE DO MODAL
   // ========================================
   useEffect(() => {
-    console.log('👁️ Visibilidade do modal mudou:', visible); // Debug
-    
     if (!visible) {
-      console.log('❌ Modal ficou invisível, executando limpeza adicional...'); // Debug
-      
       // Usar setTimeout para garantir que a limpeza aconteça
       setTimeout(() => {
         limparTodosOsErros();
-        console.log('🧹 Limpeza adicional concluída'); // Debug
       }, 100);
     }
   }, [visible]);
@@ -259,7 +246,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.error('ID do usuário não encontrado no AsyncStorage');
         Alert.alert('Error', 'Não foi possível identificar o usuário conectado.');
         return;
       }
@@ -268,7 +254,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
 
       if (!userData) {
-        console.error('Dados do usuário não encontrados');
         Alert.alert('Error', 'Não foi possível carregar os dados do usuário.');
         return;
       }
@@ -282,7 +267,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         estado: userData.estado.nome,
       }));
     } catch (error) {
-      console.error('Erro ao buscar dados do usuário:', error);
       Alert.alert('Error', 'Falha ao carregar os dados do usuário. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -296,7 +280,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         try {
           setIsLoading(true);
           if (especies.length === 0 || faixasEtarias.length === 0 || sexoOpcoes.length === 0) {
-            console.log('Esperando carregamento completo dos dados...');
             return;
           }
 
@@ -336,7 +319,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                     doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
                   }
                 } catch (doencaDetalhesError) {
-                  console.error('Erro ao buscar detalhes da doença:', doencaDetalhesError);
                   doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
                 }
               } else {
@@ -344,7 +326,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               }
             }
           } catch (doencasError) {
-            console.error('Erro ao buscar doenças do pet:', doencasError);
             Alert.alert('Erro', 'Falha ao carregar doenças do pet.');
           }
 
@@ -370,7 +351,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             setFaixasEtariasFiltradas(faixasFiltradas);
           }
         } catch (error) {
-          console.error('Erro ao carregar dados do pet para edição:', error);
           Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
         } finally {
           setIsLoading(false);
@@ -399,11 +379,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setEspecies(dataArray);
           } else {
-            console.error('O formato de resposta da espécie não é uma matriz:', especiesData);
             setEspecies([]);
           }
         } else {
-          console.error('Formato de resposta para espécies desconhecidas:', especiesData);
           setEspecies([]);
         }
 
@@ -415,11 +393,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setFaixasEtarias(dataArray);
           } else {
-            console.error('O formato de resposta da faixa etária não é uma matriz:', faixasEtariasData);
             setFaixasEtarias([]);
           }
         } else {
-          console.error('Formato de resposta de faixa etária desconhecida:', faixasEtariasData);
           setFaixasEtarias([]);
         }
 
@@ -433,15 +409,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           if (Array.isArray(dataArray)) {
             setSexoOpcoes(dataArray);
           } else {
-            console.error('O formato de resposta sexual não é uma matriz:', sexoPetData);
             setSexoOpcoes([]);
           }
         } else {
-          console.error('Formato de resposta de sexo desconhecido:', sexoPetData);
           setSexoOpcoes([]);
         }
       } catch (error) {
-        console.error('Erro ao carregar dados iniciais:', error);
         Alert.alert('Error', 'Falha ao carregar os dados. Tente novamente.');
       } finally {
         setIsLoading(false);
@@ -468,15 +441,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         if (Array.isArray(dataArray)) {
           setRacasFiltradas(dataArray as Raca[]);
         } else {
-          console.error('O formato de resposta de raça não é uma matriz:', racasData);
           setRacasFiltradas([]);
         }
       } else {
-        console.error('Formato de resposta de raça desconhecido:', racasData);
         setRacasFiltradas([]);
       }
     } catch (error) {
-      console.error('Erro ao carregar raças para esta espécie:', error);
       Alert.alert('Error', 'Falha ao carregar raças para esta espécie. Tente novamente.');
     }
   };
@@ -591,14 +561,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }));
 
     if (name === 'especie' && value) {
-      console.log('Espécies selecionadas:', value);
-
       const faixasFiltradas = faixasEtarias.filter((faixa) => {
-        console.log(`Comparação: faixa.especie_id (${faixa.especie_id}) === value.id (${value.id})`);
         return faixa.especie_id === value.id;
       });
 
-      console.log('Faixas filtradas:', faixasFiltradas);
       setFaixasEtariasFiltradas(faixasFiltradas);
 
       loadRacasByEspecie(Number(value.id));
@@ -822,7 +788,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         Alert.alert('Error', 'Não foi possível registrar o pet. Tente novamente.');
       }
     } catch (error) {
-      console.error('Erro ao enviar o formulário:', error);
       Alert.alert('Error', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
     } finally {
       setIsLoading(false);
@@ -905,10 +870,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       if (!result.canceled) {
         await new Promise((resolve) => setTimeout(resolve, 500));
         handleChange('foto', result.assets[0].uri);
-        console.log('Imagem selecionada:', result.assets[0].uri);
       }
     } catch (error) {
-      console.error('Erro ao selecionar imagem:', error);
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     } finally {
       setLoadingFoto(false);
@@ -982,7 +945,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                       onPress={() => {
                         handleChange('especie', item);
                         setEspecieErro('');
-                        console.log('Espécie selecionada:', item);
                       }}
                     >
                       <View style={styles.checkboxCustom}>
@@ -1034,7 +996,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               racasFiltradas={racasFiltradas}
               onClose={() => setShowRacasModal(false)}
               onSelectRaca={(raca) => {
-                console.log('Raça Selecionada:', raca);
                 selectRaca(raca);
               }}
               hasEspecie={!!formData.especie}
@@ -1058,7 +1019,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                       onPress={() => {
                         handleChange('idadeCategoria', item);
                         setFaixaEtariaErro('');
-                        console.log('Faixa Etária selecionada:', item);
                       }}
                     >
                       <View style={styles.checkboxCustom}>
@@ -1168,7 +1128,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                       onPress={() => {
                         handleChange('sexo', getDescricao(item));
                         setSexoErro('');
-                        console.log('Sexo selecionado:', item);
                       }}
                     >
                       <View style={styles.checkboxCustom}>

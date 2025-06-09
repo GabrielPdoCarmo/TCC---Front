@@ -182,7 +182,6 @@ export default function MypetsFilter() {
       }
     }
 
-    console.warn('Formato de resposta não reconhecido:', response);
     return [];
   };
 
@@ -198,24 +197,16 @@ export default function MypetsFilter() {
     try {
       setSearchLoading(true);
 
-      console.log('🔍 Buscando pets por nome (status_id 3 e 4):', name);
-
       // Chamar a API
       const response = await getByNomePet_StatusId(name);
-
-      console.log('📋 Resposta COMPLETA da API getByNomePet_StatusId:', response);
 
       // Normalizar resposta
       const petsArray = normalizeApiResponseWithDebug(response);
 
-      console.log('✅ Pets normalizados (status 3 e 4):', petsArray);
-
       if (petsArray.length > 0) {
         // 🆕 CARREGAR DETALHES COMPLETOS DOS PETS ENCONTRADOS
-        console.log('🔄 Carregando detalhes completos dos pets...');
-        const petsWithDetails = await loadPetsWithDetailsForSearch(petsArray);
 
-        console.log('✅ Pets com detalhes completos carregados:', petsWithDetails);
+        const petsWithDetails = await loadPetsWithDetailsForSearch(petsArray);
 
         setSearchResults(petsWithDetails);
       } else {
@@ -224,18 +215,13 @@ export default function MypetsFilter() {
 
       setHasActiveSearch(true);
       setSearchLoading(false);
-
-      console.log('🎯 Estado atualizado - searchResults definido com', petsArray.length, 'pets');
     } catch (err) {
-      console.error('❌ Erro ao buscar pets por nome (status 3 e 4):', err);
-
       const errorMessage = err?.toString() || '';
       if (
         errorMessage.includes('Pet não encontrado') ||
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
       ) {
-        console.log('ℹ️ Pet não encontrado na API (status 3 e 4):', name);
       }
 
       setSearchResults([]);
@@ -247,7 +233,6 @@ export default function MypetsFilter() {
   // 🆕 NOVA FUNÇÃO: Carregar detalhes dos pets para busca (adaptada do MyPetsScreen)
   const loadPetsWithDetailsForSearch = async (pets: Pet[]): Promise<Pet[]> => {
     if (!Array.isArray(pets) || pets.length === 0) {
-      console.log('Array de pets vazio ou inválido');
       return [];
     }
 
@@ -259,9 +244,7 @@ export default function MypetsFilter() {
         if (userIdFromStorage) {
           usuarioId = parseInt(userIdFromStorage);
         }
-      } catch (error) {
-        console.log('Erro ao obter usuarioId:', error);
-      }
+      } catch (error) {}
 
       return await Promise.all(
         pets.map(async (pet: Pet) => {
@@ -271,9 +254,7 @@ export default function MypetsFilter() {
             if (!pet.raca_nome && pet.raca_id) {
               try {
                 racaInfo = await getRacaById(pet.raca_id);
-              } catch (error) {
-                console.log(`Erro ao carregar raça ${pet.raca_id}:`, error);
-              }
+              } catch (error) {}
             }
 
             // Carregar informações do status se não existir
@@ -281,9 +262,7 @@ export default function MypetsFilter() {
             if (!pet.status_nome && pet.status_id) {
               try {
                 statusInfo = await getstatusById(pet.status_id);
-              } catch (error) {
-                console.log(`Erro ao carregar status ${pet.status_id}:`, error);
-              }
+              } catch (error) {}
             }
 
             // Carregar informações da faixa etária se não existir
@@ -291,9 +270,7 @@ export default function MypetsFilter() {
             if (!pet.faixa_etaria_unidade && pet.faixa_etaria_id) {
               try {
                 faixaEtariaInfo = await getFaixaEtariaById(pet.faixa_etaria_id);
-              } catch (error) {
-                console.log(`Erro ao carregar faixa etária ${pet.faixa_etaria_id}:`, error);
-              }
+              } catch (error) {}
             }
 
             // Carregar informações do usuário se não existir
@@ -303,17 +280,13 @@ export default function MypetsFilter() {
             if (!pet.usuario_nome && pet.usuario_id) {
               try {
                 usuarioInfo = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-              } catch (error) {
-                console.log(`Erro ao carregar usuário ${pet.usuario_id}:`, error);
-              }
+              } catch (error) {}
             }
 
             if (!pet.usuario_foto && pet.usuario_id) {
               try {
                 usuarioFotoInfo = await getUsuarioById(pet.usuario_id);
-              } catch (error) {
-                console.log(`Erro ao carregar foto do usuário ${pet.usuario_id}:`, error);
-              }
+              } catch (error) {}
             }
 
             // Verificar se é favorito
@@ -321,9 +294,7 @@ export default function MypetsFilter() {
             if (usuarioId) {
               try {
                 isFavorito = await checkFavorito(usuarioId, pet.id);
-              } catch (error) {
-                console.log(`Erro ao verificar favorito ${pet.id}:`, error);
-              }
+              } catch (error) {}
             }
 
             // Retornar pet com dados completos
@@ -341,7 +312,6 @@ export default function MypetsFilter() {
               favorito: isFavorito,
             };
           } catch (petError) {
-            console.error(`Erro ao carregar detalhes do pet ${pet.id}:`, petError);
             // Retornar pet com dados básicos em caso de erro
             return {
               ...pet,
@@ -356,7 +326,6 @@ export default function MypetsFilter() {
         })
       );
     } catch (error) {
-      console.error('Erro geral ao carregar detalhes dos pets para busca:', error);
       // Retornar pets originais com dados básicos
       return pets.map((pet) => ({
         ...pet,
@@ -373,48 +342,38 @@ export default function MypetsFilter() {
   // 🆕 FUNÇÃO DE NORMALIZAÇÃO MELHORADA com debug detalhado
   const normalizeApiResponseWithDebug = (response: any): Pet[] => {
     if (!response) {
-      console.log('❌ Resposta é null/undefined');
       return [];
     }
 
     // Se a resposta já é um array de pets
     if (Array.isArray(response)) {
-      console.log('✅ Resposta é um array direto com', response.length, 'itens');
       // Verificar se os itens do array têm a estrutura de Pet
       const validPets = response.filter((item) => item && typeof item === 'object' && item.id);
-      console.log('✅ Pets válidos no array:', validPets.length);
+
       return validPets;
     }
 
     // Se é um objeto com ID (pet único)
     if (typeof response === 'object' && response.id) {
-      console.log('✅ Resposta é um pet único');
       return [response as Pet];
     }
 
     // Se é um objeto que pode conter o array em alguma propriedade
     if (typeof response === 'object') {
-      console.log('🔍 Resposta é objeto, buscando array em propriedades...');
-
       // Verificar propriedades específicas onde o array pode estar
       const possibleArrays = ['data', 'pets', 'results', 'items'];
 
       for (const prop of possibleArrays) {
         if (response[prop]) {
-          console.log(`✅ Encontrado array em response.${prop}:`, response[prop]);
-          console.log(`✅ response.${prop} é array?`, Array.isArray(response[prop]));
-
           if (Array.isArray(response[prop])) {
-            console.log(`✅ response.${prop} tem ${response[prop].length} itens`);
             const validPets = response[prop].filter((item: any) => item && typeof item === 'object' && item.id);
-            console.log(`✅ Pets válidos em response.${prop}:`, validPets.length);
+
             return validPets;
           } else if (response[prop] && typeof response[prop] === 'object' && response[prop].id) {
-            console.log(`✅ response.${prop} é um pet único`);
             return [response[prop] as Pet];
           } else {
             // Recursão para objetos aninhados
-            console.log(`🔄 Fazendo recursão em response.${prop}`);
+
             const recursiveResult = normalizeApiResponseWithDebug(response[prop]);
             if (recursiveResult.length > 0) {
               return recursiveResult;
@@ -424,16 +383,13 @@ export default function MypetsFilter() {
       }
 
       // Se nenhuma propriedade conhecida foi encontrada, listar todas as propriedades
-      console.log('🔍 Propriedades disponíveis na resposta:', Object.keys(response));
     }
 
-    console.warn('⚠️ Formato de resposta não reconhecido:', response);
     return [];
   };
 
   // Limpar busca por nome
   const clearSearch = () => {
-    console.log('Limpando busca por nome...');
     setSearchQuery('');
     setSearchResults([]);
     setHasActiveSearch(false);
@@ -476,26 +432,20 @@ export default function MypetsFilter() {
       const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
       if (userIdFromStorage) {
         userId = parseInt(userIdFromStorage);
-        console.log('ID do usuário encontrado em @App:userId:', userId);
       } else {
         const userData = await AsyncStorage.getItem('@App:userData');
         if (userData) {
           const user = JSON.parse(userData);
           userId = user.id;
-          console.log('ID do usuário encontrado em @App:userData:', userId);
         }
       }
 
       if (!userId) {
-        console.log('ID do usuário não encontrado em nenhum local');
         setLoadingFavorites(false);
         return;
       }
 
-      console.log('Buscando favoritos para o usuário:', userId);
-
       const favoritos = await getFavoritosPorUsuario(userId);
-      console.log('Favoritos retornados da API:', favoritos);
 
       const petIds = favoritos
         .map((favorito: any) => {
@@ -503,14 +453,9 @@ export default function MypetsFilter() {
         })
         .filter(Boolean);
 
-      console.log('IDs dos pets favoritos extraídos:', petIds);
-
       setFavoritePetIds(petIds);
       setLoadingFavorites(false);
-
-      console.log(`Carregados ${petIds.length} pets favoritos para o usuário ${userId}`);
     } catch (error) {
-      console.error('Erro ao carregar favoritos do usuário:', error);
       setLoadingFavorites(false);
 
       Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
@@ -609,9 +554,7 @@ export default function MypetsFilter() {
         if (currentFilters.estadoIds && currentFilters.estadoIds.length > 0) {
           await loadCidadesForEstados(estadosData, currentFilters.estadoIds, currentFilters.cidadeIds);
         }
-      } catch (error) {
-        console.error('Erro ao carregar dados para filtros:', error);
-      }
+      } catch (error) {}
     };
 
     fetchFilterData();
@@ -655,7 +598,6 @@ export default function MypetsFilter() {
       setFaixasEtarias(uniqueFaixasEtarias);
       setLoadingFaixasEtarias(false);
     } catch (error) {
-      console.error('Erro ao carregar faixas etárias por espécies:', error);
       setLoadingFaixasEtarias(false);
     }
   };
@@ -682,7 +624,6 @@ export default function MypetsFilter() {
       setRacas(uniqueRacas);
       setLoadingRacas(false);
     } catch (error) {
-      console.error('Erro ao carregar raças por espécies:', error);
       setLoadingRacas(false);
     }
   };
@@ -716,7 +657,6 @@ export default function MypetsFilter() {
       setCidades(uniqueCidades);
       setLoadingCidades(false);
     } catch (error) {
-      console.error('Erro ao carregar cidades por estados:', error);
       setLoadingCidades(false);
     }
   };
@@ -899,10 +839,6 @@ export default function MypetsFilter() {
     const storageKey = origin === 'mypets' ? '@App:myPetsFilters' : '@App:petFilters';
 
     await AsyncStorage.setItem(storageKey, JSON.stringify(filters));
-
-    console.log('Filtros aplicados (com status_id = 3 e 4):', filters);
-    console.log('Origem:', origin);
-    console.log('Chave do storage usada:', storageKey);
 
     // Navegar de volta para a tela correta
     if (origin === 'mypets') {

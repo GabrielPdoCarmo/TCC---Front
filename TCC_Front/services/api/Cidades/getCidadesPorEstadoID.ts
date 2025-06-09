@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 
 type Cidade = {
   id: number;
@@ -14,7 +14,6 @@ export const getCidadesPorEstadoID = async (estadoID: number): Promise<Cidade[]>
     const estado = estadosResponse.data.find((e: { nome: string; id: number }) => Number(e.id) === estadoIdNumerico);
 
     if (!estado) {
-      console.error('Estado não encontrado:', estadoID);
       return [];
     }
 
@@ -29,7 +28,6 @@ export const getCidadesPorEstadoID = async (estadoID: number): Promise<Cidade[]>
     // Ordenar por ordem alfabética
     return cidades.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
   } catch (error) {
-    console.error('Erro ao carregar as cidades', error);
     return [];
   }
 };

@@ -12,7 +12,6 @@ export const getDoencasPorPetId = async (petId: number) => {
       };
     });
   } catch (error) {
-    console.error('Erro ao carregar doenças/deficiências do pet', error);
     return [];
   }
 };

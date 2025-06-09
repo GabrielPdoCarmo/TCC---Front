@@ -5,7 +5,6 @@ export const getPetsByRaca = async (raca_id: number) => {
     const response = await api.get(`/pets/raca/${raca_id}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao carregar pets por raça', error);
     return [];
   }
 };

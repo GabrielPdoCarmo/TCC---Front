@@ -18,25 +18,10 @@ interface DeleteTermoDoacaoResponse {
  */
 export const deleteTermoDoacao = async (id: number): Promise<DeleteTermoDoacaoResponse> => {
   try {
-    console.log('🗑️ Deletando termo de doação:', { 
-      termoId: id,
-      timestamp: new Date().toISOString()
-    });
-
-    const response = await api.delete<DeleteTermoDoacaoResponse>(
-      `/termos-doacao/${id}`
-    );
-
-    console.log('✅ Termo de doação deletado com sucesso:', {
-      termoId: response.data.data.termoId,
-      doador: response.data.data.doadorNome,
-      dataDelecao: response.data.data.dataDelecao
-    });
+    const response = await api.delete<DeleteTermoDoacaoResponse>(`/termos-doacao/${id}`);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao deletar termo de doação:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -52,7 +37,7 @@ export const deleteTermoDoacao = async (id: number): Promise<DeleteTermoDoacaoRe
 
     if (error.response?.status === 400) {
       const message = error.response.data?.message || 'Dados inválidos';
-      
+
       if (message.includes('dependências ativas') || message.includes('pets cadastrados')) {
         throw new Error('Não é possível deletar o termo pois existem pets cadastrados vinculados a ele.');
       }
@@ -60,7 +45,7 @@ export const deleteTermoDoacao = async (id: number): Promise<DeleteTermoDoacaoRe
       if (message.includes('foreign key constraint')) {
         throw new Error('Não é possível deletar o termo pois possui dependências ativas no sistema.');
       }
-      
+
       throw new Error(message);
     }
 

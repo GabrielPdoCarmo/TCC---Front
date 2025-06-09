@@ -31,7 +31,6 @@ export default function ConfigScreen() {
 
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('💾 Salvando ConfigScreen como última rota');
       setLastRoute('/pages/ConfigScreen');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
@@ -39,7 +38,6 @@ export default function ConfigScreen() {
   // ✅ Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      console.log('🚫 Usuário não autenticado na ConfigScreen, redirecionando...');
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
@@ -58,17 +56,12 @@ export default function ConfigScreen() {
           text: 'Deslogar',
           onPress: async () => {
             try {
-              console.log('🚪 Realizando logout...');
-
               // ✅ Usar a função logout do contexto
               await logout();
-
-              console.log('✅ Logout realizado com sucesso');
 
               // Navegar para a tela de login
               router.replace('/pages/LoginScreen');
             } catch (error) {
-              console.error('❌ Erro durante logout:', error);
               Alert.alert('Erro', 'Não foi possível fazer logout. Tente novamente.');
             }
           },
@@ -86,12 +79,8 @@ export default function ConfigScreen() {
     }
 
     try {
-      console.log(`🔍 Verificando se usuário ${user.nome} pode excluir conta...`);
-
       // 🔍 ETAPA 1: Verificar se pode excluir conta
       const verificacao = await verificarPodeExcluirConta(user.id);
-
-      console.log('📋 Resultado da verificação:', verificacao.data);
 
       const { podeExcluir, petCount, temTermo, termoInfo, motivoImpedimento } = verificacao.data;
 
@@ -128,12 +117,8 @@ export default function ConfigScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
-                console.log(`🗑️ Iniciando exclusão da conta de ${user.nome}...`);
-
                 // 🗑️ ETAPA 2: Excluir conta (inclui termo automaticamente)
                 const resultado = await deleteUsuarioComTermo(user.id);
-
-                console.log('✅ Resultado da exclusão:', resultado);
 
                 // ✅ Verificar se foi bem-sucedido
                 if (resultado.success) {
@@ -165,8 +150,6 @@ export default function ConfigScreen() {
                   );
                 }
               } catch (error: any) {
-                console.error('❌ Erro ao excluir conta:', error);
-
                 Alert.alert(
                   'Erro ao Excluir Conta',
                   `Não foi possível excluir a conta. Tente novamente.\n\nDetalhes: ${
@@ -181,8 +164,6 @@ export default function ConfigScreen() {
         { cancelable: true }
       );
     } catch (error: any) {
-      console.error('❌ Erro na verificação inicial:', error);
-
       Alert.alert(
         'Erro na Verificação',
         `Não foi possível verificar os dados da conta.\n\nDetalhes: ${error.message || 'Erro desconhecido'}`,
@@ -204,7 +185,6 @@ export default function ConfigScreen() {
         Alert.alert('Erro', 'Não foi possível abrir o site. Por favor, visite: ' + url);
       }
     } catch (error) {
-      console.error('Erro ao abrir o link:', error);
       Alert.alert('Erro', 'Não foi possível abrir o site. Por favor, visite: ' + url);
     }
   };

@@ -24,11 +24,9 @@ export const getFaixaEtariaByEspecieId = async (especieId: number) => {
         })
       )
       .sort(
-        (a: { nome: string }, b: { nome: string }) => 
-          ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
+        (a: { nome: string }, b: { nome: string }) => ordemDesejada.indexOf(a.nome) - ordemDesejada.indexOf(b.nome)
       );
   } catch (error) {
-    console.error('Erro ao carregar faixas etárias por ID da espécie', error);
     return [];
   }
 };

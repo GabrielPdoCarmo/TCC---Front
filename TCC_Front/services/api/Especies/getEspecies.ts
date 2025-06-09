@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 export const getEspecies = async () => {
   try {
     const response = await api.get('/especies');
@@ -7,7 +7,6 @@ export const getEspecies = async () => {
       nome: especie.nome,
     }));
   } catch (error) {
-    console.error('Erro ao carregar espécies', error);
     return [];
   }
 };

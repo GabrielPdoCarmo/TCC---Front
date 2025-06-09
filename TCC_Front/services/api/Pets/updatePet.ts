@@ -50,7 +50,6 @@ export const updatePet = async (petData: PetUpdatePayload) => {
 
     return response.data;
   } catch (error) {
-    console.error('Erro ao atualizar o pet', error);
     throw error;
   }
 };

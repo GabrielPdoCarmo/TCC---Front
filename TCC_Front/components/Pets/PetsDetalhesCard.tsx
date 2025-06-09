@@ -143,20 +143,8 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   };
 
   const motivoDoacao = getMotivo();
-  console.log('Motivo de doação no componente:', motivoDoacao);
 
   const doencasParaMostrar = getDiseaseNames();
-
-  console.log('RG do Pet no componente:', pet.rgPet);
-  console.log('Estado de favorito atual:', isFavorite);
-  console.log(
-    'PetsDetalhesCard - É próprio pet:',
-    isOwnPet,
-    'Usuario logado:',
-    usuarioLogadoId,
-    'Dono do pet:',
-    pet.usuario_id
-  );
 
   return (
     <View style={styles.petCardContainer}>

@@ -165,7 +165,6 @@ export default function FilterScreen() {
       }
     }
 
-    console.warn('Formato de resposta não reconhecido:', response);
     return [];
   };
 
@@ -179,32 +178,23 @@ export default function FilterScreen() {
     try {
       setSearchLoading(true);
 
-      console.log('Buscando pets por nome no FilterScreen (status_id = 2):', name);
-
       // getPetByName já filtra automaticamente por status_id = 2
       const response = await getPetByName(name);
-      console.log('Resposta da API getPetByName (status 2):', response);
 
       const petsArray = normalizeApiResponse(response);
-      console.log('Pets encontrados na busca (status 2):', petsArray.length);
 
       setSearchResults(petsArray);
       setHasActiveSearch(true);
 
       setSearchLoading(false);
     } catch (err) {
-      console.error('Erro ao buscar pets por nome (status 2):', err);
-
       const errorMessage = err?.toString() || '';
       if (
         errorMessage.includes('Pet não encontrado') ||
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
-      ) {
-        console.log('Pet não encontrado na API (status 2):', name);
-      }
-
-      setSearchResults([]);
+      )
+        setSearchResults([]);
       setHasActiveSearch(true);
       setSearchLoading(false);
     }
@@ -212,7 +202,6 @@ export default function FilterScreen() {
 
   // Limpar busca por nome
   const clearSearch = () => {
-    console.log('Limpando busca por nome...');
     setSearchQuery('');
     setSearchResults([]);
     setHasActiveSearch(false);
@@ -255,26 +244,20 @@ export default function FilterScreen() {
       const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
       if (userIdFromStorage) {
         userId = parseInt(userIdFromStorage);
-        console.log('ID do usuário encontrado em @App:userId:', userId);
       } else {
         const userData = await AsyncStorage.getItem('@App:userData');
         if (userData) {
           const user = JSON.parse(userData);
           userId = user.id;
-          console.log('ID do usuário encontrado em @App:userData:', userId);
         }
       }
 
       if (!userId) {
-        console.log('ID do usuário não encontrado em nenhum local');
         setLoadingFavorites(false);
         return;
       }
 
-      console.log('Buscando favoritos para o usuário:', userId);
-
       const favoritos = await getFavoritosPorUsuario(userId);
-      console.log('Favoritos retornados da API:', favoritos);
 
       const petIds = favoritos
         .map((favorito: any) => {
@@ -282,14 +265,9 @@ export default function FilterScreen() {
         })
         .filter(Boolean);
 
-      console.log('IDs dos pets favoritos extraídos:', petIds);
-
       setFavoritePetIds(petIds);
       setLoadingFavorites(false);
-
-      console.log(`Carregados ${petIds.length} pets favoritos para o usuário ${userId}`);
     } catch (error) {
-      console.error('Erro ao carregar favoritos do usuário:', error);
       setLoadingFavorites(false);
 
       Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
@@ -388,9 +366,7 @@ export default function FilterScreen() {
         if (currentFilters.estadoIds && currentFilters.estadoIds.length > 0) {
           await loadCidadesForEstados(estadosData, currentFilters.estadoIds, currentFilters.cidadeIds);
         }
-      } catch (error) {
-        console.error('Erro ao carregar dados para filtros:', error);
-      }
+      } catch (error) {}
     };
 
     fetchFilterData();
@@ -434,7 +410,6 @@ export default function FilterScreen() {
       setFaixasEtarias(uniqueFaixasEtarias);
       setLoadingFaixasEtarias(false);
     } catch (error) {
-      console.error('Erro ao carregar faixas etárias por espécies:', error);
       setLoadingFaixasEtarias(false);
     }
   };
@@ -461,7 +436,6 @@ export default function FilterScreen() {
       setRacas(uniqueRacas);
       setLoadingRacas(false);
     } catch (error) {
-      console.error('Erro ao carregar raças por espécies:', error);
       setLoadingRacas(false);
     }
   };
@@ -495,7 +469,6 @@ export default function FilterScreen() {
       setCidades(uniqueCidades);
       setLoadingCidades(false);
     } catch (error) {
-      console.error('Erro ao carregar cidades por estados:', error);
       setLoadingCidades(false);
     }
   };
@@ -674,8 +647,6 @@ export default function FilterScreen() {
     }
 
     await AsyncStorage.setItem('@App:petFilters', JSON.stringify(filters));
-
-    console.log('Filtros aplicados (com status_id = 2):', filters);
 
     router.push({
       pathname: '/pages/PetAdoptionScreen',

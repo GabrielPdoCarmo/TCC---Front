@@ -206,7 +206,7 @@ const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -316,7 +316,6 @@ export default function ProfileScreen() {
   const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
-      console.log('💾 Salvando ProfileScreen como última rota');
       setLastRoute('/pages/ProfileScreen');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
@@ -324,7 +323,6 @@ export default function ProfileScreen() {
   // ✅ Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
-      console.log('🚫 Usuário não autenticado na ProfileScreen, redirecionando...');
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
@@ -629,7 +627,7 @@ export default function ProfileScreen() {
                 });
               }
             }
-          } catch (cidadeError) { }
+          } catch (cidadeError) {}
         }
       }
     } catch (error) {
@@ -1098,9 +1096,9 @@ export default function ProfileScreen() {
                   estados={estados}
                   onSelectEstado={handleEstadoSelect}
                   showEstados={false} // esta prop está definida mas não é usada
-                  setShowEstados={() => { }} // esta prop está definida mas não é usada
+                  setShowEstados={() => {}} // esta prop está definida mas não é usada
                   estadoSearch={{ id: -1, nome: '' }} // ou seu estado real de busca
-                  setEstadoSearch={() => { }} // ou sua função real de setter
+                  setEstadoSearch={() => {}} // ou sua função real de setter
                 />
                 {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
 
@@ -1111,15 +1109,17 @@ export default function ProfileScreen() {
                   cidadesCarregadas={true} // ou seu estado real de carregamento
                   loadingCidades={false} // ou seu estado real de carregamento
                   showCidades={false} // esta prop está definida mas não é usada no componente
-                  setShowCidades={() => { }} // esta prop está definida mas não é usada no componente
+                  setShowCidades={() => {}} // esta prop está definida mas não é usada no componente
                   onSelectCidade={handleCidadeSelect}
-                  toggleCidades={() => { }} // esta prop está definida mas não é usada no componente
+                  toggleCidades={() => {}} // esta prop está definida mas não é usada no componente
                   disabled={!estadoSelecionado}
                 />
                 {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
 
                 <Text style={styles.inputLabel}>Senha</Text>
-                <View style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+                <View
+                  style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                >
                   <TextInput
                     style={styles.inputInContainer}
                     placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
@@ -1141,7 +1141,9 @@ export default function ProfileScreen() {
                 {senhaErros.length > 0 && (
                   <View style={styles.errorContainers}>
                     {senhaErros.map((erro, index) => (
-                      <Text key={index} style={styles.errorText}>• {erro}</Text>
+                      <Text key={index} style={styles.errorText}>
+                        • {erro}
+                      </Text>
                     ))}
                   </View>
                 )}

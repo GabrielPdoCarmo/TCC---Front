@@ -1,4 +1,4 @@
-// pages/LoginScreen.tsx - Versão corrigida e simplificada
+// pages/LoginScreen.tsx - Versão com debug e modal garantido
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -10,13 +10,13 @@ import {
   ImageBackground,
   SafeAreaView,
   Alert,
-  Modal,
 } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
 import { Link, router } from 'expo-router';
-import { useAuth } from '@/contexts/AuthContext'; // ✅ Só importar o hook
+import { useAuth } from '@/contexts/AuthContext';
 import login from '../../services/api/auth';
 import getUsuarioById from '../../services/api/Usuario/getUsuarioById';
+import WelcomeModal from '../../components/Welcome/WelcomeModal';
 
 // Interface para tipagem de erros da API
 interface ApiError {
@@ -25,56 +25,6 @@ interface ApiError {
   status?: number;
 }
 
-// Interface para as props do WelcomeModal
-interface WelcomeModalProps {
-  visible: boolean;
-  onClose: () => void;
-  userName: string;
-  photoUrl: string | null;
-}
-
-// Componente para o modal de boas-vindas
-const WelcomeModal: React.FC<WelcomeModalProps> = ({ visible, onClose, userName, photoUrl }) => {
-  return (
-    <Modal
-      animationType="fade"
-      transparent={true}
-      visible={visible}
-      onRequestClose={onClose}
-      statusBarTranslucent={true}
-    >
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContent}>
-          <Text style={styles.modalTitle}>Bem-vindo!</Text>
-
-          {photoUrl ? (
-            <View style={styles.photoContainer}>
-              <Image
-                source={{ uri: photoUrl }}
-                style={styles.userPhoto}
-                resizeMode="cover"
-                onError={(e) => {
-                  console.error('❌ Erro ao carregar imagem:', e.nativeEvent.error);
-                }}
-              />
-            </View>
-          ) : (
-            <View style={styles.photoPlaceholder}>
-              <Icon name="person" size={40} color="#555" />
-            </View>
-          )}
-
-          <Text style={styles.modalText}>Olá, {userName || 'usuário'}!</Text>
-          <TouchableOpacity style={styles.modalButton} onPress={onClose}>
-            <Text style={styles.modalButtonText}>Continuar</Text>
-          </TouchableOpacity>
-        </View>
-      </View>
-    </Modal>
-  );
-};
-
-// ✅ Componente principal - SEM AuthProvider duplicado
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
@@ -87,20 +37,17 @@ export default function LoginScreen() {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
+  const [modalLoading, setModalLoading] = useState(false); // ✅ Loading do modal
 
-  // ✅ NOVO: Estado para controlar se deve mostrar modal
-  const [showingWelcomeModal, setShowingWelcomeModal] = useState(false);
-
-  // ✅ Hook do contexto (que já existe no _layout.tsx)
+  // Hook do contexto
   const { login: contextLogin, isAuthenticated, loading: authLoading } = useAuth();
 
-  // ✅ MODIFICADO: Se já estiver autenticado, redirecionar (mas só se não estiver mostrando modal)
+  // ✅ CORRIGIDO: Redirecionamento apenas se não há modal visível E não há login pendente
   useEffect(() => {
-    if (!authLoading && isAuthenticated && !showingWelcomeModal) {
-      console.log('✅ Usuário já autenticado, redirecionando...');
+    if (!authLoading && isAuthenticated && !welcomeModalVisible && !pendingLoginData) {
       router.replace('/pages/PetAdoptionScreen');
     }
-  }, [isAuthenticated, authLoading, showingWelcomeModal]);
+  }, [isAuthenticated, authLoading, welcomeModalVisible]);
 
   // Limpar erros quando campos mudam
   useEffect(() => {
@@ -159,7 +106,10 @@ export default function LoginScreen() {
     return 'Ocorreu um erro inesperado. Tente novamente.';
   };
 
-  // ✅ Função de login simplificada
+  // Estados para guardar dados do login pendente
+  const [pendingLoginData, setPendingLoginData] = useState<any>(null);
+
+  // ✅ CORRIGIDO: Login sem executar contextLogin até modal fechar
   const handleLogin = async () => {
     setEmailErro('');
     setSenhaErro('');
@@ -183,23 +133,20 @@ export default function LoginScreen() {
       temErros = true;
     }
 
-    if (temErros) return;
+    if (temErros) {
+      return;
+    }
 
     setLoading(true);
     try {
-      console.log('🚀 Iniciando login para:', email);
-
       // 1. Fazer login via API
       const loginResponse = await login(email, senha);
-      console.log('✅ Login API bem-sucedido:', loginResponse);
 
       // 2. Buscar detalhes completos do usuário
       let userDetails = null;
       try {
         userDetails = await getUsuarioById(loginResponse.usuario.id);
-        console.log('👤 Detalhes do usuário:', userDetails);
       } catch (userError) {
-        console.log('⚠️ Usando dados básicos do usuário');
         userDetails = loginResponse.usuario;
       }
 
@@ -212,16 +159,14 @@ export default function LoginScreen() {
         }
       }
 
-      // ✅ 4. NOVO: Preparar modal ANTES de atualizar contexto
-      setUserName(userDetails?.nome || 'usuário');
+      // ✅ 4. GUARDAR dados para processar depois do modal
+      setPendingLoginData({ userDetails, token: loginResponse.token });
+
+      // ✅ 5. Preparar dados do modal
+      const userName = userDetails?.nome || 'usuário';
+      setUserName(userName);
       setUserPhoto(photoUrl);
-      setShowingWelcomeModal(true); // ← Impedir redirecionamento automático
 
-      // ✅ 5. Atualizar contexto
-      await contextLogin(userDetails, loginResponse.token);
-      console.log('✅ Contexto atualizado com sucesso');
-
-      // ✅ 6. Mostrar modal (agora não haverá conflito)
       setWelcomeModalVisible(true);
     } catch (error: unknown) {
       const userFriendlyMessage = getErrorMessage(error);
@@ -231,6 +176,7 @@ export default function LoginScreen() {
           text: 'OK',
           onPress: () => {
             if (userFriendlyMessage.includes('Email ou senha incorretos')) {
+              setEmail('');
               setSenha('');
             }
           },
@@ -241,13 +187,38 @@ export default function LoginScreen() {
     }
   };
 
-  // ✅ Função simplificada para fechar modal
-  const handleCloseWelcomeModal = () => {
-    setWelcomeModalVisible(false);
-    setShowingWelcomeModal(false); // ✅ Permitir redirecionamento agora
+  // ✅ CORRIGIDO: Agora processa login quando usuário clica "Continuar"
+  const handleCloseWelcomeModal = async () => {
+    // ✅ ATIVAR LOADING antes de processar
+    setModalLoading(true);
 
-    // Navegar diretamente (contexto já foi atualizado)
-    router.replace('/pages/PetAdoptionScreen');
+    // ✅ AGORA SIM: Atualizar contexto após usuário confirmar
+    if (pendingLoginData) {
+      try {
+        await contextLogin(pendingLoginData.userDetails, pendingLoginData.token);
+
+        // Limpar dados pendentes
+        setPendingLoginData(null);
+
+        // Fechar modal primeiro
+        setWelcomeModalVisible(false);
+
+        // Redirecionar
+
+        router.replace('/pages/PetAdoptionScreen');
+      } catch (contextError) {
+        Alert.alert('Erro', 'Houve um problema ao finalizar o login. Tente novamente.');
+        setPendingLoginData(null);
+        setWelcomeModalVisible(false);
+      } finally {
+        // ✅ DESATIVAR LOADING
+        setModalLoading(false);
+      }
+    } else {
+      // Se não há dados pendentes, apenas fechar modal
+      setWelcomeModalVisible(false);
+      setModalLoading(false);
+    }
   };
 
   // Loading de verificação de autenticação
@@ -322,19 +293,20 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* Modal de boas-vindas */}
+        {/* ✅ Modal de boas-vindas com loading */}
         <WelcomeModal
           visible={welcomeModalVisible}
           onClose={handleCloseWelcomeModal}
           userName={userName}
           photoUrl={userPhoto}
+          loading={modalLoading} // ✅ Passar estado de loading
         />
       </SafeAreaView>
     </ImageBackground>
   );
 }
 
-// Estilos (mantidos iguais)
+// Estilos do LoginScreen
 const styles = StyleSheet.create({
   forgotPasswordContainer: {
     alignSelf: 'flex-start',
@@ -345,75 +317,6 @@ const styles = StyleSheet.create({
   forgotPasswordText: {
     fontSize: 14,
     color: '#000',
-  },
-  modalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.7)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 1000,
-  },
-  modalContent: {
-    backgroundColor: 'white',
-    borderRadius: 20,
-    padding: 30,
-    width: '85%',
-    alignItems: 'center',
-    elevation: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 5 },
-    shadowOpacity: 0.35,
-    shadowRadius: 6,
-    zIndex: 1001,
-  },
-  modalTitle: {
-    fontSize: 24,
-    fontWeight: 'bold',
-    marginBottom: 20,
-    color: '#333',
-  },
-  modalText: {
-    fontSize: 18,
-    marginVertical: 15,
-    textAlign: 'center',
-    color: '#333',
-  },
-  modalButton: {
-    backgroundColor: '#4285F4',
-    paddingVertical: 12,
-    paddingHorizontal: 40,
-    borderRadius: 25,
-    marginTop: 15,
-    elevation: 3,
-  },
-  modalButtonText: {
-    color: 'white',
-    fontSize: 16,
-    fontWeight: 'bold',
-  },
-  photoContainer: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    overflow: 'hidden',
-    borderWidth: 3,
-    borderColor: '#4285F4',
-    marginBottom: 10,
-  },
-  userPhoto: {
-    width: '100%',
-    height: '100%',
-  },
-  photoPlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#E8E8E8',
-    justifyContent: 'center',
-    alignItems: 'center',
-    marginVertical: 10,
-    borderWidth: 3,
-    borderColor: '#ccc',
   },
   backgroundImage: {
     flex: 1,

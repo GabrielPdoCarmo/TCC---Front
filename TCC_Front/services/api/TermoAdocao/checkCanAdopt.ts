@@ -30,40 +30,10 @@ interface TermoData {
  */
 export const checkCanAdopt = async (petId: number): Promise<CheckCanAdoptResponse> => {
   try {
-    console.log('🔍 Verificando se usuário pode adotar pet:', petId);
-
-    const response = await api.get<CheckCanAdoptResponse>(
-      `/termos-compromisso/pode-adotar/${petId}`
-    );
-
-    const { podeAdotar, temTermo, nomeDesatualizado, motivo } = response.data.data;
-
-    console.log('📋 Resultado da verificação de adoção:', {
-      petId,
-      podeAdotar,
-      temTermo,
-      nomeDesatualizado,
-      motivo,
-      timestamp: new Date().toISOString()
-    });
-
-    // 🆕 Log específico para diferentes cenários
-    if (motivo === 'proprio_pet') {
-      console.log('⚠️ Usuário tentou adotar próprio pet');
-    } else if (nomeDesatualizado) {
-      console.log('⚠️ Nome do usuário foi alterado - termo precisa ser atualizado');
-    } else if (temTermo && podeAdotar) {
-      console.log('✅ Usuário tem termo válido e pode adotar pet');
-    } else if (temTermo && !podeAdotar) {
-      console.log('🚫 Pet já tem termo de outro usuário');
-    } else {
-      console.log('📝 Pet não possui termo, usuário pode criar');
-    }
+    const response = await api.get<CheckCanAdoptResponse>(`/termos-compromisso/pode-adotar/${petId}`);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao verificar se pode adotar:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -78,7 +48,6 @@ export const checkCanAdopt = async (petId: number): Promise<CheckCanAdoptRespons
     }
 
     if (error.response?.status === 500) {
-      console.log('⚠️ Erro no servidor, assumindo que não pode adotar por segurança');
       // Em caso de erro no servidor, retornar resposta segura
       return {
         message: 'Erro na verificação',
@@ -96,7 +65,7 @@ export const checkCanAdopt = async (petId: number): Promise<CheckCanAdoptRespons
     }
 
     // Para qualquer outro erro, assumir que não pode adotar por segurança
-    console.log('⚠️ Erro desconhecido, assumindo que não pode adotar por segurança');
+
     return {
       message: 'Erro na verificação',
       data: {
@@ -113,35 +82,25 @@ export const checkCanAdopt = async (petId: number): Promise<CheckCanAdoptRespons
  * @param petId - ID do pet
  * @returns Promise com status específico sobre atualização de nome
  */
-export const checkNeedsNameUpdateForPet = async (petId: number): Promise<{
+export const checkNeedsNameUpdateForPet = async (
+  petId: number
+): Promise<{
   needsUpdate: boolean;
   hasTerms: boolean;
   canAdopt: boolean;
 }> => {
   try {
-    console.log('🔍 Verificando especificamente se precisa atualizar nome no termo para pet:', petId);
-
     const response = await checkCanAdopt(petId);
     const { podeAdotar, temTermo, nomeDesatualizado } = response.data;
 
     const needsUpdate = nomeDesatualizado;
-    
-    console.log('📋 Verificação de nome para pet:', {
-      petId,
-      needsUpdate,
-      hasTerms: temTermo,
-      canAdopt: podeAdotar,
-      nameOutdated: nomeDesatualizado
-    });
 
     return {
       needsUpdate,
       hasTerms: temTermo,
       canAdopt: podeAdotar,
     };
-
   } catch (error) {
-    console.error('❌ Erro ao verificar necessidade de atualização de nome:', error);
     return {
       needsUpdate: false,
       hasTerms: false,
@@ -166,12 +125,6 @@ export const createOrUpdateTermoCompromisso = async (
 ): Promise<CreateOrUpdateTermoResponse> => {
   try {
     const actionType = isNameUpdate ? 'Atualizando' : 'Criando';
-    console.log(`📝 ${actionType} termo de compromisso:`, { 
-      isNameUpdate,
-      petId: termoData.petId,
-      assinatura: termoData.assinaturaDigital,
-      observacoes: termoData.observacoes?.substring(0, 50) + '...'
-    });
 
     // 🆕 Adicionar flag de atualização de nome aos dados
     const requestData = {
@@ -182,13 +135,6 @@ export const createOrUpdateTermoCompromisso = async (
     const response = await api.post<CreateOrUpdateTermoResponse>('/termos-compromisso', requestData);
 
     const isUpdated = response.data.updated || false;
-    
-    console.log(`✅ Termo ${isUpdated ? 'atualizado' : 'criado'} com sucesso:`, {
-      termoId: response.data.data?.id,
-      adotanteNome: response.data.data?.adotante_nome,
-      dataAssinatura: response.data.data?.data_assinatura,
-      isUpdate: isUpdated
-    });
 
     return {
       message: response.data.message,
@@ -196,8 +142,6 @@ export const createOrUpdateTermoCompromisso = async (
       updated: isUpdated,
     };
   } catch (error: any) {
-    console.error(`❌ Erro ao ${isNameUpdate ? 'atualizar' : 'criar'} termo:`, error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -205,7 +149,7 @@ export const createOrUpdateTermoCompromisso = async (
 
     if (error.response?.status === 400) {
       const message = error.response.data?.message || 'Dados inválidos';
-      
+
       if (message.includes('não pode adotar seu próprio pet')) {
         throw new Error('Você não pode adotar seu próprio pet.');
       }
@@ -257,19 +201,10 @@ export const createOrUpdateTermoCompromisso = async (
  */
 export const getTermoByPetWithNameCheck = async (petId: number): Promise<TermoData | null> => {
   try {
-    console.log('📄 Buscando termo por pet com verificação de nome:', petId);
-
     const response = await api.get(`/termos-compromisso/pet/${petId}`);
 
     if (response.data && response.data.data) {
       const termo = response.data.data;
-      
-      console.log('✅ Termo encontrado:', {
-        termoId: termo.id,
-        petId: termo.pet_id,
-        adotante: termo.adotante_nome,
-        nomeDesatualizado: termo.nomeDesatualizado || false
-      });
 
       return {
         data: termo,
@@ -279,10 +214,7 @@ export const getTermoByPetWithNameCheck = async (petId: number): Promise<TermoDa
 
     return null;
   } catch (error: any) {
-    console.error('❌ Erro ao buscar termo por pet:', error);
-
     if (error.response?.status === 404) {
-      console.log('ℹ️ Termo não encontrado para este pet');
       return null;
     }
 
@@ -310,8 +242,6 @@ export const checkUserTermoForPet = async (
   needsNameUpdate: boolean;
 }> => {
   try {
-    console.log('🔍 Verificando termo do usuário para pet:', { petId, usuarioId });
-
     // Buscar termo geral do pet
     const termoResponse = await getTermoByPetWithNameCheck(petId);
 
@@ -347,10 +277,7 @@ export const checkUserTermoForPet = async (
       canAdopt: isUserTermo,
       needsNameUpdate: false, // Seria necessário uma verificação adicional aqui
     };
-
   } catch (error: any) {
-    console.error('❌ Erro ao verificar termo do usuário:', error);
-    
     return {
       hasTermo: false,
       canAdopt: false,

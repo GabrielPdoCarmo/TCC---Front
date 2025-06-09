@@ -52,7 +52,6 @@ export const getUsuarioByIdComCidadeEstado = async (id: number) => {
       },
     };
   } catch (error) {
-    console.error(`Erro ao buscar o usuário com ID ${id}:`, error);
     return null;
   }
 };

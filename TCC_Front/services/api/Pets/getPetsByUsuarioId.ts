@@ -5,7 +5,6 @@ export const getPetsByUsuarioId = async (usuario_id: number) => {
     const response = await api.get(`/pets/usuario/${usuario_id}`);
     return response.data;
   } catch (error) {
-    console.error('Erro ao carregar os pets do usuário', error);
     return [];
   }
 };

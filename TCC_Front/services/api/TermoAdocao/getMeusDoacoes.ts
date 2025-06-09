@@ -4,7 +4,6 @@ export const getMeusDoacoes = async () => {
     const response = await api.get('/termos-compromisso/meus-doacoes');
     return response.data;
   } catch (error) {
-    console.error('Erro ao carregar pets doados', error);
     throw error;
   }
 };

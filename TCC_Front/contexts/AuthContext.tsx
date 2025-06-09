@@ -33,9 +33,9 @@ const AuthContext = createContext<AuthContextType | undefined>(undefined);
 // ✅ Constantes para melhor organização
 const STORAGE_KEYS = {
   TOKEN: '@App:token',
-  USER_ID: '@App:userId', 
+  USER_ID: '@App:userId',
   USER_DATA: '@App:userData',
-  LAST_ROUTE: '@App:lastRoute'
+  LAST_ROUTE: '@App:lastRoute',
 } as const;
 
 // ✅ Rotas que NÃO devem ser salvas como última rota
@@ -43,7 +43,7 @@ const EXCLUDED_ROUTES = [
   '/',
   '/index',
   '/pages/LoginScreen',
-  '/pages/userCadastro', 
+  '/pages/userCadastro',
   '/pages/ForgotPasswordScreen',
 ] as const;
 
@@ -71,32 +71,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         AsyncStorage.getItem(STORAGE_KEYS.TOKEN),
         AsyncStorage.getItem(STORAGE_KEYS.USER_ID),
         AsyncStorage.getItem(STORAGE_KEYS.LAST_ROUTE),
-        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA)
+        AsyncStorage.getItem(STORAGE_KEYS.USER_DATA),
       ]);
 
       if (savedToken && savedUserId) {
         let parsedUser: User;
-        
+
         if (userData) {
           parsedUser = JSON.parse(userData);
         } else {
-          parsedUser = { 
-            id: parseInt(savedUserId), 
-            nome: 'Usuário', 
-            email: '' 
+          parsedUser = {
+            id: parseInt(savedUserId),
+            nome: 'Usuário',
+            email: '',
           };
         }
 
         setUser(parsedUser);
         setToken(savedToken);
         setIsAuthenticated(true);
-        
-        console.log('✅ Usuário autenticado:', parsedUser.nome);
       }
 
       setLastRouteState(savedRoute);
     } catch (error) {
-      console.error('❌ Erro ao verificar autenticação:', error);
       await clearAuthData();
     } finally {
       setLoading(false);
@@ -108,16 +105,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       await Promise.all([
         AsyncStorage.setItem(STORAGE_KEYS.TOKEN, authToken),
         AsyncStorage.setItem(STORAGE_KEYS.USER_ID, userData.id.toString()),
-        AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData))
+        AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData)),
       ]);
 
       setUser(userData);
       setToken(authToken);
       setIsAuthenticated(true);
-
-      console.log('✅ Login realizado:', userData.nome);
     } catch (error) {
-      
       throw error;
     }
   };
@@ -126,9 +120,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       await AsyncStorage.setItem(STORAGE_KEYS.USER_DATA, JSON.stringify(userData));
       setUser(userData);
-      console.log('✅ Dados do usuário atualizados:', userData.nome);
     } catch (error) {
-      console.error('❌ Erro ao atualizar usuário:', error);
       throw error;
     }
   };
@@ -138,7 +130,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
       AsyncStorage.removeItem(STORAGE_KEYS.USER_ID),
       AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
-      AsyncStorage.removeItem(STORAGE_KEYS.LAST_ROUTE)
+      AsyncStorage.removeItem(STORAGE_KEYS.LAST_ROUTE),
     ]);
 
     setUser(null);
@@ -150,10 +142,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const logout = async () => {
     try {
       await clearAuthData();
-      console.log('✅ Logout realizado');
-    } catch (error) {
-      console.error('❌ Erro no logout:', error);
-    }
+    } catch (error) {}
   };
 
   // ✅ FUNÇÃO ATUALIZADA: setLastRoute com tratamento de rotas de filtro
@@ -161,7 +150,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     try {
       // Verificar se é uma rota excluída
       if (EXCLUDED_ROUTES.includes(route as any)) {
-        console.log('🚫 Rota excluída do lastRoute:', route);
         return;
       }
 
@@ -169,49 +157,43 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       let routeToSave = route;
       if (FILTER_ROUTE_MAPPING[route]) {
         routeToSave = FILTER_ROUTE_MAPPING[route];
-        console.log(`🔄 Rota de filtro detectada: ${route} → salvando como: ${routeToSave}`);
       }
 
-      console.log('💾 Salvando última rota:', routeToSave);
       await AsyncStorage.setItem(STORAGE_KEYS.LAST_ROUTE, routeToSave);
       setLastRouteState(routeToSave);
-    } catch (error) {
-      console.error('❌ Erro ao salvar rota:', error);
-    }
+    } catch (error) {}
   };
 
   // ✅ NOVA FUNÇÃO: Obter rota de redirecionamento
   const getRedirectRoute = (): string => {
     // Se não estiver autenticado, sempre ir para login
     if (!isAuthenticated) {
-      console.log('🚪 Não autenticado → redirecionando para login');
       return '/pages/LoginScreen';
     }
 
     // Se tiver última rota salva, usar ela
     if (lastRoute) {
-      console.log('📍 Redirecionando para última rota:', lastRoute);
       return lastRoute;
     }
 
     // Rota padrão para usuários autenticados
-    console.log('🏠 Redirecionando para rota padrão');
+
     return '/pages/PetAdoptionScreen';
   };
 
   return (
-    <AuthContext.Provider 
-      value={{ 
-        isAuthenticated, 
-        loading, 
+    <AuthContext.Provider
+      value={{
+        isAuthenticated,
+        loading,
         user,
         token,
-        lastRoute, 
-        login, 
-        logout, 
+        lastRoute,
+        login,
+        logout,
         setLastRoute,
         updateUser,
-        getRedirectRoute // ✅ Nova função
+        getRedirectRoute, // ✅ Nova função
       }}
     >
       {children}

@@ -8,7 +8,6 @@ export const getSexoPet = async () => {
       descricao: sexo.descricao,
     }));
   } catch (error: any) {
-    console.error('Erro completo:', error);
     return [];
   }
 };

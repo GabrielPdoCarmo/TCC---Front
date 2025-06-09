@@ -47,7 +47,7 @@ const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -147,8 +147,6 @@ export default function ForgotPasswordScreen() {
         throw new Error('Falha ao enviar o código de recuperação');
       }
     } catch (error: any) {
-      console.error('Erro ao solicitar código de recuperação:', error);
-
       // Verificar se é erro de e-mail não encontrado
       if (error.error && error.error.includes('não encontrado')) {
         setErroEmail('E-mail não cadastrado no sistema');
@@ -190,7 +188,6 @@ export default function ForgotPasswordScreen() {
         throw new Error('Código inválido ou expirado');
       }
     } catch (error) {
-      console.error('Erro ao verificar código:', error);
       setErroCodigo('Código inválido ou expirado');
     } finally {
       setCarregando(false);
@@ -241,11 +238,9 @@ export default function ForgotPasswordScreen() {
 
       Alert.alert('Sucesso', 'Sua senha foi alterada com sucesso!', [{ text: 'OK', onPress: () => router.push('/') }]);
     } catch (error: any) {
-      console.error('Erro ao atualizar senha:', error);
-
       // Verificar se o erro está relacionado à validação de senha do backend
       const serverError = error?.response?.data || error;
-      
+
       if (serverError && serverError.passwordErrors) {
         setSenhaErros(serverError.passwordErrors);
       } else {
@@ -326,7 +321,9 @@ export default function ForgotPasswordScreen() {
               <Text style={styles.textoLabel}>
                 Senha <Text style={styles.estrelaObrigatoria}>*</Text>
               </Text>
-              <View style={[styles.containerSenha, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View
+                style={[styles.containerSenha, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}
+              >
                 <TextInput
                   style={styles.inputSenha}
                   placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
@@ -343,7 +340,9 @@ export default function ForgotPasswordScreen() {
               {senhaErros.length > 0 && (
                 <View style={styles.containerErro}>
                   {senhaErros.map((erro, index) => (
-                    <Text key={index} style={styles.textoErro}>• {erro}</Text>
+                    <Text key={index} style={styles.textoErro}>
+                      • {erro}
+                    </Text>
                   ))}
                 </View>
               )}
@@ -388,7 +387,7 @@ export default function ForgotPasswordScreen() {
           <Text style={styles.textoTitulo}>Esqueceu sua senha?</Text>
 
           {renderizarConteudoEtapa()}
-          
+
           {/* Container para os botões lado a lado */}
           <View style={styles.containerBotoes}>
             <TouchableOpacity
@@ -404,13 +403,13 @@ export default function ForgotPasswordScreen() {
               <Icon name="arrow-back" size={20} color="#4285F4" />
               <Text style={styles.textoBotaoVoltar}>Voltar</Text>
             </TouchableOpacity>
-            
+
             {etapa === 1 && (
               <TouchableOpacity style={styles.botaoAcao} onPress={solicitarCodigo} disabled={carregando}>
                 <Text style={styles.textoBotaoAcao}>{carregando ? 'Enviando...' : 'Avançar'}</Text>
               </TouchableOpacity>
             )}
-            
+
             {etapa === 2 && (
               <TouchableOpacity
                 style={styles.botaoAcao}
@@ -420,7 +419,7 @@ export default function ForgotPasswordScreen() {
                 <Text style={styles.textoBotaoAcao}>{carregando ? 'Verificando...' : 'Avançar'}</Text>
               </TouchableOpacity>
             )}
-            
+
             {etapa === 3 && (
               <TouchableOpacity style={styles.botaoAcao} onPress={definirNovaSenha} disabled={carregando}>
                 <Text style={styles.textoBotaoAcao}>{carregando ? 'Alterando...' : 'Avançar'}</Text>

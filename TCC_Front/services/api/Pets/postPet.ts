@@ -46,9 +46,7 @@ export const postPet = async (petData: PetPayload) => {
 
     return response.data;
   } catch (error) {
-    console.error('Erro ao cadastrar o pet', error);
     return null;
   }
 };
 export default postPet;
-

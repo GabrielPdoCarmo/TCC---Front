@@ -9,7 +9,6 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
     const estado = estadosResponse.data.find((e: { nome: string; id: string }) => e.nome === estadoNome);
 
     if (!estado) {
-      console.error('Estado não encontrado:', estadoNome);
       return [];
     }
 
@@ -22,7 +21,6 @@ export const getCidadesPorEstado = async (estadoNome: string): Promise<Cidade[]>
     // 🔤 Ordenar por ordem alfabética
     return cidades.sort((a: Cidade, b: Cidade) => a.nome.localeCompare(b.nome));
   } catch (error) {
-    console.error('Erro ao carregar as cidades', error);
     return [];
   }
 };

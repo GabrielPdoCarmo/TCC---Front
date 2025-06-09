@@ -101,8 +101,6 @@ export default function PetDetailsScreen() {
     }
   }
 
-  console.log('PetDetailsScreen - petId extraído:', petId);
-
   const [pet, setPet] = useState<Pet | null>(null);
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
@@ -119,16 +117,12 @@ export default function PetDetailsScreen() {
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        console.log('ID do usuário não encontrado no AsyncStorage');
         return;
       }
 
       const userIdNumber = parseInt(userId);
       setUsuarioId(userIdNumber);
-      console.log('Usuário logado ID:', userIdNumber);
-    } catch (err) {
-      console.error('Erro ao buscar dados do usuário:', err);
-    }
+    } catch (err) {}
   };
 
   useEffect(() => {
@@ -141,7 +135,6 @@ export default function PetDetailsScreen() {
     const fetchPetDetails = async () => {
       try {
         setLoading(true);
-        console.log(`Buscando pet com ID: ${petId}`);
 
         let petData;
         try {
@@ -149,11 +142,7 @@ export default function PetDetailsScreen() {
           if (!petData) {
             throw new Error('Pet não encontrado');
           }
-
-          console.log('Motivo de doação:', petData.motivoDoacao);
-          console.log('RG do Pet:', petData.rgPet);
         } catch (err) {
-          console.error(`Erro ao buscar pet com ID ${petId}:`, err);
           setError('Pet não encontrado. Verifique se o ID está correto.');
           setLoading(false);
           return;
@@ -165,7 +154,6 @@ export default function PetDetailsScreen() {
             try {
               return await getRacaById(petData.raca_id);
             } catch (err) {
-              console.error(`Erro ao buscar raça com ID ${petData.raca_id}:`, err);
               return null;
             }
           }
@@ -176,24 +164,19 @@ export default function PetDetailsScreen() {
           if (petData.usuario_id) {
             try {
               const usuarioData = await getUsuarioByIdComCidadeEstado(petData.usuario_id);
-              console.log('Dados do usuário com cidade/estado obtidos:', usuarioData);
 
               let usuarioFoto = null;
               try {
                 const usuarioBasico = await getUsuarioById(petData.usuario_id);
-                console.log('Dados básicos do usuário obtidos:', usuarioBasico);
+
                 usuarioFoto = usuarioBasico?.foto || null;
-                console.log('Foto do usuário extraída:', usuarioFoto);
-              } catch (err) {
-                console.error(`Erro ao buscar dados básicos do usuário com ID ${petData.usuario_id}:`, err);
-              }
+              } catch (err) {}
 
               return {
                 ...usuarioData,
                 foto: usuarioFoto,
               } as Usuario;
             } catch (err) {
-              console.error(`Erro ao buscar o usuário com ID ${petData.usuario_id}:`, err);
               return null;
             }
           }
@@ -205,7 +188,6 @@ export default function PetDetailsScreen() {
             try {
               return await getstatusById(petData.status_id);
             } catch (err) {
-              console.error(`Erro ao buscar status com ID ${petData.status_id}:`, err);
               return null;
             }
           }
@@ -217,7 +199,6 @@ export default function PetDetailsScreen() {
             try {
               return await getSexoPetById(petData.sexo_id);
             } catch (err) {
-              console.error(`Erro ao buscar sexo com ID ${petData.sexo_id}:`, err);
               return null;
             }
           }
@@ -229,7 +210,6 @@ export default function PetDetailsScreen() {
             try {
               return await getFaixaEtariaById(petData.faixa_etaria_id);
             } catch (err) {
-              console.error(`Erro ao buscar faixa etária com ID ${petData.faixa_etaria_id}:`, err);
               return null;
             }
           }
@@ -238,35 +218,25 @@ export default function PetDetailsScreen() {
 
         const checkIfFavorite = async (): Promise<boolean> => {
           if (!usuarioId) {
-            console.log('Usuário não logado - não verificando favoritos');
             return false;
           }
 
           try {
-            console.log(`Verificando se pet ID ${petId} é favorito do usuário ID ${usuarioId}`);
             const isFavorite = await checkFavorito(usuarioId, petId);
-            console.log(`Pet ${petId} é favorito:`, isFavorite);
+
             return isFavorite;
           } catch (err) {
-            console.error('Erro ao verificar se pet é favorito:', err);
             return false;
           }
         };
 
         const getDoencas = async (): Promise<Array<{ id: number; nome: string }>> => {
           try {
-            console.log(`Buscando doenças para o pet ID ${petId}...`);
-
             const doencasResponse = await getDoencasPorPetId(petId);
 
             if (!doencasResponse || !Array.isArray(doencasResponse) || doencasResponse.length === 0) {
-              console.log(`Pet ID ${petId} não possui doenças registradas`);
               return [];
             }
-
-            console.log(
-              `Encontradas ${doencasResponse.length} doenças para o pet ID ${petId}: ${JSON.stringify(doencasResponse)}`
-            );
 
             const doencasDetalhes = await Promise.all(
               doencasResponse.map(async (doencaItem: number | Doenca) => {
@@ -276,13 +246,11 @@ export default function PetDetailsScreen() {
                       ? doencaItem
                       : (doencaItem as Doenca).doencaDeficiencia_id || doencaItem;
 
-                  console.log(`Buscando detalhes da doença ID ${doencaId}`);
                   const doencaDetalhes = await getDoencaPorId(
                     typeof doencaId === 'number' ? doencaId : Number(doencaId)
                   );
 
                   if (!doencaDetalhes) {
-                    console.warn(`Doença ID ${doencaId} não encontrada no banco de dados`);
                     return {
                       id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
                       nome:
@@ -292,7 +260,6 @@ export default function PetDetailsScreen() {
                     };
                   }
 
-                  console.log(`Doença ID ${doencaId} encontrada: ${doencaDetalhes.nome || doencaDetalhes.descricao}`);
                   return {
                     id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
                     nome: doencaDetalhes.nome || doencaDetalhes.descricao || 'Doença não identificada',
@@ -303,7 +270,6 @@ export default function PetDetailsScreen() {
                       ? doencaItem
                       : (doencaItem as Doenca).doencaDeficiencia_id || doencaItem;
 
-                  console.error(`Erro ao buscar doença ID ${doencaId}:`, error);
                   return {
                     id: typeof doencaId === 'number' ? doencaId : Number(doencaId),
                     nome:
@@ -315,10 +281,8 @@ export default function PetDetailsScreen() {
               })
             );
 
-            console.log(`Doenças com detalhes para o pet ID ${petId}:`, JSON.stringify(doencasDetalhes));
             return doencasDetalhes;
           } catch (err) {
-            console.error(`Erro geral ao buscar doenças para o pet ID ${petId}:`, err);
             return [];
           }
         };
@@ -334,17 +298,13 @@ export default function PetDetailsScreen() {
         ]);
 
         const motivoDoacao = petData.motivoDoacao || petData.motivo_doacao || 'Não informado';
-        console.log('Motivo de doação antes de definir pet:', motivoDoacao);
 
         let cidade_nome = 'Não informado';
         let estado_nome = 'Não informado';
         let usuario_foto = null;
 
         if (usuarioInfo) {
-          console.log('Informações do usuário para localização:', usuarioInfo);
-
           usuario_foto = usuarioInfo.foto || null;
-          console.log('Foto do usuário extraída para o pet:', usuario_foto);
 
           if (usuarioInfo.cidade_nome) {
             cidade_nome = usuarioInfo.cidade_nome;
@@ -360,10 +320,8 @@ export default function PetDetailsScreen() {
         }
 
         const faixaEtariaUnidade = faixaEtariaInfo?.unidade || '';
-        console.log('Faixa etária unidade:', faixaEtariaUnidade);
 
         const rgPet = petData.rgPet || petData.rg_Pet || '';
-        console.log('RG do Pet a ser definido:', rgPet);
 
         setPet({
           ...petData,
@@ -382,11 +340,8 @@ export default function PetDetailsScreen() {
           rgPet: rgPet,
         });
 
-        console.log('Pet carregado com status de favorito:', isFavorite);
-        console.log('Pet carregado com foto do usuário:', usuario_foto);
         setLoading(false);
       } catch (err) {
-        console.error('Erro ao buscar detalhes do pet:', err);
         setError('Não foi possível carregar os detalhes do pet. Tente novamente mais tarde.');
         setLoading(false);
       }
@@ -400,19 +355,11 @@ export default function PetDetailsScreen() {
     if (!pet) return;
 
     try {
-      console.log(
-        `Alternando favorito para pet ID ${pet.id}${usuarioId ? `, usuário ID ${usuarioId}` : ' (usuário não logado)'}`
-      );
-
       if (usuarioId) {
         if (pet.favorito) {
-          console.log('Removendo dos favoritos...');
           await deleteFavorito(usuarioId, pet.id);
-          console.log('Pet removido dos favoritos com sucesso');
         } else {
-          console.log('Adicionando aos favoritos...');
           await getFavorito(usuarioId, pet.id);
-          console.log('Pet adicionado aos favoritos com sucesso');
         }
       }
 
@@ -420,10 +367,7 @@ export default function PetDetailsScreen() {
         ...prevPet!,
         favorito: !prevPet!.favorito,
       }));
-
-      console.log(`Pet ID ${pet.id} ${pet.favorito ? 'removido dos' : 'adicionado aos'} favoritos`);
     } catch (error) {
-      console.error('Erro ao atualizar favorito:', error);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.', [{ text: 'OK' }]);
     }
   };
@@ -444,8 +388,6 @@ export default function PetDetailsScreen() {
     }
 
     try {
-      console.log(`Adicionando pet ID ${pet.id} aos pets do usuário ${usuarioId}`);
-
       // Chamar a API para criar a associação
       await createMyPet(pet.id, usuarioId);
 
@@ -460,7 +402,6 @@ export default function PetDetailsScreen() {
         },
       ]);
     } catch (error) {
-      console.error('Erro ao adicionar pet:', error);
       Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
     }
   };
@@ -499,8 +440,6 @@ export default function PetDetailsScreen() {
                 // Recarregar os dados do pet
                 const fetchPetDetails = async () => {
                   try {
-                    console.log(`Tentando buscar pet novamente com ID: ${petId}`);
-
                     let petData;
                     try {
                       petData = await getPetById(petId);
@@ -508,7 +447,6 @@ export default function PetDetailsScreen() {
                         throw new Error('Pet não encontrado');
                       }
                     } catch (err) {
-                      console.error(`Erro ao buscar pet com ID ${petId}:`, err);
                       setError('Pet não encontrado. Verifique se o ID está correto.');
                       setLoading(false);
                       return;
@@ -537,9 +475,7 @@ export default function PetDetailsScreen() {
                       try {
                         const usuarioBasico = await getUsuarioById(petData.usuario_id);
                         usuarioFoto = usuarioBasico?.foto || null;
-                      } catch (err) {
-                        console.error(`Erro ao buscar foto do usuário:`, err);
-                      }
+                      } catch (err) {}
 
                       let cidade_nome = 'Não informado';
                       let estado_nome = 'Não informado';
@@ -606,7 +542,6 @@ export default function PetDetailsScreen() {
                         rgPet: rgPet,
                       });
                     } catch (err) {
-                      console.error('Erro ao buscar detalhes adicionais:', err);
                       setPet({
                         ...petData,
                         raca_nome: 'Desconhecido',
@@ -627,7 +562,6 @@ export default function PetDetailsScreen() {
 
                     setLoading(false);
                   } catch (err) {
-                    console.error('Erro ao buscar detalhes do pet:', err);
                     setError('Não foi possível carregar os detalhes do pet. Tente novamente mais tarde.');
                     setLoading(false);
                   }

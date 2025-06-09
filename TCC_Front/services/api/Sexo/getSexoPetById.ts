@@ -1,4 +1,4 @@
-import api from "../api";
+import api from '../api';
 export const getSexoPetById = async (id: number) => {
   try {
     const response = await api.get(`/sexoPet/${id}`);
@@ -7,7 +7,6 @@ export const getSexoPetById = async (id: number) => {
       descricao: response.data.descricao,
     };
   } catch (error) {
-    console.error(`Erro ao buscar sexo do pet com ID ${id}:`, error);
     throw error;
   }
 };

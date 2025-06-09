@@ -47,21 +47,16 @@ export interface VerificarExclusaoResponse {
  */
 export const verificarPodeExcluirConta = async (usuarioId: number): Promise<VerificarExclusaoResponse> => {
   try {
-    console.log(`🔍 Verificando se usuário ${usuarioId} pode excluir conta...`);
-    
     const response = await api.get(`/usuarios/${usuarioId}/pode-excluir-conta`);
-    
-    console.log('✅ Verificação concluída:', response.data);
+
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao verificar se pode excluir conta:', error);
-    
     if (error.response?.status === 404) {
       throw new Error('Usuário não encontrado');
     } else if (error.response?.status === 401) {
       throw new Error('Você precisa estar logado');
     }
-    
+
     throw error;
   }
 };
@@ -71,15 +66,10 @@ export const verificarPodeExcluirConta = async (usuarioId: number): Promise<Veri
  */
 export const deleteUsuarioComTermo = async (usuarioId: number): Promise<UsuarioDeleteResponse> => {
   try {
-    console.log(`🗑️ Excluindo conta do usuário ${usuarioId}...`);
-    
     const response = await api.delete(`/usuarios/${usuarioId}`);
-    
-    console.log('✅ Conta excluída com sucesso:', response.data);
+
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao excluir conta:', error);
-    
     if (error.response?.status === 400) {
       // Erro conhecido do backend (pets cadastrados, etc.)
       return error.response.data;
@@ -88,7 +78,7 @@ export const deleteUsuarioComTermo = async (usuarioId: number): Promise<UsuarioD
     } else if (error.response?.status === 401) {
       throw new Error('Você precisa estar logado para excluir a conta');
     }
-    
+
     throw error;
   }
 };

@@ -45,34 +45,10 @@ interface CreateTermoDoacaoResponse {
  */
 export const createTermoDoacao = async (data: CreateTermoDoacaoRequest): Promise<CreateTermoDoacaoResponse> => {
   try {
-    console.log('📝 Criando termo de doação:', { 
-      motivoDoacao: data.motivoDoacao.substring(0, 50) + '...',
-      assinaturaDigital: data.assinaturaDigital,
-      compromissos: {
-        confirmaResponsavelLegal: data.confirmaResponsavelLegal,
-        autorizaVisitas: data.autorizaVisitas,
-        aceitaAcompanhamento: data.aceitaAcompanhamento,
-        confirmaSaude: data.confirmaSaude,
-        autorizaVerificacao: data.autorizaVerificacao,
-        compromesteContato: data.compromesteContato,
-      }
-    });
-
-    const response = await api.post<CreateTermoDoacaoResponse>(
-      '/termos-doacao',
-      data
-    );
-
-    console.log('✅ Termo de doação criado com sucesso:', {
-      id: response.data.data.id,
-      doador: response.data.data.doador_nome,
-      dataAssinatura: response.data.data.data_assinatura
-    });
+    const response = await api.post<CreateTermoDoacaoResponse>('/termos-doacao', data);
 
     return response.data;
   } catch (error: any) {
-    console.error('❌ Erro ao criar termo de doação:', error);
-
     // Tratamento de erros específicos
     if (error.response?.status === 401) {
       throw new Error('Sessão expirada. Faça login novamente.');
@@ -88,15 +64,15 @@ export const createTermoDoacao = async (data: CreateTermoDoacaoRequest): Promise
 
     if (error.response?.status === 400) {
       const message = error.response.data?.message || 'Dados inválidos';
-      
+
       if (message.includes('Dados obrigatórios não fornecidos')) {
         throw new Error('Preencha todos os campos obrigatórios (motivo da doação e assinatura digital).');
       }
-      
+
       if (message.includes('Todos os compromissos devem ser aceitos')) {
         throw new Error('Todos os compromissos devem ser aceitos para criar o termo de doação.');
       }
-      
+
       throw new Error(message);
     }
 
