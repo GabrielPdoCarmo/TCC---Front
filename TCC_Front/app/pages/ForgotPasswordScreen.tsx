@@ -326,7 +326,7 @@ export default function ForgotPasswordScreen() {
               >
                 <TextInput
                   style={styles.inputSenha}
-                  placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
+                  placeholder="Senha"
                   placeholderTextColor="#666"
                   secureTextEntry={!mostrarSenha}
                   value={novaSenha}
@@ -382,7 +382,7 @@ export default function ForgotPasswordScreen() {
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.imagemFundo}>
       <SafeAreaView style={styles.container}>
         <View style={styles.conteudoPrincipal}>
-          <Image source={require('../../assets/images/Icone/Pets_Up.png')} style={styles.imagemLogo} />
+          <Image source={require('../../assets/images/Icone/Petz_Up.png')} style={styles.imagemLogo} />
 
           <Text style={styles.textoTitulo}>Esqueceu sua senha?</Text>
 

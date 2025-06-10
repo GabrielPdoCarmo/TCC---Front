@@ -1122,7 +1122,7 @@ export default function ProfileScreen() {
                 >
                   <TextInput
                     style={styles.inputInContainer}
-                    placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
+                    placeholder="Senha"
                     value={senha}
                     onChangeText={handleSenhaChange}
                     secureTextEntry={!showSenha}

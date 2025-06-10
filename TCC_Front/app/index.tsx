@@ -49,7 +49,7 @@ export default function IndexScreen() {
   return (
     <View style={styles.container}>
       {/* Logo do app enquanto carrega */}
-      <Image source={require('../assets/images/Icone/Pets_Up.png')} style={styles.logo} resizeMode="contain" />
+      <Image source={require('../assets/images/Icone/Petz_Up.png')} style={styles.logo} resizeMode="contain" />
       <ActivityIndicator size="large" color="#FFFFFF" style={styles.loader} />
     </View>
   );

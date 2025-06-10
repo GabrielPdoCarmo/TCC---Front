@@ -185,6 +185,9 @@ export default function CadastroUsuario() {
   const [showConfirmarSenha, setShowConfirmarSenha] = useState<boolean>(false);
   const [loadingCep, setLoadingCep] = useState<boolean>(false);
 
+  // NOVO ESTADO: Para controlar o loading do cadastro
+  const [loadingCadastro, setLoadingCadastro] = useState<boolean>(false);
+
   // NOVO ESTADO: Para rastrear dados preenchidos pelo CEP
   const [dadosDoCep, setDadosDoCep] = useState<CEPData>({
     estadoId: null,
@@ -412,102 +415,110 @@ export default function CadastroUsuario() {
   };
 
   const handleSalvar = async () => {
-    // Limpar mensagens anteriores
-    setFotoErro('');
-    setNomeErro('');
-    setCpfErro('');
-    setTelefoneErro('');
-    setEstadoErro('');
-    setCidadeErro('');
-    setSexoErro('');
-    setSenhaErros([]); // Limpar erros granulares
-    setConfirmarSenhaErro('');
-    setEmailErro('');
-    setCepErro('');
-
-    let hasError = false;
-
-    // Validações locais (manter toda a seção de validação igual)
-    if (!foto) {
-      setFotoErro('A foto é obrigatória.');
-      hasError = true;
-    }
-
-    if (!nome) {
-      setNomeErro('O nome é obrigatório.');
-      hasError = true;
-    }
-
-    if (!cpf) {
-      setCpfErro('O CPF é obrigatório.');
-      hasError = true;
-    } else if (!validarCpf(cpf)) {
-      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
-      hasError = true;
-    }
-
-    if (!telefone) {
-      setTelefoneErro('O telefone é obrigatório.');
-      hasError = true;
-    } else if (!validarTelefone(telefone)) {
-      setTelefoneErro('Telefone inválido. Informe um número válido.');
-      hasError = true;
-    }
-
-    if (!email) {
-      setEmailErro('O e-mail é obrigatório.');
-      hasError = true;
-    } else if (!validarEmail(email)) {
-      setEmailErro('E-mail inválido. Informe um e-mail válido.');
-      hasError = true;
-    }
-
-    if (!sexo.id) {
-      setSexoErro('O sexo é obrigatório.');
-      hasError = true;
-    }
-
-    if (!estado || !estado.id) {
-      setEstadoErro('O estado é obrigatório.');
-      hasError = true;
-    }
-
-    if (!cidade || !cidade.id) {
-      setCidadeErro('A cidade é obrigatória.');
-      hasError = true;
-    }
-
-    // NOVA VALIDAÇÃO GRANULAR DE SENHA
-    if (!senha) {
-      setSenhaErros(['A senha é obrigatória']);
-      hasError = true;
-    } else {
-      const validacaoSenha = validarSenha(senha);
-      if (!validacaoSenha.isValid) {
-        setSenhaErros(validacaoSenha.errors);
-        hasError = true;
-      }
-    }
-
-    if (!confirmarSenha) {
-      setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
-      hasError = true;
-    } else if (senha !== confirmarSenha) {
-      setConfirmarSenhaErro('As senhas não conferem.');
-      hasError = true;
-    }
-
-    if (cep && !validarCep(cep)) {
-      setCepErro('CEP inválido. Informe um CEP válido.');
-      hasError = true;
-    }
-
-    // Se há erros de validação local, interrompe
-    if (hasError) {
+    // Evitar múltiplos cliques durante o loading
+    if (loadingCadastro) {
       return;
     }
 
+    // Ativar loading
+    setLoadingCadastro(true);
+
     try {
+      // Limpar mensagens anteriores
+      setFotoErro('');
+      setNomeErro('');
+      setCpfErro('');
+      setTelefoneErro('');
+      setEstadoErro('');
+      setCidadeErro('');
+      setSexoErro('');
+      setSenhaErros([]); // Limpar erros granulares
+      setConfirmarSenhaErro('');
+      setEmailErro('');
+      setCepErro('');
+
+      let hasError = false;
+
+      // Validações locais (manter toda a seção de validação igual)
+      if (!foto) {
+        setFotoErro('A foto é obrigatória.');
+        hasError = true;
+      }
+
+      if (!nome) {
+        setNomeErro('O nome é obrigatório.');
+        hasError = true;
+      }
+
+      if (!cpf) {
+        setCpfErro('O CPF é obrigatório.');
+        hasError = true;
+      } else if (!validarCpf(cpf)) {
+        setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+        hasError = true;
+      }
+
+      if (!telefone) {
+        setTelefoneErro('O telefone é obrigatório.');
+        hasError = true;
+      } else if (!validarTelefone(telefone)) {
+        setTelefoneErro('Telefone inválido. Informe um número válido.');
+        hasError = true;
+      }
+
+      if (!email) {
+        setEmailErro('O e-mail é obrigatório.');
+        hasError = true;
+      } else if (!validarEmail(email)) {
+        setEmailErro('E-mail inválido. Informe um e-mail válido.');
+        hasError = true;
+      }
+
+      if (!sexo.id) {
+        setSexoErro('O sexo é obrigatório.');
+        hasError = true;
+      }
+
+      if (!estado || !estado.id) {
+        setEstadoErro('O estado é obrigatório.');
+        hasError = true;
+      }
+
+      if (!cidade || !cidade.id) {
+        setCidadeErro('A cidade é obrigatória.');
+        hasError = true;
+      }
+
+      // NOVA VALIDAÇÃO GRANULAR DE SENHA
+      if (!senha) {
+        setSenhaErros(['A senha é obrigatória']);
+        hasError = true;
+      } else {
+        const validacaoSenha = validarSenha(senha);
+        if (!validacaoSenha.isValid) {
+          setSenhaErros(validacaoSenha.errors);
+          hasError = true;
+        }
+      }
+
+      if (!confirmarSenha) {
+        setConfirmarSenhaErro('A confirmação de senha é obrigatória.');
+        hasError = true;
+      } else if (senha !== confirmarSenha) {
+        setConfirmarSenhaErro('As senhas não conferem.');
+        hasError = true;
+      }
+
+      if (cep && !validarCep(cep)) {
+        setCepErro('CEP inválido. Informe um CEP válido.');
+        hasError = true;
+      }
+
+      // Se há erros de validação local, interrompe
+      if (hasError) {
+        return;
+      }
+
       // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
 
       const validationResponse = await checkDuplicateFields({
@@ -634,8 +645,12 @@ export default function CadastroUsuario() {
       } else {
         Alert.alert('Erro', 'Erro inesperado. Tente novamente.');
       }
+    } finally {
+      // Desativar loading sempre, independente de sucesso ou erro
+      setLoadingCadastro(false);
     }
   };
+
   // Handles for formatted inputs
   const handleCpfChange = (text: string) => {
     const formattedCpf = formatCPF(text);
@@ -1090,7 +1105,7 @@ export default function CadastroUsuario() {
               <View style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
                 <TextInput
                   style={{ flex: 1 }}
-                  placeholder="Senha (min. 8 caracteres, maiúscula, minúscula e especial)"
+                  placeholder="Senha"
                   secureTextEntry={!showSenha}
                   value={senha}
                   multiline={false}
@@ -1148,9 +1163,23 @@ export default function CadastroUsuario() {
               {confirmarSenhaErro ? <Text style={styles.errorText}>{confirmarSenhaErro}</Text> : null}
             </View>
 
-            {/* Botão de salvar */}
-            <TouchableOpacity style={styles.saveButton} onPress={handleSalvar}>
-              <Text style={styles.saveButtonText}>Cadastrar</Text>
+            {/* Botão de salvar com loading */}
+            <TouchableOpacity 
+              style={[
+                styles.saveButton, 
+                loadingCadastro && styles.saveButtonDisabled
+              ]} 
+              onPress={handleSalvar}
+              disabled={loadingCadastro}
+            >
+              {loadingCadastro ? (
+                <View style={styles.loadingContainer}>
+                  <ActivityIndicator size="small" color="#fff" />
+                  <Text style={[styles.saveButtonText, { marginLeft: 10 }]}>Cadastrando...</Text>
+                </View>
+              ) : (
+                <Text style={styles.saveButtonText}>Cadastrar</Text>
+              )}
             </TouchableOpacity>
           </View>
         </ScrollView>
@@ -1192,6 +1221,17 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  // NOVO ESTILO: Botão desabilitado durante loading
+  saveButtonDisabled: {
+    backgroundColor: '#A5D6A7', // Cor mais clara quando desabilitado
+    opacity: 0.7,
+  },
+  // NOVO ESTILO: Container para o loading
+  loadingContainer: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
   },
