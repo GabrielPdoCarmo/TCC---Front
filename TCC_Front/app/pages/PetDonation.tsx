@@ -1,4 +1,4 @@
-// PetDonationScreen.tsx - Atualizado com verificação de dados completos
+// PetDonationScreen.tsx - Otimizado com loading no botão add e ordenação por ID
 
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -27,8 +27,9 @@ import getRacaById from '@/services/api/Raca/getRacaById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
-import { checkCanCreatePets, checkNeedsDataUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Funções atualizadas
+import { checkCanCreatePets, checkNeedsDataUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets';
 import { useAuth } from '@/contexts/AuthContext';
+
 // Define a interface Pet com informações aprimoradas
 interface Pet {
   id: number;
@@ -62,6 +63,11 @@ interface Usuario {
   };
 }
 
+// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+const sortPetsByCreation = (pets: Pet[]): Pet[] => {
+  return [...pets].sort((a, b) => b.id - a.id);
+};
+
 export default function PetDonationScreen() {
   // Estado para controlar a visibilidade do modal de pet
   const [petModalVisible, setPetModalVisible] = useState(false);
@@ -69,10 +75,15 @@ export default function PetDonationScreen() {
   const [termoModalVisible, setTermoModalVisible] = useState(false);
   // Estado para armazenar a lista de pets
   const [pets, setPets] = useState<Pet[]>([]);
-  // Estado para indicar carregamento
-  const [loading, setLoading] = useState(true);
+  // 🆕 MELHORADO: Loading com estados mais específicos
+  const [loading, setLoading] = useState(false);
+  const [initialLoading, setInitialLoading] = useState(true);
   // Estado para carregamento do termo
   const [termoLoading, setTermoLoading] = useState(true);
+  // Estado para loading do botão add
+  const [addButtonLoading, setAddButtonLoading] = useState(false);
+  // 🆕 Estado para controlar se o botão add está habilitado
+  const [addButtonEnabled, setAddButtonEnabled] = useState(false);
   // Estado para armazenar o usuário atual
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   // Estado para controlar erros
@@ -86,7 +97,7 @@ export default function PetDonationScreen() {
   const [initialCheckDone, setInitialCheckDone] = useState(false);
   const [isCheckingPermissions, setIsCheckingPermissions] = useState(false);
 
-  // 🆕 Estados para verificação de dados (nome, email, telefone)
+  // Estados para verificação de dados (nome, email, telefone)
   const [dataOutdated, setDataOutdated] = useState(false);
   const [isDataUpdateMode, setIsDataUpdateMode] = useState(false);
 
@@ -94,22 +105,26 @@ export default function PetDonationScreen() {
   const lastCheckTimeRef = useRef(0);
   const { setLastRoute, isAuthenticated, loading: authLoading } = useAuth();
 
-  // ✅ NOVO: Salvar esta tela como última rota visitada
-
   useEffect(() => {
     if (!authLoading && isAuthenticated) {
       setLastRoute('/pages/PetDonation');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
 
-  // Verificar se está autenticado
+  // Verificar se está autenticado e inicializar loading
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/pages/LoginScreen');
       return;
     }
-  }, [isAuthenticated, authLoading]);
-  // 🔍 Função ATUALIZADA para verificar se usuário pode cadastrar pets (COM VERIFICAÇÃO DE DADOS COMPLETOS)
+    
+    // Se está autenticado, garantir que o loading inicial esteja ativo
+    if (!authLoading && isAuthenticated && !initialCheckDone) {
+      setInitialLoading(true);
+    }
+  }, [isAuthenticated, authLoading, initialCheckDone]);
+
+  // Função para verificar se usuário pode cadastrar pets
   const checkUserPermissions = useCallback(
     async (force = false) => {
       // Evitar verificações muito frequentes (debounce de 2 segundos)
@@ -139,13 +154,12 @@ export default function PetDonationScreen() {
         if (result && result.data) {
           const podecastrar = result.data.podecastrar || false;
           const temTermo = result.data.temTermo || false;
-          const dadosDesatualizados = result.data.dadosDesatualizados || false; // 🆕
+          const dadosDesatualizados = result.data.dadosDesatualizados || false;
 
           setCanCreatePets(podecastrar);
-          setDataOutdated(dadosDesatualizados); // 🆕
+          setDataOutdated(dadosDesatualizados);
           setInitialCheckDone(true);
 
-          // 🆕 Lógica atualizada para lidar com dados desatualizados
           if (dadosDesatualizados) {
             setIsDataUpdateMode(true);
             setTermoModalVisible(true);
@@ -177,7 +191,7 @@ export default function PetDonationScreen() {
     [isCheckingPermissions]
   );
 
-  // 🔄 Carregar dados do usuário
+  // Carregar dados do usuário
   const loadUserData = async () => {
     try {
       const userId = await AsyncStorage.getItem('@App:userId');
@@ -200,16 +214,20 @@ export default function PetDonationScreen() {
     }
   };
 
-  // Função para buscar os pets do usuário logado com dados de faixa etária
-  const fetchUserPets = async () => {
+  // 🆕 MELHORADA: Função para buscar pets com loading mais específico
+  const fetchUserPets = async (showLoading = true) => {
     // Só buscar pets se o usuário tem permissão
     if (!canCreatePets) {
+      setInitialLoading(false);
       setLoading(false);
+      setAddButtonEnabled(false); // 🆕 Desabilitar botão se não pode criar pets
       return;
     }
 
     try {
-      setLoading(true);
+      if (showLoading && !initialLoading) {
+        setLoading(true);
+      }
       setError('');
 
       // Obter o ID do usuário do AsyncStorage
@@ -217,52 +235,47 @@ export default function PetDonationScreen() {
 
       if (!userId) {
         setError('Usuário não encontrado. Por favor, faça login novamente.');
+        setInitialLoading(false);
         setLoading(false);
+        setAddButtonEnabled(false); // 🆕 Desabilitar botão em caso de erro
         return;
       }
 
-      // Converter o ID para número
       const userIdNumber = parseInt(userId, 10);
 
       // Obter os pets do usuário
       const userPets = await getPetsByUsuarioId(userIdNumber);
 
-      // Enriquecer os dados dos pets com nomes de raças, responsáveis e faixa etária
+      // Enriquecer os dados dos pets
       const enrichedPets = await Promise.all(
         userPets.map(async (pet: Pet) => {
           try {
             // Obter informações da raça
             const racaData = await getRacaById(pet.raca_id);
-
             // Obter informações da faixa etária
             const faixaEtariaData = await getFaixaEtariaById(pet.faixa_etaria_id);
-
             // Obter informações do status
             const statusData = await getstatusById(pet.status_id);
 
-            // Obter informações do usuário responsável (se diferente do usuário atual)
+            // Obter informações do usuário responsável
             let usuarioNome = currentUser?.nome || 'Usuário não identificado';
 
             if (pet.usuario_id !== userIdNumber) {
               const petUsuario = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-
               if (petUsuario) {
                 usuarioNome = petUsuario.nome;
               }
             }
 
-            // Criar objeto pet enriquecido com os nomes e informações da faixa etária
             return {
               ...pet,
               raca_nome: racaData?.nome || `Raça não encontrada (ID: ${pet.raca_id})`,
               usuario_nome: usuarioNome,
               faixa_etaria_unidade: faixaEtariaData?.unidade,
               status_nome: statusData.nome,
-              // Garantir que sexo e foto estejam incluídos
               foto: pet.foto,
             };
           } catch (error) {
-            // Em caso de erro, retornar o pet com informações de fallback
             return {
               ...pet,
               raca_nome: `Raça não disponível (ID: ${pet.raca_id})`,
@@ -273,15 +286,22 @@ export default function PetDonationScreen() {
         })
       );
 
-      setPets(enrichedPets);
+      // APLICAR ORDENAÇÃO APENAS UMA VEZ NO FINAL
+      const sortedPets = sortPetsByCreation(enrichedPets);
+      setPets(sortedPets);
+      
+      // 🆕 Habilitar botão após carregar os pets com sucesso (mesmo se lista vazia)
+      setAddButtonEnabled(true);
     } catch (error) {
       setError('Ocorreu um erro ao carregar seus pets. Por favor, tente novamente.');
+      setAddButtonEnabled(false); // 🆕 Desabilitar botão em caso de erro
     } finally {
+      setInitialLoading(false);
       setLoading(false);
     }
   };
 
-  // 🚀 Inicialização da tela (APENAS UMA VEZ)
+  // Inicialização da tela (APENAS UMA VEZ)
   useEffect(() => {
     const initializeScreen = async () => {
       if (initialCheckDone) {
@@ -289,6 +309,7 @@ export default function PetDonationScreen() {
       }
 
       checkCountRef.current = 0; // Reset contador
+      // O initialLoading já está true por padrão
 
       try {
         await loadUserData();
@@ -300,30 +321,28 @@ export default function PetDonationScreen() {
         setTermoModalVisible(true);
         setTermoLoading(false);
         setInitialCheckDone(true);
+        setInitialLoading(false);
       }
     };
 
     initializeScreen();
   }, []); // SEM DEPENDÊNCIAS para evitar re-execução
 
-  // 🔄 Recarregar pets quando permissões mudarem (CONTROLADO)
+  // Recarregar pets quando permissões mudarem (CONTROLADO)
   useEffect(() => {
     if (canCreatePets && initialCheckDone && !dataOutdated) {
-      fetchUserPets();
+      fetchUserPets(); // Sempre buscar pets quando as condições forem atendidas
     } else if (initialCheckDone && (!canCreatePets || dataOutdated)) {
+      setInitialLoading(false);
       setLoading(false);
+      setAddButtonEnabled(false); // 🆕 Desabilitar botão se não pode criar pets
     }
-  }, [canCreatePets, initialCheckDone, dataOutdated]); // 🆕 Adicionado dataOutdated
+  }, [canCreatePets, initialCheckDone, dataOutdated]);
 
-  // 👀 Focus effect CONTROLADO (SEM LOOPS)
+  // Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
     useCallback(() => {
-      // Só verificar se:
-      // 1. Verificação inicial já foi feita
-      // 2. Não está carregando termo
-      // 3. Não está verificando permissões
-      if (initialCheckDone && !termoLoading && !isCheckingPermissions) {
-        // Usar timeout para evitar verificações muito frequentes
+      if (initialCheckDone && !termoLoading && !isCheckingPermissions && !initialLoading) {
         const timeoutId = setTimeout(() => {
           checkUserPermissions(false);
         }, 1000);
@@ -332,17 +351,17 @@ export default function PetDonationScreen() {
           clearTimeout(timeoutId);
         };
       }
-    }, [initialCheckDone, termoLoading, isCheckingPermissions, checkUserPermissions])
+    }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, checkUserPermissions])
   );
 
-  // 🎉 Callback ATUALIZADO quando termo for concluído (SEM LOOPS)
+  // Callback quando termo for concluído (SEM LOOPS)
   const handleTermoCompleted = useCallback(() => {
     const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
 
     setTermoModalVisible(false);
     setCanCreatePets(true);
-    setDataOutdated(false); // 🆕 Reset flag
-    setIsDataUpdateMode(false); // 🆕 Reset modo
+    setDataOutdated(false);
+    setIsDataUpdateMode(false);
 
     // Reset contador para permitir nova verificação
     checkCountRef.current = 0;
@@ -353,8 +372,13 @@ export default function PetDonationScreen() {
     }, 2000);
   }, [checkUserPermissions, isDataUpdateMode]);
 
-  // Função para abrir o modal no modo de adição
-  const handleOpenModal = () => {
+  // Função para abrir o modal no modo de adição COM loading
+  const handleOpenModal = async () => {
+    // 🆕 Verificar se o botão está habilitado
+    if (!addButtonEnabled) {
+      return;
+    }
+
     if (!canCreatePets || dataOutdated) {
       const message = dataOutdated
         ? 'Você precisa reAssinar o termo de responsabilidade com seus dados atualizados (nome, email, telefone ou localização) antes de cadastrar pets.'
@@ -364,34 +388,35 @@ export default function PetDonationScreen() {
       return;
     }
 
-    setCurrentPet(null);
-    setIsEditMode(false);
-    setPetModalVisible(true);
+    // Simular um pequeno loading para dar feedback visual
+    setAddButtonLoading(true);
+    
+    // Simular tempo de preparação do modal
+    setTimeout(() => {
+      setCurrentPet(null);
+      setIsEditMode(false);
+      setPetModalVisible(true);
+      setAddButtonLoading(false);
+    }, 500); // 500ms de loading
   };
 
-  // ========================================
-  // MODIFICADO: Função para fechar o modal com limpeza melhorada
-  // ========================================
+  // Função para fechar o modal com limpeza melhorada
   const handleCloseModal = () => {
     setPetModalVisible(false);
     setCurrentPet(null);
     setIsEditMode(false);
 
-    // IMPORTANTE: Pequeno delay para garantir que o modal seja fechado
-    // antes de recarregar os pets, evitando problemas de renderização
-    // e permitindo que a limpeza de erros do modal seja concluída
     setTimeout(() => {
       if (canCreatePets && !dataOutdated) {
         fetchUserPets();
       }
-    }, 200); // Aumentado de 100ms para 200ms para melhor sincronia
+    }, 200);
   };
 
   // Função para processar os dados do formulário
   const handleSubmitForm = async (formData: any) => {
     try {
       if (isEditMode && currentPet) {
-        // Atualizar o pet existente usando updatePet
         await updatePet({ ...formData, id: currentPet.id });
         Alert.alert('Sucesso!', 'Os dados do pet foram atualizados com sucesso.', [
           {
@@ -400,8 +425,6 @@ export default function PetDonationScreen() {
           },
         ]);
       } else {
-        // Lógica para salvar um novo pet
-        // Por exemplo: await createPet(formData);
         Alert.alert('Sucesso!', 'Os dados do pet foram salvos com sucesso.', [
           {
             text: 'OK',
@@ -414,7 +437,7 @@ export default function PetDonationScreen() {
     }
   };
 
-  // Função para enviar pet para adoção
+  // Função para enviar pet para adoção SEM ordenação desnecessária
   const handleAdoptPet = (petId: number) => {
     if (!canCreatePets || dataOutdated) {
       const message = dataOutdated
@@ -434,10 +457,9 @@ export default function PetDonationScreen() {
         text: 'Confirmar',
         onPress: async () => {
           try {
-            // Chamando a API updateStatus para mudar o status para "Disponível para adoção" (ID 2)
             await updateStatus(petId);
 
-            // Atualizando o pet na lista local para refletir a mudança de status
+            // Atualização simples sem re-ordenação
             const updatedPets = pets.map((pet) => {
               if (pet.id === petId) {
                 return {
@@ -449,11 +471,11 @@ export default function PetDonationScreen() {
               return pet;
             });
 
-            setPets(updatedPets);
+            setPets(updatedPets); // Mantém ordem existente
 
             Alert.alert('Sucesso', 'Pet disponibilizado para adoção com sucesso!');
 
-            // Recarregar a lista de pets para exibir as atualizações
+            // Recarregar apenas se necessário
             fetchUserPets();
           } catch (error) {
             Alert.alert('Erro', 'Não foi possível disponibilizar o pet para adoção. Por favor, tente novamente.');
@@ -474,19 +496,15 @@ export default function PetDonationScreen() {
       return;
     }
 
-    // Encontrar o pet pelo ID
     const petToEdit = pets.find((pet) => pet.id === petId);
 
     if (petToEdit) {
-      // Definir o pet atual para edição com todos os dados necessários
       setCurrentPet({
         ...petToEdit,
         foto: petToEdit.foto,
       });
 
-      // Ativar o modo de edição
       setIsEditMode(true);
-      // Abrir o modal
       setPetModalVisible(true);
     } else {
       Alert.alert('Erro', 'Pet não encontrado para edição.');
@@ -514,13 +532,8 @@ export default function PetDonationScreen() {
         style: 'destructive',
         onPress: async () => {
           try {
-            // Chamar a função deletePet com o ID do pet
             await deletePet(petId);
-
-            // Mostrar alerta de sucesso
             Alert.alert('Sucesso', 'Pet excluído com sucesso!');
-
-            // Atualizar a lista de pets após a exclusão
             fetchUserPets();
           } catch (error) {
             Alert.alert('Erro', 'Não foi possível excluir o pet. Por favor, tente novamente.');
@@ -543,6 +556,7 @@ export default function PetDonationScreen() {
       onFavorite={() => handleFavoritePet(item.id)}
     />
   );
+
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -552,10 +566,10 @@ export default function PetDonationScreen() {
     );
   }
 
-  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
   if (!isAuthenticated) {
     return null;
   }
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_03.png')} style={styles.backgroundImage}>
@@ -572,15 +586,20 @@ export default function PetDonationScreen() {
           </View>
 
           {/* Content - Sempre mostrar lista de pets */}
-          {loading ? (
+          {initialLoading ? (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color="#4682B4" />
               <Text style={styles.loadingText}>Carregando seus pets...</Text>
             </View>
+          ) : loading ? (
+            <View style={styles.loadingContainer}>
+              <ActivityIndicator size="large" color="#4682B4" />
+              <Text style={styles.loadingText}>Atualizando lista...</Text>
+            </View>
           ) : error ? (
             <View style={styles.errorContainer}>
               <Text style={styles.errorText}>{error}</Text>
-              <TouchableOpacity style={styles.retryButton} onPress={fetchUserPets}>
+              <TouchableOpacity style={styles.retryButton} onPress={() => fetchUserPets()}>
                 <Text style={styles.retryButtonText}>Tentar Novamente</Text>
               </TouchableOpacity>
             </View>
@@ -591,14 +610,32 @@ export default function PetDonationScreen() {
               keyExtractor={(item) => item.id.toString()}
               contentContainerStyle={styles.petList}
               showsVerticalScrollIndicator={false}
-              onRefresh={fetchUserPets}
+              onRefresh={() => fetchUserPets()}
               refreshing={loading}
             />
           )}
 
-          {/* Add button - Sempre visível */}
-          <TouchableOpacity style={styles.addButton} onPress={handleOpenModal}>
-            <Image source={require('../../assets/images/Icone/add-icon.png')} style={styles.addIcon} />
+          {/* Add button com loading e controle de habilitação */}
+          <TouchableOpacity 
+            style={[
+              styles.addButton,
+              addButtonLoading && styles.addButtonLoading,
+              !addButtonEnabled && styles.addButtonDisabled
+            ]} 
+            onPress={handleOpenModal}
+            disabled={addButtonLoading || !addButtonEnabled}
+          >
+            {addButtonLoading ? (
+              <ActivityIndicator size="small" color="#FFFFFF" />
+            ) : (
+              <Image 
+                source={require('../../assets/images/Icone/add-icon.png')} 
+                style={[
+                  styles.addIcon,
+                  !addButtonEnabled && styles.addIconDisabled
+                ]} 
+              />
+            )}
           </TouchableOpacity>
         </View>
 
@@ -631,7 +668,7 @@ export default function PetDonationScreen() {
           isEditMode={isEditMode}
         />
 
-        {/* 🆕 Modal de Termo de Doação - Automático COM MODO DE ATUALIZAÇÃO DE DADOS */}
+        {/* Modal de Termo de Doação - Automático COM MODO DE ATUALIZAÇÃO DE DADOS */}
         {currentUser && (
           <TermoDoacaoModal
             visible={termoModalVisible}
@@ -642,7 +679,7 @@ export default function PetDonationScreen() {
               telefone: currentUser.telefone,
             }}
             onTermoCompleted={handleTermoCompleted}
-            isDataUpdateMode={isDataUpdateMode} // 🆕 Indicar se é atualização de dados
+            isDataUpdateMode={isDataUpdateMode}
           />
         )}
       </ImageBackground>
@@ -687,7 +724,6 @@ const styles = StyleSheet.create({
   headerIcons: {
     flexDirection: 'row',
   },
-  // ✅ ESTILO CORRIGIDO - igual ao PetAdoptionScreen
   settingsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
@@ -723,10 +759,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#000000',
   },
+  // Estilo para botão com loading
+  addButtonLoading: {
+    backgroundColor: '#6BA3D6', // Tom mais claro quando carregando
+  },
+  // 🆕 Estilo para botão desabilitado
+  addButtonDisabled: {
+    backgroundColor: '#CCCCCC', // Cinza quando desabilitado
+    borderColor: '#999999',
+    elevation: 2, // Menos elevação quando desabilitado
+  },
   addIcon: {
     width: 24,
     height: 24,
     tintColor: '#FFFFFF',
+  },
+  // 🆕 Estilo para ícone desabilitado
+  addIconDisabled: {
+    tintColor: '#999999', // Ícone mais escuro quando desabilitado
   },
   bottomNavigation: {
     flexDirection: 'row',
@@ -757,7 +807,6 @@ const styles = StyleSheet.create({
     color: '#4682B4',
     fontWeight: 'bold',
   },
-  // Estilos para a lista de pets
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',
@@ -817,6 +866,6 @@ const styles = StyleSheet.create({
   },
   petList: {
     paddingTop: 10,
-    paddingBottom: 80, // Espaço para o botão flutuante
+    paddingBottom: 80,
   },
 });

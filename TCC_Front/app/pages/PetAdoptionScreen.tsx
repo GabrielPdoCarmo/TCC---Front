@@ -1,4 +1,4 @@
-// PetAdoptionScreen.tsx - Versão corrigida SEM AuthProvider duplicado
+// PetAdoptionScreen.tsx - Otimizado com ordenação por ID
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -27,8 +27,6 @@ import getFavorito from '@/services/api/Favoritos/getFavorito';
 import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
-
-// ✅ Importar APENAS o hook do contexto (AuthProvider já existe no _layout.tsx)
 import { useAuth } from '@/contexts/AuthContext';
 
 // Definindo uma interface para o tipo Pet
@@ -70,7 +68,11 @@ interface FilterParams {
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
-// ✅ Componente principal SEM AuthProvider duplicado
+// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+const sortPetsByCreation = (pets: Pet[]): Pet[] => {
+  return [...pets].sort((a, b) => b.id - a.id);
+};
+
 export default function PetAdoptionScreen() {
   const params = useLocalSearchParams();
   const [allPets, setAllPets] = useState<Pet[]>([]);
@@ -82,7 +84,6 @@ export default function PetAdoptionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
-  // ✅ Usar AuthContext (que já existe no _layout.tsx)
   const { user, token, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
   const usuarioId = user?.id || null;
 
@@ -91,6 +92,7 @@ export default function PetAdoptionScreen() {
       setLastRoute('/pages/PetAdoptionScreen');
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
+
   // Verificar se está autenticado
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
@@ -192,14 +194,13 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // Função para aplicar filtros aos pets
+  // 🆕 ATUALIZADA: Função para aplicar filtros aos pets COM ordenação por ID
   const applyFiltersToData = async (pets: Pet[], filters: FilterParams): Promise<Pet[]> => {
     try {
       let filteredData = pets;
 
       if (filters.onlyFavorites && usuarioId) {
         const favoritesResponse = await getFavoritosPorUsuario(usuarioId);
-
         const favoritePets = favoritesResponse.map((favorito: any) => favorito.pet).filter(Boolean);
 
         if (favoritePets.length === 0) {
@@ -207,8 +208,8 @@ export default function PetAdoptionScreen() {
         }
 
         const favoritePetsWithDetails = await loadPetsWithDetails(favoritePets);
-
-        return favoritePetsWithDetails;
+        // 🆕 APLICAR ORDENAÇÃO POR ID para favoritos
+        return sortPetsByCreation(favoritePetsWithDetails);
       }
 
       if (filters.especieIds && filters.especieIds.length > 0) {
@@ -246,13 +247,15 @@ export default function PetAdoptionScreen() {
         );
       }
 
-      return filteredData;
+      // 🆕 APLICAR ORDENAÇÃO POR ID uma vez no final dos filtros
+      return sortPetsByCreation(filteredData);
     } catch (error) {
-      return pets;
+      // 🆕 Em caso de erro, ainda aplicar ordenação por ID
+      return sortPetsByCreation(pets);
     }
   };
 
-  // Aplicar filtros considerando busca ativa
+  // 🆕 ATUALIZADA: Aplicar filtros considerando busca ativa COM ordenação por ID
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -269,21 +272,31 @@ export default function PetAdoptionScreen() {
         delete filtersWithoutSearch.searchResults;
 
         const filtered = await applyFiltersToData(baseData, filtersWithoutSearch);
-
         setFilteredPets(filtered);
       } else {
-        setFilteredPets(baseData);
+        // 🆕 APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        if (baseData === allPets) {
+          // allPets já deve estar ordenado do refreshData
+          setFilteredPets(baseData);
+        } else {
+          // searchResults podem não estar ordenados
+          const sortedBaseData = sortPetsByCreation(baseData);
+          setFilteredPets(sortedBaseData);
+        }
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        setFilteredPets(searchResults);
+        // 🆕 Ordenar searchResults por ID se necessário
+        const sortedSearchResults = sortPetsByCreation(searchResults);
+        setFilteredPets(sortedSearchResults);
       } else {
+        // allPets já deve estar ordenado
         setFilteredPets(allPets);
       }
     }
   };
 
-  // Função para recarregar os dados
+  // 🆕 ATUALIZADA: Função para recarregar os dados COM ordenação por ID
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
@@ -300,7 +313,9 @@ export default function PetAdoptionScreen() {
 
       const petsWithDetails = await loadPetsWithDetails(response);
 
-      setAllPets(petsWithDetails);
+      // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
+      const sortedPetsWithDetails = sortPetsByCreation(petsWithDetails);
+      setAllPets(sortedPetsWithDetails);
 
       setLoading(false);
     } catch (err) {
@@ -331,19 +346,17 @@ export default function PetAdoptionScreen() {
     checkForFilters();
   }, [params.applyFilters]);
 
-  // ✅ useFocusEffect para atualizar sempre que a tela ganhar foco
+  // useFocusEffect para atualizar sempre que a tela ganhar foco
   useFocusEffect(
     useCallback(() => {
-      // Só carregar se estiver autenticado e não estiver carregando
       if (usuarioId && !authLoading && isAuthenticated) {
         refreshData();
       }
     }, [usuarioId, authLoading, isAuthenticated, refreshData])
   );
 
-  // ✅ useEffect melhorado que também detecta mudanças nos parâmetros
+  // useEffect melhorado que também detecta mudanças nos parâmetros
   useEffect(() => {
-    // Carregar dados sempre que o usuário estiver disponível ou quando houver mudança nos parâmetros
     if (usuarioId && !authLoading && isAuthenticated) {
       refreshData();
     }
@@ -363,29 +376,24 @@ export default function PetAdoptionScreen() {
       return;
     }
 
-    // Encontrar o pet
     const pet = filteredPets.find((p: Pet) => p.id === petId);
     if (!pet) {
       Alert.alert('Erro', 'Pet não encontrado.');
       return;
     }
 
-    // Verificar se o usuário logado é o mesmo dono do pet
     if (pet.usuario_id === usuarioId) {
       Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
       return;
     }
 
     try {
-      // Chamar a API para criar a associação
       await createMyPet(petId, usuarioId);
 
-      // Mostrar mensagem de sucesso
       Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
         {
           text: 'OK',
           onPress: () => {
-            // Recarregar dados após adoção
             refreshData();
           },
         },
@@ -421,7 +429,7 @@ export default function PetAdoptionScreen() {
     });
   };
 
-  // Função para favoritar/desfavoritar um pet
+  // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
@@ -440,14 +448,16 @@ export default function PetAdoptionScreen() {
         await getFavorito(usuarioId, petId);
       }
 
+      // 🆕 ATUALIZADA: Atualização simples sem re-ordenação (allPets já está ordenado por ID)
       const updatedAllPets = allPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
-      setAllPets(updatedAllPets);
+      setAllPets(updatedAllPets); // Mantém ordem existente
 
       if (hasActiveSearch) {
+        // 🆕 ATUALIZADA: Atualização simples para searchResults também
         const updatedSearchResults = searchResults.map((p: Pet) =>
           p.id === petId ? { ...p, favorito: !p.favorito } : p
         );
-        setSearchResults(updatedSearchResults);
+        setSearchResults(updatedSearchResults); // Mantém ordem existente
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
@@ -551,7 +561,6 @@ export default function PetAdoptionScreen() {
     return 'Todos os pets disponíveis';
   };
 
-  // ✅ Loading de verificação de autenticação
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center', backgroundColor: '#4682B4' }]}>
@@ -561,7 +570,6 @@ export default function PetAdoptionScreen() {
     );
   }
 
-  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
   if (!isAuthenticated) {
     return null;
   }
@@ -692,7 +700,6 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
   },
-  // Estilo para informações do usuário
   userInfoContainer: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     marginHorizontal: 15,

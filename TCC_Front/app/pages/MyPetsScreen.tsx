@@ -1,4 +1,4 @@
-// MyPetsScreen.tsx - Atualizado com verificação de nome para termos de compromisso
+// MyPetsScreen.tsx - Otimizado com ordenação por ID
 
 import { router, useLocalSearchParams } from 'expo-router';
 import React, { useState, useEffect } from 'react';
@@ -30,11 +30,12 @@ import deleteFavorito from '@/services/api/Favoritos/deleteFavorito';
 import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import deleteTermoByPet from '@/services/api/TermoAdocao/deleteTermoByPet';
 import checkPetHasTermo from '@/services/api/TermoAdocao/checkPetHasTermo';
-import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt'; // 🆕 Importações atualizadas
+import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt';
 import updateStatus from '@/services/api/Status/updateStatus';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
 import { useAuth } from '@/contexts/AuthContext';
+
 // Definindo uma interface para o tipo Pet
 interface Pet {
   id: number;
@@ -95,10 +96,14 @@ interface FilterParams {
   statusIds?: number[];
 }
 
-// 🆕 Estados dos modais seguindo sequência iOS ATUALIZADA
 type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled' | 'name-update-needed';
 
 const { width } = Dimensions.get('window');
+
+// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+const sortPetsByCreation = (pets: Pet[]): Pet[] => {
+  return [...pets].sort((a, b) => b.id - a.id);
+};
 
 export default function MyPetsScreen() {
   const params = useLocalSearchParams();
@@ -113,14 +118,14 @@ export default function MyPetsScreen() {
   const [usuario, setUsuario] = useState<Usuario | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
-  // 🆕 Estados para controlar sequência de modais iOS ATUALIZADOS
+  // Estados para controlar sequência de modais iOS
   const [modalState, setModalState] = useState<ModalState>('closed');
   const [selectedPet, setSelectedPet] = useState<Pet | null>(null);
   const [hasExistingTermo, setHasExistingTermo] = useState<boolean>(false);
   const [emailWasSent, setEmailWasSent] = useState<boolean>(false);
   const [termoModalOrigin, setTermoModalOrigin] = useState<'obter' | 'ver' | 'update'>('obter');
 
-  // 🆕 NOVOS ESTADOS para verificação de nome
+  // Estados para verificação de nome
   const [nameNeedsUpdate, setNameNeedsUpdate] = useState<boolean>(false);
   const [isNameUpdateMode, setIsNameUpdateMode] = useState<boolean>(false);
   const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
@@ -131,18 +136,19 @@ export default function MyPetsScreen() {
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
 
-  // ✅ Verificar autenticação
+  // Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
-  // 🔧 FUNÇÃO CORRIGIDA: Botão voltar com debug
+
+  // Função de navegação
   const handleGoBack = () => {
     router.push('/pages/PetAdoptionScreen');
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: Filtro avançado com debug
+  // Função de filtro avançado
   const handleAdvancedFilter = () => {
     if (loading) return;
 
@@ -307,7 +313,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // Aplicar filtros considerando busca ativa
+  // 🆕 ATUALIZADA: Aplicar filtros considerando busca ativa COM ordenação por ID
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -365,20 +371,33 @@ export default function MyPetsScreen() {
           });
         }
 
-        setFilteredMyPets(filteredData);
+        // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no final dos filtros
+        const sortedFilteredData = sortPetsByCreation(filteredData);
+        setFilteredMyPets(sortedFilteredData);
       } else {
-        setFilteredMyPets(baseData);
+        // 🆕 APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        if (baseData === allMyPets) {
+          // allMyPets já deve estar ordenado do carregamento inicial
+          setFilteredMyPets(baseData);
+        } else {
+          // searchResults podem não estar ordenados
+          const sortedBaseData = sortPetsByCreation(baseData);
+          setFilteredMyPets(sortedBaseData);
+        }
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        setFilteredMyPets(searchResults);
+        // 🆕 Ordenar searchResults por ID apenas se necessário
+        const sortedSearchResults = sortPetsByCreation(searchResults);
+        setFilteredMyPets(sortedSearchResults);
       } else {
+        // allMyPets já deve estar ordenado
         setFilteredMyPets(allMyPets);
       }
     }
   };
 
-  // Carregar os meus pets usando getByUsuarioId
+  // 🆕 ATUALIZADA: Carregar os meus pets usando getByUsuarioId COM ordenação por ID
   useEffect(() => {
     const fetchMyPets = async () => {
       if (!usuarioId) {
@@ -411,13 +430,14 @@ export default function MyPetsScreen() {
         }
 
         const petsWithDetails = await loadPetsWithDetails(pets);
-
         const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-        setAllMyPets(validPets);
+        // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
+        const sortedValidPets = sortPetsByCreation(validPets);
+        setAllMyPets(sortedValidPets);
 
         if (!activeFilters && !hasActiveSearch) {
-          setFilteredMyPets(validPets);
+          setFilteredMyPets(sortedValidPets);
         }
 
         setLoading(false);
@@ -437,7 +457,7 @@ export default function MyPetsScreen() {
     }
   }, [activeFilters, hasActiveSearch, searchResults, allMyPets, loading]);
 
-  // Recarregar os dados
+  // 🆕 ATUALIZADA: Recarregar os dados COM ordenação por ID
   const refreshData = async () => {
     if (!usuarioId) {
       return;
@@ -470,7 +490,9 @@ export default function MyPetsScreen() {
       const petsWithDetails = await loadPetsWithDetails(pets);
       const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-      setAllMyPets(validPets);
+      // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no refresh
+      const sortedValidPets = sortPetsByCreation(validPets);
+      setAllMyPets(sortedValidPets);
       setLoading(false);
     } catch (err) {
       setError('Não foi possível carregar seus pets. Tente novamente mais tarde.');
@@ -478,7 +500,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 FUNÇÃO PRINCIPAL ATUALIZADA: handleCommunicate - COM VERIFICAÇÃO DE NOME
+  // Função principal para comunicação
   const handleCommunicate = async (pet: Pet) => {
     try {
       if (!usuarioId || !usuario) {
@@ -494,7 +516,6 @@ export default function MyPetsScreen() {
         return;
       }
 
-      // 🎯 NOVA LÓGICA: Verificar se pode adotar com verificação de nome
       setSelectedPet(pet);
       setEmailWasSent(false);
       setTermoModalOrigin('obter');
@@ -510,7 +531,7 @@ export default function MyPetsScreen() {
         if (nomeDesatualizado) {
           setIsNameUpdateMode(true);
           setTermoModalOrigin('update');
-          setModalState('termo-creation'); // Ir direto para criação/atualização
+          setModalState('termo-creation');
         } else if (temTermo && podeAdotar) {
           setIsNameUpdateMode(false);
           setModalState('whatsapp-enabled');
@@ -524,7 +545,6 @@ export default function MyPetsScreen() {
           setModalState('whatsapp-initial');
         }
       } catch (error) {
-        // Em caso de erro, assumir que não tem termo
         setHasExistingTermo(false);
         setNameNeedsUpdate(false);
         setIsNameUpdateMode(false);
@@ -535,31 +555,27 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 FUNÇÃO: Obter Termo (vai do primeiro modal para o modal de criação)
+  // Funções dos modais
   const handleObterTermo = () => {
     setTermoModalOrigin('obter');
     setIsNameUpdateMode(false);
     setModalState('termo-creation');
   };
 
-  // 🆕 FUNÇÃO: Iniciar processo de adoção (para modal habilitado)
   const handleStartAdoption = async () => {
     await handleStartWhatsApp();
   };
 
-  // 🆕 FUNÇÃO: Ver termo (para modal habilitado)
   const handleViewTermo = () => {
     setTermoModalOrigin('ver');
     setIsNameUpdateMode(false);
     setModalState('termo-creation');
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: Fechar modal do termo com lógica baseada na origem ATUALIZADA
   const handleTermoModalClose = () => {
     if (termoModalOrigin === 'ver') {
       setModalState('whatsapp-enabled');
     } else if (termoModalOrigin === 'update') {
-      // 🆕 LÓGICA PARA ATUALIZAÇÃO DE NOME
       if (emailWasSent) {
         setModalState('whatsapp-enabled');
       } else {
@@ -580,26 +596,24 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 FUNÇÃO: Termo foi criado/atualizado com sucesso
   const handleTermoCreated = () => {
     const action = isNameUpdateMode ? 'atualizado' : 'criado';
 
     setHasExistingTermo(true);
-    setNameNeedsUpdate(false); // 🆕 Reset flag de nome desatualizado
+    setNameNeedsUpdate(false);
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: Email enviado com sucesso
   const handleEmailSent = () => {
     const action = isNameUpdateMode ? 'atualizado' : 'criado';
 
     setHasExistingTermo(true);
     setEmailWasSent(true);
-    setNameNeedsUpdate(false); // 🆕 Reset flag
-    setIsNameUpdateMode(false); // 🆕 Reset modo
+    setNameNeedsUpdate(false);
+    setIsNameUpdateMode(false);
     setModalState('whatsapp-enabled');
   };
 
-  // 🆕 FUNÇÃO: Iniciar WhatsApp (atualiza status e abre WhatsApp)
+  // 🆕 ATUALIZADA: Iniciar WhatsApp SEM re-ordenação desnecessária
   const handleStartWhatsApp = async () => {
     if (!selectedPet || !usuario) return;
 
@@ -650,33 +664,33 @@ Agradeço desde já! 🐾❤️`;
       const canOpen = await Linking.canOpenURL(whatsappUrl);
 
       if (canOpen) {
-        // 🆕 ATUALIZAR STATUS DO PET PARA "ADOTADO" (status_id: 4)
         try {
           await updateStatus(selectedPet.id);
 
-          // Atualizar estados locais
+          // 🆕 ATUALIZADA: Atualização simples sem re-ordenação por ID
           const updatedPet = {
             ...selectedPet,
             status_id: 4,
             status_nome: 'Adotado',
           };
 
-          setAllMyPets((prevPets) => prevPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
-          setFilteredMyPets((prevPets) => prevPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
+          const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+          const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+
+          setAllMyPets(updatedAllPets); // Mantém ordem existente
+          setFilteredMyPets(updatedFilteredPets); // Mantém ordem existente
 
           if (hasActiveSearch) {
-            setSearchResults((prevResults) => prevResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet)));
+            const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+            setSearchResults(updatedSearchResults); // Mantém ordem existente
           }
         } catch (statusError) {}
 
-        // Fechar modal
         setModalState('closed');
         setSelectedPet(null);
 
-        // Abrir WhatsApp
         await Linking.openURL(whatsappUrl);
 
-        // Mostrar confirmação
         setTimeout(() => {
           Alert.alert(
             'Processo de Adoção Iniciado! 🎉',
@@ -710,15 +724,12 @@ Agradeço desde já! 🐾❤️`;
     }
   };
 
-  // 🆕 FUNÇÃO: Fechar todos os modais
   const handleCloseAllModals = () => {
     setModalState('closed');
     setSelectedPet(null);
     setHasExistingTermo(false);
     setEmailWasSent(false);
     setTermoModalOrigin('obter');
-
-    // 🆕 Reset estados de nome
     setNameNeedsUpdate(false);
     setIsNameUpdateMode(false);
   };
@@ -731,11 +742,8 @@ Agradeço desde já! 🐾❤️`;
     }
 
     try {
-      // 🔍 Primeiro, verificar se o pet tem termo de compromisso
-
       const temTermo = await checkPetHasTermo(pet.id);
 
-      // 🚨 Alerta personalizado baseado na existência do termo
       const alertTitle = 'Confirmar Remoção';
       const alertMessage = temTermo
         ? `Deseja realmente remover ${pet.nome} dos seus pets?\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.`
@@ -748,7 +756,6 @@ Agradeço desde já! 🐾❤️`;
           style: 'destructive',
           onPress: async () => {
             try {
-              // 🔄 ETAPA 1: Se tem termo, deletar termo primeiro
               if (temTermo) {
                 try {
                   const termoResult = await deleteTermoByPet(pet.id);
@@ -759,7 +766,6 @@ Agradeço desde já! 🐾❤️`;
                     console.log('ℹ️ Pet não possuía termo (verificação adicional)');
                   }
                 } catch (termoError: any) {
-                  // Se erro for de permissão, parar processo
                   if (termoError.message.includes('permissão')) {
                     Alert.alert(
                       'Erro de Permissão',
@@ -769,7 +775,6 @@ Agradeço desde já! 🐾❤️`;
                     return;
                   }
 
-                  // Para outros erros do termo, perguntar se quer continuar
                   const continuarSemTermo = await new Promise<boolean>((resolve) => {
                     Alert.alert(
                       'Erro ao Deletar Termo',
@@ -787,11 +792,8 @@ Agradeço desde já! 🐾❤️`;
                 }
               }
 
-              // 🔄 ETAPA 2: Deletar o pet
-
               await deleteMyPet(pet.id, usuarioId);
 
-              // 🔄 ETAPA 3: Atualizar estados locais
               setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
               setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
 
@@ -799,7 +801,6 @@ Agradeço desde já! 🐾❤️`;
                 setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
               }
 
-              // ✅ Sucesso com mensagem personalizada
               const successMessage = temTermo
                 ? `${pet.nome} e seu termo de compromisso foram removidos com sucesso.`
                 : `${pet.nome} foi removido dos seus pets.`;
@@ -817,7 +818,6 @@ Agradeço desde já! 🐾❤️`;
         },
       ]);
     } catch (error: any) {
-      // Em caso de erro na verificação, perguntar se quer continuar mesmo assim
       Alert.alert(
         'Erro na Verificação',
         `Não foi possível verificar se o pet possui termo de compromisso.\n\nDeseja continuar com a remoção?`,
@@ -826,7 +826,6 @@ Agradeço desde já! 🐾❤️`;
           {
             text: 'Continuar',
             onPress: async () => {
-              // Fallback: tentar remover apenas o pet
               try {
                 await deleteMyPet(pet.id, usuarioId);
 
@@ -848,7 +847,7 @@ Agradeço desde já! 🐾❤️`;
     }
   };
 
-  // Função para favoritar/desfavoritar um pet
+  // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
@@ -867,14 +866,16 @@ Agradeço desde já! 🐾❤️`;
         await getFavorito(usuarioId, petId);
       }
 
+      // 🆕 ATUALIZADA: Atualização simples sem re-ordenação por ID (allMyPets já está ordenado)
       const updatedAllPets = allMyPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
-      setAllMyPets(updatedAllPets);
+      setAllMyPets(updatedAllPets); // Mantém ordem existente
 
       if (hasActiveSearch) {
+        // 🆕 ATUALIZADA: Atualização simples para searchResults também
         const updatedSearchResults = searchResults.map((p: Pet) =>
           p.id === petId ? { ...p, favorito: !p.favorito } : p
         );
-        setSearchResults(updatedSearchResults);
+        setSearchResults(updatedSearchResults); // Mantém ordem existente
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
@@ -978,6 +979,7 @@ Agradeço desde já! 🐾❤️`;
 
     return 'Todos os meus pets';
   };
+
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -987,10 +989,10 @@ Agradeço desde já! 🐾❤️`;
     );
   }
 
-  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
   if (!isAuthenticated) {
     return null;
   }
+
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_02.png')} style={styles.backgroundImage}>
@@ -1091,9 +1093,7 @@ Agradeço desde já! 🐾❤️`;
           )}
         </View>
 
-        {/* 🆕 MODAIS SEGUINDO SEQUÊNCIA iOS ATUALIZADOS */}
-
-        {/* Modal de Adoção/WhatsApp (para ambos os estados: inicial e habilitado) */}
+        {/* Modais */}
         {selectedPet && (modalState === 'whatsapp-initial' || modalState === 'whatsapp-enabled') && (
           <AdoptionModal
             visible={true}
@@ -1105,7 +1105,6 @@ Agradeço desde já! 🐾❤️`;
                 nome: selectedPet.nome,
                 usuario_nome: selectedPet.usuario_nome,
                 foto: selectedPet.foto,
-                // 🆕 Propriedades para controlar o comportamento do modal
                 isInitialState: modalState === 'whatsapp-initial',
                 hasExistingTermo: hasExistingTermo,
               } as any
@@ -1113,7 +1112,6 @@ Agradeço desde já! 🐾❤️`;
           />
         )}
 
-        {/* 🆕 MODAL DO TERMO ATUALIZADO (aparece quando clica em Obter/Ver/Atualizar Termo) */}
         {selectedPet && usuario && modalState === 'termo-creation' && (
           <TermoAdocaoModal
             visible={true}
@@ -1128,7 +1126,6 @@ Agradeço desde já! 🐾❤️`;
             hasExistingTermo={hasExistingTermo}
             onSuccess={handleTermoCreated}
             onEmailSent={handleEmailSent}
-            // 🆕 NOVAS PROPS para indicar modo de atualização de nome
             isNameUpdateMode={isNameUpdateMode}
             nameNeedsUpdate={nameNeedsUpdate}
           />
@@ -1138,7 +1135,6 @@ Agradeço desde já! 🐾❤️`;
   );
 }
 
-// Estilos permanecem os mesmos...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
