@@ -116,6 +116,13 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [loadingFoto, setLoadingFoto] = useState<boolean>(false);
 
+  // ========================================
+  // NOVOS ESTADOS PARA LOADING ROBUSTO
+  // ========================================
+  const [isInitialLoadComplete, setIsInitialLoadComplete] = useState<boolean>(false);
+  const [isEditDataLoaded, setIsEditDataLoaded] = useState<boolean>(false);
+  const [loadingMessage, setLoadingMessage] = useState<string>('Carregando dados...');
+
   // States for validation errors
   const [especieErro, setEspecieErro] = useState<string>('');
   const [faixaEtariaErro, setFaixaEtariaErro] = useState<string>('');
@@ -127,6 +134,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [doencaDescricaoErro, setDoencaDescricaoErro] = useState<string>('');
   const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
   const [fotoErro, setFotoErro] = useState<string>('');
+  const [fotoProcessando, setFotoProcessando] = useState<boolean>(false);
+  const [tempoRestanteFoto, setTempoRestanteFoto] = useState<number>(0);
 
   // Initial form state
   const [formData, setFormData] = useState<FormData>(() => {
@@ -168,6 +177,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   });
 
   // ========================================
+  // COMPUTED STATE PARA VERIFICAR SE PODE MOSTRAR O FORMULÁRIO
+  // ========================================
+  const canShowForm = () => {
+    if (!isInitialLoadComplete) return false;
+    if (isEditMode && !isEditDataLoaded) return false;
+    return true;
+  };
+
+  // ========================================
   // FUNÇÃO ESPECÍFICA PARA LIMPAR TODOS OS ERROS
   // ========================================
   const limparTodosOsErros = () => {
@@ -184,7 +202,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   };
 
   // ========================================
-  // FUNÇÃO PARA RESETAR FORMULÁRIO COMPLETO
+  // FUNÇÃO PARA RESETAR FORMULÁRIO COMPLETO - CORRIGIDA
   // ========================================
   const resetarFormulario = () => {
     setFormData({
@@ -204,6 +222,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       foto: null,
     });
 
+    // ✅ RESETAR ESTADOS DE FOTO
+    setLoadingFoto(false);
+    setFotoProcessando(false);
+    setTempoRestanteFoto(0);
+
     // Resetar outros estados
     setShowRacasModal(false);
     setRacasFiltradas([]);
@@ -220,6 +243,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     // FORÇA o reset do formulário
     resetarFormulario();
 
+    // Reset loading states
+    setIsInitialLoadComplete(false);
+    setIsEditDataLoaded(false);
+    setLoadingMessage('Carregando dados...');
+
     // Fechar o modal
     onClose();
   };
@@ -232,17 +260,20 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       // Usar setTimeout para garantir que a limpeza aconteça
       setTimeout(() => {
         limparTodosOsErros();
+        setIsInitialLoadComplete(false);
+        setIsEditDataLoaded(false);
       }, 100);
     }
   }, [visible]);
 
   // ========================================
-  // RESTANTE DAS FUNÇÕES (sem alterações significativas)
+  // RESTANTE DAS FUNÇÕES (com loading aprimorado)
   // ========================================
 
   // Function to fetch logged user data
   const fetchUserData = async () => {
     try {
+      setLoadingMessage('Carregando dados do usuário...');
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
@@ -268,24 +299,30 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }));
     } catch (error) {
       Alert.alert('Error', 'Falha ao carregar os dados do usuário. Tente novamente.');
-    } finally {
-      setIsLoading(false);
     }
   };
 
-  // Load pet data if in edit mode
+  // ========================================
+  // LOAD PET DATA IF IN EDIT MODE - VERSÃO APRIMORADA
+  // ========================================
   useEffect(() => {
-    if (isEditMode && pet) {
+    if (isEditMode && pet && isInitialLoadComplete) {
       const setPetDataToForm = async () => {
         try {
-          setIsLoading(true);
+          setIsEditDataLoaded(false);
+          setLoadingMessage('Carregando dados do pet para edição...');
+
+          // Verificar se todos os dados básicos estão disponíveis
           if (especies.length === 0 || faixasEtarias.length === 0 || sexoOpcoes.length === 0) {
             return;
           }
 
+          // Encontrar a espécie do pet
           const especieData = especies.find((e) => e.id === pet.especie_id);
 
+          // Carregar raças se temos espécie ou raca_id
           if (!especieData && pet.raca_id) {
+            setLoadingMessage('Carregando raças...');
             const raca = racas.find((r) => r.id === pet.raca_id);
             if (raca) {
               const especiePorRaca = especies.find((e) => e.id === raca.especie_id);
@@ -294,16 +331,20 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               }
             }
           } else if (especieData) {
+            setLoadingMessage('Carregando raças...');
             await loadRacasByEspecie(especieData.id);
           }
 
+          // Encontrar faixa etária e sexo
           const faixaEtaria = faixasEtarias.find((f) => f.id === pet.faixa_etaria_id);
           const sexoData = sexoOpcoes.find((s) => s.id === pet.sexo_id);
 
+          // Carregar doenças
           let possuiDoenca = 'Não';
           let doencaDescricao = '';
 
           try {
+            setLoadingMessage('Carregando histórico de doenças...');
             const doencasResponse = await getDoencasPorPetId(pet.id);
 
             if (doencasResponse && Array.isArray(doencasResponse) && doencasResponse.length > 0) {
@@ -325,10 +366,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                 doencaDescricao = doencasResponse[0].doenca_nome || 'Doença não especificada';
               }
             }
-          } catch (doencasError) {
-            Alert.alert('Erro', 'Falha ao carregar doenças do pet.');
-          }
+          } catch (doencasError) {}
 
+          setLoadingMessage('Finalizando carregamento...');
+
+          // Atualizar formulário com todos os dados
           setFormData({
             nome: pet.nome || '',
             especie: especieData || '',
@@ -346,31 +388,43 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             foto: pet.foto || null,
           });
 
+          // Filtrar faixas etárias se temos espécie
           if (especieData) {
             const faixasFiltradas = faixasEtarias.filter((faixa) => faixa.especie_id === especieData.id);
             setFaixasEtariasFiltradas(faixasFiltradas);
           }
+
+          setIsEditDataLoaded(true);
         } catch (error) {
           Alert.alert('Erro', 'Falha ao carregar dados do pet para edição.');
-        } finally {
-          setIsLoading(false);
+          setIsEditDataLoaded(true); // Permitir que continue mesmo com erro
         }
       };
 
-      if (especies.length > 0 && faixasEtarias.length > 0 && sexoOpcoes.length > 0) {
-        setPetDataToForm();
-      }
+      setPetDataToForm();
+    } else if (!isEditMode) {
+      // Se não é modo de edição, marca como carregado imediatamente
+      setIsEditDataLoaded(true);
     }
-  }, [isEditMode, pet, especies, faixasEtarias, sexoOpcoes, racas]);
+  }, [isEditMode, pet, isInitialLoadComplete, especies, faixasEtarias, sexoOpcoes, racas, userData]);
 
-  // Fetch data from APIs when component mounts
+  // ========================================
+  // FETCH DATA FROM APIS WHEN COMPONENT MOUNTS - VERSÃO APRIMORADA
+  // ========================================
   useEffect(() => {
+    if (!visible) return; // Só carregar se modal estiver visível
+
     const fetchData = async () => {
       try {
         setIsLoading(true);
+        setIsInitialLoadComplete(false);
+        setIsEditDataLoaded(false);
 
+        // Carregar dados do usuário primeiro
         await fetchUserData();
 
+        // Carregar espécies
+        setLoadingMessage('Carregando espécies...');
         const especiesData = await getEspecies();
         if (Array.isArray(especiesData)) {
           setEspecies(especiesData);
@@ -385,6 +439,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           setEspecies([]);
         }
 
+        // Carregar faixas etárias
+        setLoadingMessage('Carregando faixas etárias...');
         const faixasEtariasData = await getFaixaEtaria();
         if (Array.isArray(faixasEtariasData)) {
           setFaixasEtarias(faixasEtariasData);
@@ -401,6 +457,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
         setFaixasEtariasFiltradas([]);
 
+        // Carregar opções de sexo
+        setLoadingMessage('Carregando opções de sexo...');
         const sexoPetData = await getSexoPet();
         if (Array.isArray(sexoPetData)) {
           setSexoOpcoes(sexoPetData);
@@ -414,15 +472,24 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         } else {
           setSexoOpcoes([]);
         }
+
+        setIsInitialLoadComplete(true);
+
+        // Se não é modo de edição, pode mostrar o formulário agora
+        if (!isEditMode) {
+          setIsEditDataLoaded(true);
+        }
       } catch (error) {
         Alert.alert('Error', 'Falha ao carregar os dados. Tente novamente.');
+        setIsInitialLoadComplete(true); // Permitir que continue mesmo com erro
+        setIsEditDataLoaded(true);
       } finally {
         setIsLoading(false);
       }
     };
 
     fetchData();
-  }, []);
+  }, [visible, isEditMode]);
 
   // Function to load races based on selected species
   const loadRacasByEspecie = async (especieId: number) => {
@@ -521,6 +588,21 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
     }
 
+    if (name === 'foto') {
+      setFormData((prevState) => {
+        const newState = { ...prevState, [name]: value };
+
+        return newState;
+      });
+
+      // Limpar erro de foto se valor válido
+      if (value) {
+        setFotoErro('');
+      }
+
+      return;
+    }
+
     if (value) {
       switch (name) {
         case 'nome':
@@ -546,9 +628,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           break;
         case 'motivoDoacao':
           setMotivoDoacaoErro('');
-          break;
-        case 'foto':
-          setFotoErro('');
           break;
         default:
           break;
@@ -627,14 +706,42 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     return sexoEncontrado ? sexoEncontrado.id : null;
   };
 
-  // Function to handle form submission
+  // ========================================
+  // HANDLE SUBMIT COM VERIFICAÇÃO DE LOADING
+  // ========================================
   const handleSubmit = async () => {
+    if (fotoProcessando) {
+      Alert.alert(
+        'Aguarde um momento',
+        `A foto ainda está sendo processada. Aguarde ${tempoRestanteFoto} segundos e tente novamente.`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    if (formData.foto && typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
+      // Aguardar um pouco mais para garantir que a foto está estável
+      await new Promise((resolve) => setTimeout(resolve, 500));
+    }
+    // ✅ VERIFICAÇÃO APRIMORADA DE LOADING
+    if (!canShowForm()) {
+      Alert.alert('Aguarde', 'Os dados ainda estão sendo carregados. Aguarde um momento e tente novamente.');
+      return;
+    }
+
     if (isEditMode && (!formData.especie || !formData.idadeCategoria || !formData.sexo)) {
       Alert.alert('Aviso', 'Aguarde o carregamento completo dos dados antes de atualizar');
       return;
     }
+
+    // ✅ VERIFICAÇÃO ESPECÍFICA PARA NOVA FOTO
+    if (formData.foto && typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
+      // Aguardar um pouco mais para garantir que a foto está estável
+      await new Promise((resolve) => setTimeout(resolve, 300));
+    }
+
     let isValid = true;
 
+    // === VALIDAÇÕES (manter todas as validações existentes) ===
     if (!formData.especie) {
       setEspecieErro('Selecione uma espécie');
       isValid = false;
@@ -733,6 +840,36 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         return;
       }
 
+      // ✅ PROCESSAMENTO CORRETO DA FOTO - IGUAL AO PERFIL DE USUÁRIO
+      let fotoProcessada = null;
+
+      if (formData.foto) {
+        if (typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
+          // ✅ NOVA FOTO selecionada do dispositivo (URI local)
+          const filename = formData.foto.split('/').pop() || `pet_${Date.now()}.jpg`;
+          const match = /\.(\w+)$/.exec(filename);
+          const type = match ? `image/${match[1]}` : 'image/jpeg';
+
+          fotoProcessada = {
+            uri: formData.foto,
+            type: type,
+            name: `${formData.nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
+          };
+        } else if (typeof formData.foto === 'string' && formData.foto.startsWith('http')) {
+          // ✅ FOTO EXISTENTE (URL completa) - manter como string
+          fotoProcessada = formData.foto;
+        } else {
+          // ✅ Caso não seja nem file:// nem http://, tratar como nova foto
+
+          fotoProcessada = {
+            uri: formData.foto,
+            type: 'image/jpeg',
+            name: `${formData.nome.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
+          };
+        }
+      } else {
+      }
+
       const petPayload: PetPayload = {
         nome: formData.nome,
         especie_id: formData.especie.id,
@@ -747,13 +884,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         motivoDoacao: formData.motivoDoacao,
         status_id: 1,
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
-        foto: formData.foto
-          ? {
-              uri: formData.foto,
-              type: 'image/jpeg',
-              name: `pet_${Date.now()}.jpg`,
-            }
-          : null,
+        foto: fotoProcessada, // ✅ Agora processada corretamente
       };
 
       setIsLoading(true);
@@ -788,7 +919,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         Alert.alert('Error', 'Não foi possível registrar o pet. Tente novamente.');
       }
     } catch (error) {
-      Alert.alert('Error', 'Ocorreu um erro ao processar sua solicitação. Tente novamente.');
+      let errorMessage = 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
+
+      // ✅ TRATAMENTO DE ERRO MAIS ESPECÍFICO
+      if (error instanceof Error) {
+        errorMessage = error.message;
+      } else {
+      }
+
+      Alert.alert('Error', errorMessage);
     } finally {
       setIsLoading(false);
     }
@@ -868,8 +1007,37 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       });
 
       if (!result.canceled) {
-        await new Promise((resolve) => setTimeout(resolve, 500));
-        handleChange('foto', result.assets[0].uri);
+        const imageUri = result.assets[0].uri;
+        if (imageUri && imageUri.startsWith('file://')) {
+          // ✅ INICIAR PERÍODO DE PROCESSAMENTO COM FEEDBACK VISUAL
+          setFotoProcessando(true);
+          setTempoRestanteFoto(5); // 5 segundos de espera
+
+          // ✅ ATUALIZAR ESTADO DA FOTO IMEDIATAMENTE
+          setFormData((prevData) => {
+            const newData = { ...prevData, foto: imageUri };
+
+            return newData;
+          });
+
+          // ✅ LIMPAR ERRO DE FOTO
+          setFotoErro('');
+
+          // ✅ COUNTDOWN COM FEEDBACK VISUAL
+          const countdown = setInterval(() => {
+            setTempoRestanteFoto((prev) => {
+              if (prev <= 1) {
+                clearInterval(countdown);
+                setFotoProcessando(false);
+
+                return 0;
+              }
+              return prev - 1;
+            });
+          }, 1000);
+        } else {
+          Alert.alert('Erro', 'URI da imagem inválida. Tente novamente.');
+        }
       }
     } catch (error) {
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
@@ -901,17 +1069,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
     return formatted;
   };
-
-  if (isLoading) {
-    return (
-      <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleCloseModal}>
-        <View style={styles.loadingContainer}>
-          <ActivityIndicator size="large" color="#4B99FB" />
-          <Text style={styles.loadingText}>Carregando dados...</Text>
-        </View>
-      </Modal>
-    );
-  }
 
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={handleCloseModal}>
@@ -1195,20 +1352,29 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               {motivoDoacaoErro ? <Text style={styles.errorText}>{motivoDoacaoErro}</Text> : null}
             </View>
 
-            {/* SEÇÃO DE FOTO MODIFICADA COM LOADING */}
+            {/* SEÇÃO DE FOTO MODIFICADA COM LOADING - CORRIGIDA */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
               </Text>
+
               <TouchableOpacity
-                style={[styles.photoUploadButton, loadingFoto && styles.photoUploadDisabled]}
+                style={[styles.photoUploadButton, (loadingFoto || fotoProcessando) && styles.photoUploadDisabled]}
                 onPress={pickImage}
-                disabled={loadingFoto}
+                disabled={loadingFoto || fotoProcessando}
               >
                 {loadingFoto ? (
                   <View style={styles.photoLoadingContainer}>
                     <ActivityIndicator size="large" color="#4B99FB" />
-                    <Text style={styles.photoLoadingText}>Processando imagem...</Text>
+                    <Text style={styles.photoLoadingText}>Selecionando imagem...</Text>
+                  </View>
+                ) : fotoProcessando ? (
+                  <View style={styles.photoLoadingContainer}>
+                    <ActivityIndicator size="large" color="#4B99FB" />
+                    <Text style={styles.photoLoadingText}>
+                      Processando imagem...{'\n'}
+                      Aguarde {tempoRestanteFoto} segundos
+                    </Text>
                   </View>
                 ) : formData.foto ? (
                   <Image source={{ uri: formData.foto }} style={styles.photoPreview} />
@@ -1218,27 +1384,38 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
                   </View>
                 )}
               </TouchableOpacity>
+
               {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
+
               <Text style={styles.infoText}>
-                {loadingFoto ? 'Processando imagem...' : 'Clique para selecionar uma foto da galeria'}
+                {loadingFoto
+                  ? 'Selecionando imagem da galeria...'
+                  : fotoProcessando
+                  ? `Aguarde ${tempoRestanteFoto} segundos para a foto ser processada`
+                  : 'Clique para selecionar uma foto da galeria'}
               </Text>
             </View>
 
-            {/* BOTÃO SALVAR MODIFICADO COM LOADING */}
+            {/* BOTÃO SALVAR MODIFICADO COM LOADING - CORRIGIDO */}
             <TouchableOpacity
-              style={[styles.saveButton, (isLoading || loadingFoto) && styles.saveButtonDisabled]}
+              style={[styles.saveButton, (isLoading || loadingFoto || fotoProcessando) && styles.saveButtonDisabled]}
               onPress={handleSubmit}
-              disabled={isLoading || loadingFoto}
+              disabled={isLoading || loadingFoto || fotoProcessando}
             >
               {isLoading ? (
                 <View style={styles.loadingButtonContainer}>
                   <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
                   <Text style={styles.saveButtonText}>{isEditMode ? 'Atualizando...' : 'Salvando...'}</Text>
                 </View>
+              ) : fotoProcessando ? (
+                <View style={styles.loadingButtonContainer}>
+                  <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
+                  <Text style={styles.saveButtonText}>Aguarde a foto carregar ({tempoRestanteFoto}s)</Text>
+                </View>
               ) : loadingFoto ? (
                 <View style={styles.loadingButtonContainer}>
                   <ActivityIndicator size="small" color="#FFFFFF" style={styles.loadingButtonIcon} />
-                  <Text style={styles.saveButtonText}>Processando foto...</Text>
+                  <Text style={styles.saveButtonText}>Selecionando foto...</Text>
                 </View>
               ) : (
                 <Text style={styles.saveButtonText}>Salvar</Text>
@@ -1545,11 +1722,54 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
+    backgroundColor: '#F0F0F0',
+    paddingHorizontal: 20,
   },
   loadingText: {
     fontSize: 16,
-    marginTop: 10,
+    marginTop: 15,
     color: '#333',
+    textAlign: 'center',
+  },
+  // ========================================
+  // NOVOS ESTILOS PARA LOADING APRIMORADO
+  // ========================================
+  loadingProgressContainer: {
+    marginTop: 30,
+    alignItems: 'center',
+  },
+  loadingProgressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginVertical: 8,
+  },
+  loadingProgressDot: {
+    width: 12,
+    height: 12,
+    borderRadius: 6,
+    backgroundColor: '#E0E0E0',
+    marginRight: 10,
+  },
+  loadingProgressDotComplete: {
+    backgroundColor: '#4B99FB',
+  },
+  loadingProgressText: {
+    fontSize: 14,
+    color: '#666',
+  },
+  cancelLoadingButton: {
+    marginTop: 40,
+    paddingVertical: 12,
+    paddingHorizontal: 24,
+    backgroundColor: '#F5F5F5',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#CCCCCC',
+  },
+  cancelLoadingButtonText: {
+    fontSize: 16,
+    color: '#666',
+    textAlign: 'center',
   },
   photoPreview: {
     width: 120,
