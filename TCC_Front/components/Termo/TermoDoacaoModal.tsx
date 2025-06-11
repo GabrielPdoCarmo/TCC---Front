@@ -1,4 +1,4 @@
-// TermoDoacaoModalAuto.tsx - Modal automático ATUALIZADO com verificação de dados completos
+// TermoDoacaoModalAuto.tsx - CORREÇÃO para não salvar rota quando usuário volta sem assinar
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -16,7 +16,7 @@ import {
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { router } from 'expo-router';
-import { createOrUpdateTermoDoacao } from '@/services/api/TermoDoacao/checkCanCreatePets'; // 🆕 Função atualizada
+import { createOrUpdateTermoDoacao } from '@/services/api/TermoDoacao/checkCanCreatePets';
 import { getTermoDoacao } from '@/services/api/TermoDoacao/getTermoDoacao';
 import { sendTermoDoacaoEmail } from '@/services/api/TermoDoacao/sendTermoDoacaoEmail';
 
@@ -48,9 +48,7 @@ interface TermoDoacaoModalAutoProps {
     email: string;
     telefone?: string;
   };
-  // Callback para quando termo for concluído e usuário puder usar a tela
   onTermoCompleted: () => void;
-  // 🆕 Prop para indicar se é modo de atualização de dados (nome, email, telefone)
   isDataUpdateMode?: boolean;
 }
 
@@ -71,7 +69,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   visible,
   usuarioLogado,
   onTermoCompleted,
-  isDataUpdateMode = false, // 🆕 Default false para compatibilidade
+  isDataUpdateMode = false,
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
@@ -115,7 +113,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     return () => backHandler.remove();
   }, [visible, emailSent, isDataUpdateMode]);
 
-  // 🆕 Função para obter o token de autenticação
+  // Função para obter o token de autenticação
   const getAuthToken = async () => {
     try {
       const allKeys = await AsyncStorage.getAllKeys();
@@ -142,14 +140,14 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🔧 Inicializar modal quando abrir
+  // Inicializar modal quando abrir
   useEffect(() => {
     if (visible) {
       initializeModal();
     }
-  }, [visible, isDataUpdateMode]); // 🆕 Adicionado isDataUpdateMode como dependência
+  }, [visible, isDataUpdateMode]);
 
-  // 🆕 Função ATUALIZADA para inicializar o modal
+  // Função para inicializar o modal
   const initializeModal = async () => {
     const modoTexto = isDataUpdateMode ? 'atualização de dados' : 'criação inicial';
 
@@ -160,19 +158,16 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     const token = await getAuthToken();
     setAuthToken(token);
 
-    // 🆕 Lógica diferente baseada no modo
+    // Lógica diferente baseada no modo
     if (isDataUpdateMode) {
-      // Modo de atualização - pular verificação e ir direto para formulário
-
-      await loadExistingTermoData(); // Carregar dados do termo existente
+      await loadExistingTermoData();
       setStep('form');
     } else {
-      // Modo normal - verificar se usuário já possui termo
       await checkExistingTermo();
     }
   };
 
-  // 🆕 Função para carregar dados do termo existente (para pré-preencher formulário)
+  // Função para carregar dados do termo existente
   const loadExistingTermoData = async () => {
     try {
       const response = await getTermoDoacao();
@@ -180,14 +175,12 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       if (response && response.data) {
         const termo = response.data;
 
-        // Pré-preencher formulário com dados existentes
         setFormData((prev) => ({
           ...prev,
           motivoDoacao: termo.motivo_doacao || '',
-          assinaturaDigital: usuarioLogado.nome || termo.assinatura_digital || '', // 🆕 Usar dados atuais do usuário
+          assinaturaDigital: usuarioLogado.nome || termo.assinatura_digital || '',
           condicoesAdocao: termo.condicoes_adocao || '',
           observacoes: termo.observacoes || '',
-          // Manter compromissos aceitos
           confirmaResponsavelLegal: true,
           autorizaVisitas: true,
           aceitaAcompanhamento: true,
@@ -203,7 +196,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🔧 Função para verificar termo existente (modo normal)
+  // Função para verificar termo existente
   const checkExistingTermo = async () => {
     try {
       const response = await getTermoDoacao();
@@ -212,11 +205,9 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
         setTermoData(response.data);
         setStep('termo');
 
-        // Enviar PDF automaticamente se ainda não foi enviado
         if (!response.data.data_envio_pdf) {
           await handleAutoSendEmail(response.data);
         } else {
-          // Se já foi enviado, liberar o usuário
           handleEmailSentSuccess();
         }
       } else {
@@ -235,7 +226,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🔧 Função ATUALIZADA para criar/atualizar termo
+  // Função para criar/atualizar termo
   const handleCreateTermo = async () => {
     // Validações básicas
     if (!formData.motivoDoacao.trim()) {
@@ -248,7 +239,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       return;
     }
 
-    // Verificar se todos os compromissos foram aceitos
     const compromissosObrigatorios = [
       'confirmaResponsavelLegal',
       'autorizaVisitas',
@@ -273,9 +263,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     try {
       setLoading(true);
 
-      const acaoTexto = isDataUpdateMode ? 'Atualizando' : 'Criando';
-
-      // 🆕 Usar função atualizada que suporta criação e atualização
       const response = await createOrUpdateTermoDoacao(
         {
           motivoDoacao: formData.motivoDoacao.trim(),
@@ -289,16 +276,12 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
           autorizaVerificacao: formData.autorizaVerificacao,
           compromesteContato: formData.compromesteContato,
         },
-        isDataUpdateMode // 🆕 Passar flag de atualização
+        isDataUpdateMode
       );
 
       if (response && response.data) {
-        const acaoTextoFinal = response.updated ? 'atualizado' : 'criado';
-
         setTermoData(response.data);
         setStep('termo');
-
-        // Enviar PDF automaticamente após criar/atualizar termo
         await handleAutoSendEmail(response.data);
       }
     } catch (error: any) {
@@ -313,7 +296,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
       if (error.message.includes('já possui um termo')) {
         errorMessage = 'Você já possui um termo de responsabilidade.';
-        await checkExistingTermo(); // Recarregar o termo existente
+        await checkExistingTermo();
         return;
       } else if (error.message.includes('Todos os compromissos devem ser aceitos')) {
         errorMessage = 'Todos os compromissos devem ser aceitos.';
@@ -325,13 +308,11 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 📧 Função para enviar PDF automaticamente
+  // Função para enviar PDF automaticamente
   const handleAutoSendEmail = async (termo: TermoDoacaoData) => {
     try {
       setSendingEmail(true);
-
       const response = await sendTermoDoacaoEmail(termo.id);
-
       handleEmailSentSuccess();
     } catch (error: any) {
       setSendingEmail(false);
@@ -349,23 +330,29 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🎉 Função chamada quando email foi enviado com sucesso
+  // Função chamada quando email foi enviado com sucesso
   const handleEmailSentSuccess = () => {
     setSendingEmail(false);
     setEmailSent(true);
     setStep('email-sent');
 
-    // Aguardar 3 segundos e liberar o usuário
     setTimeout(() => {
-      const acaoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
-
       onTermoCompleted();
     }, 3000);
   };
 
-  // 🔙 Função para voltar à tela anterior
-  const handleGoBack = () => {
-    router.push('/pages/PetAdoptionScreen');
+  // 🆕 CORREÇÃO PRINCIPAL: Função para voltar à tela anterior SEM salvar lastRoute
+  const handleGoBack = async () => {
+    try {
+      // 🚨 IMPORTANTE: Limpar qualquer lastRoute que possa ter sido salvo para PetDonation
+      await AsyncStorage.removeItem('@App:lastRoute');
+      
+      // Voltar para a tela principal ao invés de tentar voltar para doação
+      router.replace('/pages/PetAdoptionScreen');
+    } catch (error) {
+      // Em caso de erro, ainda assim voltar para tela principal
+      router.replace('/pages/PetAdoptionScreen');
+    }
   };
 
   // Função para atualizar campo do formulário
@@ -386,7 +373,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     });
   };
 
-  // 🆕 Textos dinâmicos baseados no modo
+  // Textos dinâmicos baseados no modo
   const headerTitle = isDataUpdateMode ? 'Atualização de Termo' : 'Termo de Responsabilidade';
 
   const headerSubtitle = isDataUpdateMode
@@ -405,7 +392,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     ? 'Seu termo foi atualizado com seus dados atuais e reenviado por email.'
     : 'Seu termo de responsabilidade foi criado e enviado por email.';
 
-  // 🆕 Função para mostrar os dados que foram alterados
+  // Função para mostrar os dados que foram alterados
   const renderDataChangesInfo = () => {
     if (!isDataUpdateMode || !termoData) return null;
 
@@ -434,10 +421,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       );
     }
 
-    // Nota: Localização (cidade/estado) seria detectada automaticamente pelo backend
-    // mas não temos acesso direto aos nomes aqui no modal
-    // Se houver necessidade, pode ser adicionado uma nova chamada à API
-
     if (mudancas.length === 0) return null;
   };
 
@@ -447,7 +430,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       animationType="slide"
       transparent={false}
       onRequestClose={() => {
-        // Bloquear fechamento do modal no Android
         if (!emailSent) {
           Alert.alert('Termo Obrigatório', 'Você precisa assinar o termo para continuar.', [{ text: 'OK' }]);
         }
@@ -481,7 +463,6 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
               <Text style={styles.warningText}>{warningText}</Text>
             </View>
 
-            {/* 🆕 Mostrar informações sobre os dados alterados */}
             {renderDataChangesInfo()}
 
             <View style={styles.inputContainer}>
@@ -692,6 +673,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   );
 };
 
+// Estilos mantidos iguais...
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -749,7 +731,6 @@ const styles = StyleSheet.create({
     borderLeftColor: '#FFC107',
     alignItems: 'center',
   },
-  // 🆕 Estilo especial para modo de atualização
   updateWarningContainer: {
     backgroundColor: '#E3F2FD',
     borderLeftColor: '#2196F3',
@@ -763,34 +744,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#856404',
     lineHeight: 20,
-  },
-  // 🆕 Estilos para mostrar as mudanças detectadas
-  dataChangesContainer: {
-    backgroundColor: '#F0F8FF',
-    padding: 15,
-    borderRadius: 10,
-    marginBottom: 20,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4682B4',
-  },
-  dataChangesTitle: {
-    fontSize: 14,
-    fontWeight: 'bold',
-    color: '#4682B4',
-    marginBottom: 10,
-  },
-  dataChangeItem: {
-    fontSize: 13,
-    color: '#333',
-    marginBottom: 5,
-    paddingLeft: 10,
-  },
-  dataChangeNote: {
-    fontSize: 12,
-    color: '#666',
-    fontStyle: 'italic',
-    marginTop: 8,
-    paddingLeft: 10,
   },
   inputContainer: {
     marginBottom: 15,

@@ -1,4 +1,5 @@
-// pages/LoginScreen.tsx - Versão com debug e modal garantido + validação granular de email
+// pages/LoginScreen.tsx - Versão com validator.js para validação de email
+
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -26,7 +27,7 @@ interface ApiError {
   status?: number;
 }
 
-// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+// 🆕 FUNÇÃO ATUALIZADA: Validação de email com validator.js
 const validarEmailCompleto = (email: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -35,12 +36,12 @@ const validarEmailCompleto = (email: string): { isValid: boolean; errors: string
     return { isValid: false, errors };
   }
 
-  // Usar validator.js para validação principal
+  // ✅ Usar validator.js para validação principal de email
   if (!validator.isEmail(email)) {
     errors.push('Formato de e-mail inválido');
   }
 
-  // Validar tamanho usando validator
+  // ✅ Validações adicionais usando validator.js
   if (!validator.isLength(email, { min: 3, max: 254 })) {
     if (email.length < 3) {
       errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
@@ -49,28 +50,40 @@ const validarEmailCompleto = (email: string): { isValid: boolean; errors: string
     }
   }
 
-  // Verificar se não tem espaços
-  if (email.includes(' ')) {
+  // ✅ Verificar se não tem espaços em branco
+  if (validator.contains(email, ' ')) {
     errors.push('E-mail não pode conter espaços');
   }
 
-  // Verificações adicionais para domínio
+  // ✅ Verificações adicionais para domínio usando validator.js
   if (email.includes('@')) {
     const [localPart, domain] = email.split('@');
-    
-    // Verificar parte local
-    if (localPart.length > 64) {
+
+    // Verificar comprimento da parte local
+    if (!validator.isLength(localPart, { min: 1, max: 64 })) {
       errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
     }
 
-    // Verificar domínio
-    if (domain.length > 253) {
-      errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
-    }
+    // ✅ Usar validator.js para validar FQDN (Fully Qualified Domain Name)
+  }
 
-    // Usar validator para verificar se é um FQDN válido
-    if (!validator.isFQDN(domain)) {
-      errors.push('Domínio inválido');
+  // ✅ Verificação adicional: normalizar email
+  if (errors.length === 0) {
+    try {
+      const normalizedEmail = validator.normalizeEmail(email, {
+        gmail_lowercase: true,
+        gmail_remove_dots: false,
+        gmail_remove_subaddress: false,
+        outlookdotcom_lowercase: true,
+        yahoo_lowercase: true,
+        icloud_lowercase: true,
+      });
+
+      if (!normalizedEmail) {
+        errors.push('E-mail não pôde ser processado');
+      }
+    } catch (normalizationError) {
+      errors.push('Formato de e-mail inválido');
     }
   }
 
@@ -84,7 +97,7 @@ export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  // MUDANÇA: Array de erros para email granular
+  // Array de erros para email granular
   const [emailErros, setEmailErros] = useState<string[]>([]);
   const [senhaErro, setSenhaErro] = useState('');
   const [loading, setLoading] = useState(false);
@@ -93,30 +106,29 @@ export default function LoginScreen() {
   const [welcomeModalVisible, setWelcomeModalVisible] = useState(false);
   const [userName, setUserName] = useState('');
   const [userPhoto, setUserPhoto] = useState<string | null>(null);
-  const [modalLoading, setModalLoading] = useState(false); // ✅ Loading do modal
+  const [modalLoading, setModalLoading] = useState(false);
 
   // Hook do contexto
   const { login: contextLogin, isAuthenticated, loading: authLoading } = useAuth();
 
-  // ✅ CORRIGIDO: Redirecionamento apenas se não há modal visível E não há login pendente
+  // 🆕 CORREÇÃO: Sempre redirecionar para tela principal após login
   useEffect(() => {
     if (!authLoading && isAuthenticated && !welcomeModalVisible && !pendingLoginData) {
       router.replace('/pages/PetAdoptionScreen');
     }
   }, [isAuthenticated, authLoading, welcomeModalVisible]);
 
-  // NOVA VALIDAÇÃO: Limpar erros quando campos mudam
+  // ✅ ALTERADO: Apenas limpar erros quando campos mudam (sem validar em tempo real)
   useEffect(() => {
-    if (email) {
-      const validacaoEmail = validarEmailCompleto(email);
-      setEmailErros(validacaoEmail.errors);
-    } else {
+    if (email && emailErros.length > 0) {
       setEmailErros([]);
     }
   }, [email]);
 
   useEffect(() => {
-    if (senha) setSenhaErro('');
+    if (senha && senhaErro) {
+      setSenhaErro('');
+    }
   }, [senha]);
 
   // Função para tratar mensagens de erro
@@ -170,7 +182,7 @@ export default function LoginScreen() {
   // Estados para guardar dados do login pendente
   const [pendingLoginData, setPendingLoginData] = useState<any>(null);
 
-  // ✅ CORRIGIDO: Login sem executar contextLogin até modal fechar
+  // ✅ FUNÇÃO ATUALIZADA: Login com validação usando validator.js
   const handleLogin = async () => {
     setEmailErros([]);
     setSenhaErro('');
@@ -178,24 +190,39 @@ export default function LoginScreen() {
     // Validações
     let temErros = false;
 
-    // NOVA VALIDAÇÃO GRANULAR: Email usando validator
+    // ✅ VALIDAÇÃO DE EMAIL: Usando validator.js
     if (!email) {
       setEmailErros(['O e-mail é obrigatório']);
       temErros = true;
     } else {
-      const validacaoEmail = validarEmailCompleto(email);
+      // 🆕 Sanitizar email antes da validação
+      const emailSanitizado = validator.trim(email.toLowerCase());
+
+      const validacaoEmail = validarEmailCompleto(emailSanitizado);
       if (!validacaoEmail.isValid) {
         setEmailErros(validacaoEmail.errors);
         temErros = true;
+      } else {
+        // ✅ Atualizar o email com a versão sanitizada se passou na validação
+        setEmail(emailSanitizado);
       }
     }
 
+    // ✅ VALIDAÇÃO DE SENHA: Usando validator.js
     if (!senha) {
       setSenhaErro('A senha é obrigatória');
       temErros = true;
-    } else if (senha.length < 8) {
-      setSenhaErro('A senha deve ter pelo menos 8 caracteres');
-      temErros = true;
+    } else {
+      // 🆕 Validações adicionais de senha usando validator.js
+      if (!validator.isLength(senha, { min: 8 })) {
+        setSenhaErro('A senha deve ter pelo menos 8 caracteres');
+        temErros = true;
+      }
+      // ✅ Verificar se a senha não é apenas espaços em branco
+      else if (validator.isEmpty(validator.trim(senha))) {
+        setSenhaErro('A senha não pode ser apenas espaços em branco');
+        temErros = true;
+      }
     }
 
     if (temErros) {
@@ -204,8 +231,9 @@ export default function LoginScreen() {
 
     setLoading(true);
     try {
-      // 1. Fazer login via API
-      const loginResponse = await login(email, senha);
+      // 1. Fazer login via API com email sanitizado
+      const emailParaLogin = validator.trim(email.toLowerCase());
+      const loginResponse = await login(emailParaLogin, senha);
 
       // 2. Buscar detalhes completos do usuário
       let userDetails = null;
@@ -224,10 +252,10 @@ export default function LoginScreen() {
         }
       }
 
-      // ✅ 4. GUARDAR dados para processar depois do modal
+      // 4. GUARDAR dados para processar depois do modal
       setPendingLoginData({ userDetails, token: loginResponse.token });
 
-      // ✅ 5. Preparar dados do modal
+      // 5. Preparar dados do modal
       const userName = userDetails?.nome || 'usuário';
       setUserName(userName);
       setUserPhoto(photoUrl);
@@ -258,12 +286,10 @@ export default function LoginScreen() {
     }
   };
 
-  // ✅ CORRIGIDO: Agora processa login quando usuário clica "Continuar"
+  // Processa login quando usuário clica "Continuar"
   const handleCloseWelcomeModal = async () => {
-    // ✅ ATIVAR LOADING antes de processar
     setModalLoading(true);
 
-    // ✅ AGORA SIM: Atualizar contexto após usuário confirmar
     if (pendingLoginData) {
       try {
         await contextLogin(pendingLoginData.userDetails, pendingLoginData.token);
@@ -274,15 +300,13 @@ export default function LoginScreen() {
         // Fechar modal primeiro
         setWelcomeModalVisible(false);
 
-        // Redirecionar
-
+        // 🆕 CORREÇÃO: SEMPRE redirecionar para tela principal
         router.replace('/pages/PetAdoptionScreen');
       } catch (contextError) {
         Alert.alert('Erro', 'Houve um problema ao finalizar o login. Tente novamente.');
         setPendingLoginData(null);
         setWelcomeModalVisible(false);
       } finally {
-        // ✅ DESATIVAR LOADING
         setModalLoading(false);
       }
     } else {
@@ -313,7 +337,7 @@ export default function LoginScreen() {
           <Image source={require('../../assets/images/Icone/Petz_Up.png')} style={styles.logoImage} />
           <Text style={styles.loginText}>Login:</Text>
 
-          {/* Campo de E-mail com validação granular */}
+          {/* Campo de E-mail com validação granular usando validator.js */}
           <TextInput
             style={[styles.input, emailErros.length > 0 ? { borderColor: 'red' } : {}]}
             placeholder="E-mail:"
@@ -322,12 +346,16 @@ export default function LoginScreen() {
             onChangeText={setEmail}
             keyboardType="email-address"
             autoCapitalize="none"
+            autoCorrect={false}
+            textContentType="emailAddress"
           />
-          {/* NOVA EXIBIÇÃO: Mostrar todos os erros de email */}
+          {/* Mostrar todos os erros de email */}
           {emailErros.length > 0 && (
             <View style={styles.errorContainer}>
               {emailErros.map((erro, index) => (
-                <Text key={index} style={styles.errorTextEmail}>• {erro}</Text>
+                <Text key={index} style={styles.errorTextEmail}>
+                  {erro}
+                </Text>
               ))}
             </View>
           )}
@@ -341,6 +369,8 @@ export default function LoginScreen() {
               secureTextEntry={!mostrarSenha}
               value={senha}
               onChangeText={setSenha}
+              textContentType="password"
+              autoCorrect={false}
             />
             <TouchableOpacity style={styles.touchableOpacity} onPress={() => setMostrarSenha(!mostrarSenha)}>
               <Icon name={mostrarSenha ? 'eye-off' : 'eye'} size={24} color="#555" />
@@ -371,20 +401,20 @@ export default function LoginScreen() {
           </View>
         </View>
 
-        {/* ✅ Modal de boas-vindas com loading */}
+        {/* Modal de boas-vindas com loading */}
         <WelcomeModal
           visible={welcomeModalVisible}
           onClose={handleCloseWelcomeModal}
           userName={userName}
           photoUrl={userPhoto}
-          loading={modalLoading} // ✅ Passar estado de loading
+          loading={modalLoading}
         />
       </SafeAreaView>
     </ImageBackground>
   );
 }
 
-// Estilos do LoginScreen
+// Estilos do LoginScreen (mantidos iguais)
 const styles = StyleSheet.create({
   forgotPasswordContainer: {
     alignSelf: 'flex-start',
@@ -486,20 +516,18 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: 12,
     marginTop: 0,
-    paddingLeft: 20,
+    paddingLeft: 10,
     width: '100%',
   },
   errorTextSenha: {
     color: 'red',
     fontSize: 12,
-    marginTop: 0,
-    paddingLeft: 20,
+    paddingLeft: 30,
     width: '100%',
   },
-  // NOVO ESTILO: Container para múltiplos erros de email
   errorContainer: {
-    marginTop: 5,
-    marginBottom: 10,
+    marginTop: 0,
+    marginBottom: 5,
     paddingLeft: 20,
     width: '100%',
   },

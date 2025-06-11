@@ -7,12 +7,20 @@ type Props = {
   onSelectEstado: (selectedEstado: { id: number; nome: string }) => Promise<void>;
   showEstados: boolean;
   setShowEstados: React.Dispatch<React.SetStateAction<boolean>>;
-  estadoSearch: { id: number; nome: string }; // Mantendo o tipo { id: number; nome: string }
-  setEstadoSearch: React.Dispatch<React.SetStateAction<{ id: number; nome: string }>>; // Mantendo o tipo { id: number; nome: string }
+  estadoSearch: { id: number; nome: string };
+  setEstadoSearch: React.Dispatch<React.SetStateAction<{ id: number; nome: string }>>;
+  disabled?: boolean; // 🆕 ADICIONADA: Prop disabled opcional
 };
 
-const EstadoSelect: React.FC<Props> = ({ estado, estados, onSelectEstado, estadoSearch, setEstadoSearch }) => {
-  const [estadosFiltrados, setEstadosFiltrados] = useState<{ id: number; nome: string }[]>([]); // Filtra com base em objetos
+const EstadoSelect: React.FC<Props> = ({ 
+  estado, 
+  estados, 
+  onSelectEstado, 
+  estadoSearch, 
+  setEstadoSearch, 
+  disabled = false // 🆕 ADICIONADO: Default false
+}) => {
+  const [estadosFiltrados, setEstadosFiltrados] = useState<{ id: number; nome: string }[]>([]);
   const [showModal, setShowModal] = useState(false);
 
   useEffect(() => {
@@ -32,24 +40,50 @@ const EstadoSelect: React.FC<Props> = ({ estado, estados, onSelectEstado, estado
     const filtrados = estados.filter((estado) => normalizeText(estado.nome).includes(textoNormalizado));
 
     setEstadosFiltrados(filtrados);
-    setEstadoSearch({ id: -1, nome: text }); // Atualiza o estado de busca com o texto digitado como parte do objeto
+    setEstadoSearch({ id: -1, nome: text });
   };
 
   const handleSelectEstado = async (estado: { id: number; nome: string }) => {
+    if (disabled) return; // 🆕 ADICIONADO: Bloquear se desabilitado
+
     await onSelectEstado(estado);
-    setShowModal(false); // Fecha o modal após a seleção
+    setShowModal(false);
+  };
+
+  // 🆕 ADICIONADO: Função para abrir modal com verificação de disabled
+  const handleOpenModal = () => {
+    if (disabled) return; // Não abrir se desabilitado
+    setShowModal(true);
+  };
+
+  // 🆕 ADICIONADO: Estilo dinâmico baseado no estado disabled
+  const inputStyle = {
+    ...styles.input,
+    backgroundColor: disabled ? '#f5f5f5' : '#fff',
+    borderColor: disabled ? '#ccc' : '#000',
+    opacity: disabled ? 0.6 : 1,
+  };
+
+  const textStyle = {
+    ...styles.pickerText,
+    color: disabled ? '#999' : '#000',
   };
 
   return (
     <View>
       <TouchableOpacity
-        style={styles.input}
-        onPress={() => setShowModal(true)} // Abre o modal
+        style={inputStyle}
+        onPress={handleOpenModal} // 🆕 ATUALIZADO: Usar função com verificação
+        disabled={disabled} // 🆕 ADICIONADO: Prop disabled
+        activeOpacity={disabled ? 1 : 0.7} // 🆕 ADICIONADO: Sem feedback visual se desabilitado
       >
-        <Text style={styles.pickerText}>{estado?.nome ?? 'Selecione um estado'}</Text>
+        <Text style={textStyle}>
+          {estado?.nome ?? 'Selecione um estado'}
+        </Text>
       </TouchableOpacity>
 
-      {showModal && (
+      {/* 🆕 ATUALIZADO: Só mostrar modal se não estiver desabilitado */}
+      {showModal && !disabled && (
         <Modal transparent={true} animationType="fade" visible={showModal} onRequestClose={() => setShowModal(false)}>
           <View style={styles.modalContainer}>
             <View style={styles.modalContent}>
@@ -57,7 +91,7 @@ const EstadoSelect: React.FC<Props> = ({ estado, estados, onSelectEstado, estado
                 style={styles.searchInput}
                 placeholder="Buscar estado..."
                 placeholderTextColor="#888"
-                value={estadoSearch.nome} // Exibe o nome do estado no campo de busca
+                value={estadoSearch.nome}
                 onChangeText={handleSearch}
               />
 

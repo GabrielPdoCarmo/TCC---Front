@@ -117,7 +117,7 @@ export default function PetDonationScreen() {
       router.replace('/pages/LoginScreen');
       return;
     }
-    
+
     // Se está autenticado, garantir que o loading inicial esteja ativo
     if (!authLoading && isAuthenticated && !initialCheckDone) {
       setInitialLoading(true);
@@ -156,21 +156,45 @@ export default function PetDonationScreen() {
           const temTermo = result.data.temTermo || false;
           const dadosDesatualizados = result.data.dadosDesatualizados || false;
 
+       
+
           setCanCreatePets(podecastrar);
           setDataOutdated(dadosDesatualizados);
           setInitialCheckDone(true);
 
-          if (dadosDesatualizados) {
+          // 🆕 CORREÇÃO PRINCIPAL: Lógica melhorada para decidir quando mostrar modal
+          if (dadosDesatualizados && temTermo) {
+            // Caso 1: Usuário tem termo mas dados estão desatualizados
+           
             setIsDataUpdateMode(true);
             setTermoModalVisible(true);
-          } else if (!podecastrar && !temTermo) {
+          } else if (!temTermo && !podecastrar) {
+            // Caso 2: Usuário não tem termo nenhum
+           
             setIsDataUpdateMode(false);
             setTermoModalVisible(true);
-          } else if (podecastrar) {
+          } else if (temTermo && podecastrar && !dadosDesatualizados) {
+            // Caso 3: Usuário tem termo válido e atualizado
+            
             setTermoModalVisible(false);
+            setIsDataUpdateMode(false);
+          } else {
+            // Caso 4: Situação não esperada, por segurança mostrar modal
+            
+            setIsDataUpdateMode(false);
+            setTermoModalVisible(true);
           }
+        } else {
+          // Se não conseguiu verificar, por segurança assumir que precisa do termo
+          setCanCreatePets(false);
+          setDataOutdated(false);
+          setIsDataUpdateMode(false);
+          setTermoModalVisible(true);
+          setInitialCheckDone(true);
         }
       } catch (error: any) {
+        
+
         if (error.message && error.message.includes('Sessão expirada')) {
           Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
             { text: 'OK', onPress: () => router.back() },
@@ -178,6 +202,7 @@ export default function PetDonationScreen() {
           return;
         }
 
+        // Em caso de erro, assumir que precisa do termo
         setCanCreatePets(false);
         setDataOutdated(false);
         setIsDataUpdateMode(false);
@@ -289,7 +314,7 @@ export default function PetDonationScreen() {
       // APLICAR ORDENAÇÃO APENAS UMA VEZ NO FINAL
       const sortedPets = sortPetsByCreation(enrichedPets);
       setPets(sortedPets);
-      
+
       // 🆕 Habilitar botão após carregar os pets com sucesso (mesmo se lista vazia)
       setAddButtonEnabled(true);
     } catch (error) {
@@ -305,16 +330,19 @@ export default function PetDonationScreen() {
   useEffect(() => {
     const initializeScreen = async () => {
       if (initialCheckDone) {
+       
         return;
       }
 
+      
       checkCountRef.current = 0; // Reset contador
-      // O initialLoading já está true por padrão
 
       try {
         await loadUserData();
-        await checkUserPermissions(true); // Force primeira verificação
+        // 🆕 SEMPRE fazer a verificação na primeira vez, mas de forma inteligente
+        await checkUserPermissions(true);
       } catch (error) {
+    
         setCanCreatePets(false);
         setDataOutdated(false);
         setIsDataUpdateMode(false);
@@ -340,37 +368,43 @@ export default function PetDonationScreen() {
   }, [canCreatePets, initialCheckDone, dataOutdated]);
 
   // Focus effect CONTROLADO (SEM LOOPS)
-  useFocusEffect(
-    useCallback(() => {
-      if (initialCheckDone && !termoLoading && !isCheckingPermissions && !initialLoading) {
-        const timeoutId = setTimeout(() => {
-          checkUserPermissions(false);
-        }, 1000);
+ useFocusEffect(
+  useCallback(() => {
+    // 🆕 Só verificar novamente se:
+    // 1. Já passou pela inicialização
+    // 2. Não está carregando
+    // 3. Modal não está visível (evita conflitos)
+    if (initialCheckDone && !termoLoading && !isCheckingPermissions && !initialLoading && !termoModalVisible) {
+  
+      const timeoutId = setTimeout(() => {
+        checkUserPermissions(false); // Verificação suave, sem forçar
+      }, 1000);
 
-        return () => {
-          clearTimeout(timeoutId);
-        };
-      }
-    }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, checkUserPermissions])
-  );
+      return () => {
+        clearTimeout(timeoutId);
+      };
+    }
+  }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, termoModalVisible, checkUserPermissions])
+);
+
 
   // Callback quando termo for concluído (SEM LOOPS)
   const handleTermoCompleted = useCallback(() => {
-    const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
+  const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
 
-    setTermoModalVisible(false);
-    setCanCreatePets(true);
-    setDataOutdated(false);
-    setIsDataUpdateMode(false);
 
-    // Reset contador para permitir nova verificação
-    checkCountRef.current = 0;
+  setTermoModalVisible(false);
+  setCanCreatePets(true);
+  setDataOutdated(false);
+  setIsDataUpdateMode(false);
 
-    // Verificação final após término do termo (APENAS UMA VEZ)
-    setTimeout(() => {
-      checkUserPermissions(true);
-    }, 2000);
-  }, [checkUserPermissions, isDataUpdateMode]);
+  // Reset contador para permitir nova verificação se necessário
+  checkCountRef.current = 0;
+
+  // 🆕 EVITAR verificação imediata após completar termo
+  // O usuário já assinou/atualizou, não precisa verificar novamente
+
+}, [isDataUpdateMode]);
 
   // Função para abrir o modal no modo de adição COM loading
   const handleOpenModal = async () => {
@@ -390,7 +424,7 @@ export default function PetDonationScreen() {
 
     // Simular um pequeno loading para dar feedback visual
     setAddButtonLoading(true);
-    
+
     // Simular tempo de preparação do modal
     setTimeout(() => {
       setCurrentPet(null);
@@ -616,24 +650,21 @@ export default function PetDonationScreen() {
           )}
 
           {/* Add button com loading e controle de habilitação */}
-          <TouchableOpacity 
+          <TouchableOpacity
             style={[
               styles.addButton,
               addButtonLoading && styles.addButtonLoading,
-              !addButtonEnabled && styles.addButtonDisabled
-            ]} 
+              !addButtonEnabled && styles.addButtonDisabled,
+            ]}
             onPress={handleOpenModal}
             disabled={addButtonLoading || !addButtonEnabled}
           >
             {addButtonLoading ? (
               <ActivityIndicator size="small" color="#FFFFFF" />
             ) : (
-              <Image 
-                source={require('../../assets/images/Icone/add-icon.png')} 
-                style={[
-                  styles.addIcon,
-                  !addButtonEnabled && styles.addIconDisabled
-                ]} 
+              <Image
+                source={require('../../assets/images/Icone/add-icon.png')}
+                style={[styles.addIcon, !addButtonEnabled && styles.addIconDisabled]}
               />
             )}
           </TouchableOpacity>

@@ -1,4 +1,5 @@
-// contexts/AuthContext.tsx - Versão com sistema de última rota melhorado
+// contexts/AuthContext.tsx - Versão corrigida com limpeza de lastRoute no logout
+
 import React, { createContext, useContext, useState, useEffect } from 'react';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
@@ -25,7 +26,7 @@ interface AuthContextType {
   logout: () => Promise<void>;
   setLastRoute: (route: string) => void;
   updateUser: (userData: User) => Promise<void>;
-  getRedirectRoute: () => string; // ✅ Nova função para obter rota de redirecionamento
+  getRedirectRoute: () => string;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
@@ -47,7 +48,7 @@ const EXCLUDED_ROUTES = [
   '/pages/ForgotPasswordScreen',
 ] as const;
 
-// ✅ NOVO: Mapeamento de rotas de filtro para suas telas pai
+// ✅ Mapeamento de rotas de filtro para suas telas pai
 const FILTER_ROUTE_MAPPING: { [key: string]: string } = {
   '/pages/FilterScreen': '/pages/PetAdoptionScreen',
   '/pages/MypetsFilter': '/pages/MyPetsScreen',
@@ -92,7 +93,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setIsAuthenticated(true);
       }
 
-      setLastRouteState(savedRoute);
+      // 🆕 CORRIGIDO: Só definir lastRoute se o usuário estiver autenticado
+      if (savedToken && savedUserId && savedRoute) {
+        setLastRouteState(savedRoute);
+      } else {
+        setLastRouteState(null);
+      }
     } catch (error) {
       await clearAuthData();
     } finally {
@@ -111,6 +117,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       setUser(userData);
       setToken(authToken);
       setIsAuthenticated(true);
+      
+      // 🆕 IMPORTANTE: NÃO definir lastRoute no login - deixar null para ir sempre para tela principal
+      setLastRouteState(null);
     } catch (error) {
       throw error;
     }
@@ -130,13 +139,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       AsyncStorage.removeItem(STORAGE_KEYS.TOKEN),
       AsyncStorage.removeItem(STORAGE_KEYS.USER_ID),
       AsyncStorage.removeItem(STORAGE_KEYS.USER_DATA),
-      AsyncStorage.removeItem(STORAGE_KEYS.LAST_ROUTE),
+      AsyncStorage.removeItem(STORAGE_KEYS.LAST_ROUTE), // 🆕 IMPORTANTE: Limpar lastRoute no logout
     ]);
 
     setUser(null);
     setToken(null);
     setIsAuthenticated(false);
-    setLastRouteState(null);
+    setLastRouteState(null); // 🆕 IMPORTANTE: Limpar estado também
   };
 
   const logout = async () => {
@@ -145,7 +154,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {}
   };
 
-  // ✅ FUNÇÃO ATUALIZADA: setLastRoute com tratamento de rotas de filtro
+  // ✅ Função setLastRoute (mantida igual)
   const setLastRoute = async (route: string) => {
     try {
       // Verificar se é uma rota excluída
@@ -153,7 +162,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return;
       }
 
-      // ✅ NOVO: Se for uma rota de filtro, salvar a rota pai
+      // Se for uma rota de filtro, salvar a rota pai
       let routeToSave = route;
       if (FILTER_ROUTE_MAPPING[route]) {
         routeToSave = FILTER_ROUTE_MAPPING[route];
@@ -164,20 +173,21 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     } catch (error) {}
   };
 
-  // ✅ NOVA FUNÇÃO: Obter rota de redirecionamento
+  // 🆕 CORRIGIDA: Função getRedirectRoute sempre vai para tela principal após login
   const getRedirectRoute = (): string => {
     // Se não estiver autenticado, sempre ir para login
     if (!isAuthenticated) {
       return '/pages/LoginScreen';
     }
 
-    // Se tiver última rota salva, usar ela
-    if (lastRoute) {
+    // 🆕 MUDANÇA PRINCIPAL: Após login, SEMPRE ir para tela principal
+    // O lastRoute só é usado quando o app é reaberto (não após login)
+    // Se tiver última rota salva E não estiver em processo de login recente
+    if (lastRoute && user) {
       return lastRoute;
     }
 
-    // Rota padrão para usuários autenticados
-
+    // 🆕 Rota padrão para usuários autenticados: SEMPRE tela principal
     return '/pages/PetAdoptionScreen';
   };
 
@@ -193,7 +203,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         logout,
         setLastRoute,
         updateUser,
-        getRedirectRoute, // ✅ Nova função
+        getRedirectRoute,
       }}
     >
       {children}

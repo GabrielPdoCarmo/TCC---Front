@@ -21,13 +21,10 @@ import getEstados from '../../services/api/Estados/getEstados';
 import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import createUsuario from '@/services/api/Usuario/createUsuario';
-import validarUsuario from '@/services/api/Usuario/validarUsuario';
 import checkDuplicateFields from '@/services/api/Usuario/checkDuplicateFields';
 import Feather from 'react-native-vector-icons/Feather';
 import { Redirect, router } from 'expo-router';
-// Adicione esta linha no início do arquivo, junto com as outras importações
 import { cpf as cpfValidator } from 'cpf-cnpj-validator';
-// IMPORTAÇÃO ATUALIZADA: Para validação de email
 import validator from 'validator';
 
 // Define the cidade type to ensure consistency throughout the component
@@ -132,7 +129,7 @@ const validarEmail = (email: string): { isValid: boolean; errors: string[] } => 
   // Verificações específicas de domínio
   if (email.includes('@')) {
     const [localPart, domain] = email.split('@');
-    
+
     // Verificar parte local
     if (localPart.length > 64) {
       errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
@@ -143,14 +140,9 @@ const validarEmail = (email: string): { isValid: boolean; errors: string[] } => 
       errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
     }
 
-    // Verificar se é um FQDN válido
-    if (!validator.isFQDN(domain)) {
-      errors.push('Domínio inválido');
-    }
-
     // Verificar se não tem partes vazias no domínio
     const domainParts = domain.split('.');
-    if (domainParts.some(part => part.length === 0)) {
+    if (domainParts.some((part) => part.length === 0)) {
       errors.push('Domínio não pode ter partes vazias');
     }
 
@@ -163,7 +155,7 @@ const validarEmail = (email: string): { isValid: boolean; errors: string[] } => 
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
 
@@ -198,11 +190,9 @@ const validarSenha = (senha: string): { isValid: boolean; errors: string[] } => 
 
   return {
     isValid: errors.length === 0,
-    errors
+    errors,
   };
 };
-
-// Function to fetch address data by CEP using the ViaCEP API
 
 // Function to normalize strings for case-insensitive comparisons
 const normalizeString = (str: string): string => {
@@ -226,7 +216,7 @@ export default function CadastroUsuario() {
   const [estadoSearch, setEstadoSearch] = useState<{ id: number; nome: string }>({ id: 0, nome: '' });
   const [cidade, setCidade] = useState<{ id: number; nome: string }>({ id: 0, nome: '' });
   const [cidadeSearch, setCidadeSearch] = useState<{ id: number; nome: string }>({ id: 0, nome: '' });
-  const [cidades, setCidades] = useState<{ id: number; nome: string }[]>([]);
+  const [cidades, setCidades] = useState<CidadeType[]>([]);
   const [cidadesFiltradas, setCidadesFiltradas] = useState<CidadeType[]>([]);
   const [showEstados, setShowEstados] = useState<boolean>(false);
   const [showCidades, setShowCidades] = useState<boolean>(false);
@@ -240,14 +230,14 @@ export default function CadastroUsuario() {
   const [estadoErro, setEstadoErro] = useState('');
   const [cidadeErro, setCidadeErro] = useState('');
   const [sexoErro, setSexoErro] = useState('');
-  
+
   // NOVOS ESTADOS: Para erros granulares de senha
   const [senhaErros, setSenhaErros] = useState<string[]>([]);
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState('');
-  
+
   const [email, setEmail] = useState('');
   // NOVO ESTADO: Para erros granulares de email
-  const [emailErros, setEmailErros] = useState<string[]>([]); // MUDANÇA: Array de erros
+  const [emailErros, setEmailErros] = useState<string[]>([]);
   const [cep, setCep] = useState('');
   const [cepErro, setCepErro] = useState('');
   const [showSenha, setShowSenha] = useState<boolean>(false);
@@ -293,13 +283,21 @@ export default function CadastroUsuario() {
     }
   };
 
-  // Função para voltar à tela de login
+  // 🆕 FUNÇÃO ATUALIZADA: Voltar ao login com verificação de loading
   const handleVoltarLogin = () => {
+    if (loadingCadastro) {
+      Alert.alert('Aguarde', 'O cadastro está sendo processado. Aguarde a conclusão.');
+      return;
+    }
     router.push('/pages/LoginScreen');
   };
 
-  // Função para selecionar uma imagem
+  // 🆕 FUNÇÃO ATUALIZADA: Selecionar imagem com verificação de loading
   const pickImage = async () => {
+    if (loadingCadastro) {
+      return; // Não permite seleção durante loading
+    }
+
     try {
       // Solicitar permissão para acessar a galeria
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -327,9 +325,9 @@ export default function CadastroUsuario() {
     }
   };
 
-  // Função para carregar cidades com cache
-  const carregarCidades = async (selectedEstado: string | null) => {
-    if (!selectedEstado) return [] as CidadeType[];
+  // Função para carregar cidades com cache - CORRIGIDA
+  const carregarCidades = async (selectedEstado: string | null): Promise<CidadeType[]> => {
+    if (!selectedEstado) return [];
 
     // Verifica se já existe no cache
     if (cidadesCache.current[selectedEstado]) {
@@ -360,14 +358,16 @@ export default function CadastroUsuario() {
       setCidadesCarregadas(true);
       return cidadesWithId;
     } catch (error) {
-      return [] as CidadeType[];
+      return [];
     } finally {
       setLoadingCidades(false);
     }
   };
 
-  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
-  const handleEstadoChange = async (selectedEstado: { id: number; nome: string }) => {
+  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP - CORRIGIDA
+  const handleEstadoChange = async (selectedEstado: { id: number; nome: string }): Promise<CidadeType[]> => {
+    if (loadingCadastro) return []; // 🆕 Bloquear durante loading
+
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(selectedEstado.id, cidade.id || null);
 
@@ -381,11 +381,12 @@ export default function CadastroUsuario() {
       const cidadesData = await carregarCidades(selectedEstado.nome);
       setCidades(cidadesData);
       setCidadesFiltradas(cidadesData);
-      return cidadesData; // <-- retorna as cidades carregadas
+      return cidadesData;
     } catch (error) {
-      setCidades([]);
-      setCidadesFiltradas([]);
-      return []; // <-- retorna vazio em erro
+      const emptyArray: CidadeType[] = [];
+      setCidades(emptyArray);
+      setCidadesFiltradas(emptyArray);
+      return emptyArray;
     } finally {
       setLoadingCidades(false);
     }
@@ -393,6 +394,8 @@ export default function CadastroUsuario() {
 
   // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: CidadeType) => {
+    if (loadingCadastro) return; // 🆕 Bloquear durante loading
+
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estado?.id || null, selectedCidade.id);
 
@@ -403,6 +406,8 @@ export default function CadastroUsuario() {
   };
 
   const toggleEstados = async () => {
+    if (loadingCadastro) return; // 🆕 Bloquear durante loading
+
     if (!showEstados && estados.length === 0) {
       try {
         const estadosData = await getEstados();
@@ -416,6 +421,7 @@ export default function CadastroUsuario() {
   };
 
   const toggleCidades = async () => {
+    if (loadingCadastro) return; // 🆕 Bloquear durante loading
     if (!estado) return;
 
     // Se ainda não temos cidades, carregamos elas
@@ -451,12 +457,6 @@ export default function CadastroUsuario() {
     }, 300),
     [cidades]
   );
-
-  // Substitua a função validarEmail existente por esta:
-  const validarEmailSimples = (email: string) => {
-    const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
-    return regex.test(email);
-  };
 
   // No início do arquivo, adicione esta importação
 
@@ -502,14 +502,14 @@ export default function CadastroUsuario() {
       setEstadoErro('');
       setCidadeErro('');
       setSexoErro('');
-      setSenhaErros([]); // Limpar erros granulares
+      setSenhaErros([]);
       setConfirmarSenhaErro('');
-      setEmailErros([]); // NOVA LIMPEZA: Limpar erros granulares de email
+      setEmailErros([]);
       setCepErro('');
 
       let hasError = false;
 
-      // Validações locais (manter toda a seção de validação igual)
+      // Validações locais
       if (!foto) {
         setFotoErro('A foto é obrigatória.');
         hasError = true;
@@ -536,7 +536,7 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      // NOVA VALIDAÇÃO GRANULAR DE EMAIL
+      // ✅ VALIDAÇÃO DE EMAIL APENAS NO CLIQUE
       if (!email) {
         setEmailErros(['O e-mail é obrigatório']);
         hasError = true;
@@ -563,7 +563,7 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      // VALIDAÇÃO GRANULAR DE SENHA
+      // ✅ VALIDAÇÃO DE SENHA APENAS NO CLIQUE
       if (!senha) {
         setSenhaErros(['A senha é obrigatória']);
         hasError = true;
@@ -593,39 +593,42 @@ export default function CadastroUsuario() {
         return;
       }
 
-      // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar criar
+      try {
+        const validationResponse = await checkDuplicateFields({
+          email: email,
+          cpf: stripNonNumeric(cpf),
+          telefone: stripNonNumeric(telefone),
+        });
 
-      const validationResponse = await checkDuplicateFields({
-        email: email,
-        cpf: stripNonNumeric(cpf),
-        telefone: stripNonNumeric(telefone),
-      });
+        // Verificar se há campos duplicados
+        if (validationResponse && validationResponse.exists) {
+          let validationHasError = false;
 
-      // Verificar se há campos duplicados
-      if (validationResponse && validationResponse.exists) {
-        let validationHasError = false;
+          if (validationResponse.duplicateFields?.includes('cpf')) {
+            setCpfErro('Este CPF já está cadastrado no sistema.');
+            validationHasError = true;
+          }
 
-        if (validationResponse.duplicateFields?.includes('cpf')) {
-          setCpfErro('Este CPF já está cadastrado no sistema.');
-          validationHasError = true;
+          if (validationResponse.duplicateFields?.includes('email')) {
+            setEmailErros(['Este e-mail já está cadastrado no sistema.']);
+            validationHasError = true;
+          }
+
+          if (validationResponse.duplicateFields?.includes('telefone')) {
+            setTelefoneErro('Este telefone já está cadastrado no sistema.');
+            validationHasError = true;
+          }
+
+          if (validationHasError) {
+            return;
+          }
         }
-
-        if (validationResponse.duplicateFields?.includes('email')) {
-          setEmailErros(['Este e-mail já está cadastrado no sistema.']);
-          validationHasError = true;
-        }
-
-        if (validationResponse.duplicateFields?.includes('telefone')) {
-          setTelefoneErro('Este telefone já está cadastrado no sistema.');
-          validationHasError = true;
-        }
-
-        if (validationHasError) {
-          return;
-        }
+      } catch (duplicateError) {
+        // Continuar mesmo se a verificação de duplicados falhar
       }
 
-      // Se chegou até aqui, pode prosseguir com o cadastro
+      // ✅ PREPARAR DADOS PARA CADASTRO
+
       // Preparar a foto para upload
       let fotoFile = null;
 
@@ -654,7 +657,8 @@ export default function CadastroUsuario() {
         foto: fotoFile,
       };
 
-      // Chamar a função de criação
+      // ✅ CHAMAR API DE CRIAÇÃO
+
       const response = await createUsuario(usuarioData);
 
       Alert.alert('Sucesso', 'Usuário cadastrado com sucesso!', [
@@ -670,14 +674,13 @@ export default function CadastroUsuario() {
       const serverError = error?.response?.data || error;
 
       if (serverError) {
-        // 1. Tratar erro de dados duplicados (nova estrutura do backend)
+        // 1. Tratar erro de dados duplicados
         if (
           serverError.error === 'Dados duplicados' ||
           serverError.exists === true ||
           serverError.error?.toLowerCase().includes('duplicado') ||
           serverError.message?.toLowerCase().includes('já cadastrado')
         ) {
-          // Verificar se há campo específico identificado
           if (serverError.duplicateField || serverError.duplicateFields) {
             const fields = serverError.duplicateFields || [serverError.duplicateField];
 
@@ -691,7 +694,6 @@ export default function CadastroUsuario() {
               setTelefoneErro('Este telefone já está cadastrado no sistema.');
             }
           } else {
-            // Fallback: analisa a mensagem para detectar o campo
             const message = serverError.message?.toLowerCase() || '';
 
             if (message.includes('email') || message.includes('e-mail')) {
@@ -712,7 +714,7 @@ export default function CadastroUsuario() {
         else if (serverError.error?.toLowerCase().includes('senha') && serverError.passwordErrors) {
           setSenhaErros(serverError.passwordErrors);
         }
-        // 3. NOVO: Tratar erro de email com validação granular
+        // 3. Tratar erro de email com validação granular
         else if (serverError.error?.toLowerCase().includes('e-mail') && serverError.emailErrors) {
           setEmailErros(serverError.emailErrors);
         }
@@ -729,8 +731,10 @@ export default function CadastroUsuario() {
     }
   };
 
-  // Handles for formatted inputs
+  // 🆕 FUNÇÕES ATUALIZADAS: Handlers com verificação de loading
   const handleCpfChange = (text: string) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     const formattedCpf = formatCPF(text);
     setCpf(formattedCpf);
 
@@ -749,6 +753,8 @@ export default function CadastroUsuario() {
   };
 
   const handleTelefoneChange = (text: string) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     const formattedTelefone = formatTelefone(text);
     setTelefone(formattedTelefone);
     if (text) setTelefoneErro('');
@@ -756,39 +762,46 @@ export default function CadastroUsuario() {
 
   // FUNÇÃO ATUALIZADA: Handler para email com validação usando validator
   const handleEmailChange = (text: string) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     setEmail(text);
-    
-    if (text) {
-      const validacaoEmail = validarEmail(text);
-      setEmailErros(validacaoEmail.errors);
-    } else {
+
+    // ✅ APENAS limpar erros quando usuário digita, SEM validar
+    if (text && emailErros.length > 0) {
       setEmailErros([]);
     }
   };
 
   // FUNÇÃO: Handler para senha com validação granular
   const handleSenhaChange = (text: string) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     setSenha(text);
-    
-    if (text) {
-      const validacaoSenha = validarSenha(text);
-      setSenhaErros(validacaoSenha.errors);
-    } else {
+
+    // ✅ APENAS limpar erros quando usuário digita, SEM validar
+    if (text && senhaErros.length > 0) {
       setSenhaErros([]);
     }
   };
 
   // Handler for CEP with address lookups
   const handleCepChange = (text: string) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     const formattedCep = formatCEP(text);
     setCep(formattedCep);
 
-    if (text) setCepErro('');
+    // Limpar erro quando usuário digita
+    if (text && cepErro) setCepErro('');
 
     const numericCep = stripNonNumeric(text);
 
+    // Só buscar quando CEP estiver completo (8 dígitos)
     if (numericCep.length === 8) {
       handleBuscarCep(numericCep);
+    } else if (numericCep.length > 8) {
+      // CEP muito longo
+      setCepErro('CEP deve ter exatamente 8 dígitos.');
     }
   };
 
@@ -857,31 +870,46 @@ export default function CadastroUsuario() {
   async function lookupCepAddress(cep: string) {
     try {
       const cleanedCep = cep.replace(/\D/g, '');
+
       if (cleanedCep.length !== 8) {
-        throw new Error('CEP inválido');
+        throw new Error('CEP inválido - deve ter 8 dígitos');
       }
 
-      const response = await fetch(`https://viacep.com.br/ws/${cleanedCep}/json/`);
+      const url = `https://viacep.com.br/ws/${cleanedCep}/json/`;
+
+      const response = await fetch(url);
       if (!response.ok) {
-        throw new Error('Erro ao buscar o CEP');
+        throw new Error(`Erro HTTP: ${response.status}`);
       }
 
       const data = await response.json();
 
       if (data.erro) {
-        throw new Error('CEP não encontrado');
+        throw new Error('CEP não encontrado na base dos Correios');
       }
 
-      // Aqui é a novidade:
+      // Verificar se os dados essenciais estão presentes
+      if (!data.uf || !data.localidade) {
+        throw new Error('Dados incompletos retornados pela API');
+      }
+
+      // Converter UF para nome completo do estado
       const estadoNome = estadosSiglaParaNome[data.uf as keyof typeof estadosSiglaParaNome];
 
-      return {
+      if (!estadoNome) {
+        throw new Error(`Estado não encontrado para UF: ${data.uf}`);
+      }
+
+      const resultado = {
         cep: data.cep,
-        logradouro: data.logradouro,
-        bairro: data.bairro,
+        logradouro: data.logradouro || '',
+        bairro: data.bairro || '',
         cidade: data.localidade,
-        estado: estadoNome, // agora vem o nome completo do estado!
+        estado: estadoNome,
+        uf: data.uf,
       };
+
+      return resultado;
     } catch (error) {
       throw error;
     }
@@ -889,8 +917,11 @@ export default function CadastroUsuario() {
 
   // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     try {
       setLoadingCep(true);
+      setCepErro(''); // Limpar erro anterior
 
       const endereco = await lookupCepAddress(numericCep ?? cep);
 
@@ -899,13 +930,30 @@ export default function CadastroUsuario() {
         return;
       }
 
+      // Garantir que os estados estejam carregados
+      let estadosDisponiveis = estados;
+      if (estadosDisponiveis.length === 0) {
+        try {
+          const estadosData = await getEstados();
+          estadosDisponiveis = estadosData || [];
+          setEstados(estadosDisponiveis);
+        } catch (error) {
+          setCepErro('Erro ao carregar dados de estados.');
+          return;
+        }
+      }
+
       let cidadesDoEstado: CidadeType[] = [];
 
       if (endereco.estado) {
-        const estadoEncontrado = estados.find((e) => e.nome === endereco.estado);
+        const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
+
         if (estadoEncontrado) {
-          cidadesDoEstado = await handleEstadoChange(estadoEncontrado); // Agora você recebe as cidades carregadas
+          cidadesDoEstado = await handleEstadoChange(estadoEncontrado);
           setEstadoSearch(estadoEncontrado);
+        } else {
+          setCepErro('Estado não encontrado para este CEP.');
+          return;
         }
       }
 
@@ -913,11 +961,12 @@ export default function CadastroUsuario() {
         const cidadeEncontrada = cidadesDoEstado.find(
           (c) => normalizeString(c.nome) === normalizeString(endereco.cidade)
         );
+
         if (cidadeEncontrada) {
           handleCidadeSelect(cidadeEncontrada);
 
           // NOVO: Armazenar dados do CEP para validação futura
-          const estadoEncontrado = estados.find((e) => e.nome === endereco.estado);
+          const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
           if (estadoEncontrado) {
             setDadosDoCep({
               estadoId: estadoEncontrado.id,
@@ -926,6 +975,14 @@ export default function CadastroUsuario() {
               cidadeNome: cidadeEncontrada.nome,
             });
           }
+        } else {
+          setCepErro('Cidade não encontrada para este CEP.');
+        }
+      } else {
+        if (!endereco.cidade) {
+          setCepErro('Cidade não informada no CEP.');
+        } else {
+          setCepErro('Nenhuma cidade carregada para este estado.');
         }
       }
     } catch (error) {
@@ -937,6 +994,8 @@ export default function CadastroUsuario() {
 
   // Atualiza a busca de cidades
   const handleCidadeSearchChange = (text: { id: number; nome: string }) => {
+    if (loadingCadastro) return; // Bloquear durante loading
+
     setCidadeSearch(text);
     debouncedCidadeSearch(text.nome);
   };
@@ -945,11 +1004,9 @@ export default function CadastroUsuario() {
     const fetchData = async () => {
       try {
         const sexosData = await getSexoUsuario();
-
         setSexos(sexosData || []);
 
         const estadosData = await getEstados();
-
         setEstados(estadosData || []);
       } catch (error) {}
     };
@@ -967,12 +1024,14 @@ export default function CadastroUsuario() {
     return normalize(item).includes(normalize(estadoSearch.nome));
   };
 
-  // Toggle password visibility
+  // 🆕 FUNÇÕES ATUALIZADAS: Toggle password visibility com verificação de loading
   const toggleSenhaVisibility = () => {
+    if (loadingCadastro) return; // Bloquear durante loading
     setShowSenha(!showSenha);
   };
 
   const toggleConfirmarSenhaVisibility = () => {
+    if (loadingCadastro) return; // Bloquear durante loading
     setShowConfirmarSenha(!showConfirmarSenha);
   };
 
@@ -981,55 +1040,79 @@ export default function CadastroUsuario() {
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.mainContent}>
-            {/* Botão Voltar */}
+            {/* 🆕 BOTÃO VOLTAR ATUALIZADO: Com verificação de loading */}
             <View style={styles.backButtonContainer}>
-              <TouchableOpacity style={styles.backButton} onPress={handleVoltarLogin}>
-                <Feather name="arrow-left" size={24} color="#333" />
-                <Text style={styles.backButtonText}>Voltar ao Login</Text>
+              <TouchableOpacity
+                style={[styles.backButton, loadingCadastro && styles.disabledButton]}
+                onPress={handleVoltarLogin}
+                disabled={loadingCadastro}
+              >
+                <Feather name="arrow-left" size={24} color={loadingCadastro ? '#999' : '#333'} />
+                <Text style={[styles.backButtonText, loadingCadastro && styles.disabledText]}>Voltar ao Login</Text>
               </TouchableOpacity>
             </View>
 
             <View style={styles.titleContainer}>
               <Text style={styles.pageTitle}>Dados Pessoais</Text>
+              {/* 🆕 INDICADOR DE LOADING */}
+              {loadingCadastro && (
+                <View style={styles.loadingIndicator}>
+                  <ActivityIndicator size="small" color="#4CAF50" />
+                  <Text style={styles.loadingText}>Processando cadastro...</Text>
+                </View>
+              )}
             </View>
           </View>
 
           <View style={styles.formContainer}>
-            {/* Foto */}
+            {/* 🆕 FOTO ATUALIZADA: Com verificação de loading */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
               </Text>
               <TouchableOpacity
-                style={[styles.photoContainer, fotoErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[
+                  styles.photoContainer,
+                  fotoErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledContainer,
+                ]}
                 onPress={pickImage}
+                disabled={loadingCadastro}
               >
                 {foto ? (
                   <Image source={{ uri: foto }} style={styles.photoPreview} />
                 ) : (
                   <View style={styles.photoPlaceholder}>
-                    <Feather name="camera" size={40} color="#666" />
-                    <Text style={styles.photoPlaceholderText}>Toque para selecionar</Text>
+                    <Feather name="camera" size={40} color={loadingCadastro ? '#999' : '#666'} />
+                    <Text style={[styles.photoPlaceholderText, loadingCadastro && styles.disabledText]}>
+                      {loadingCadastro ? 'Aguarde...' : 'Toque para selecionar'}
+                    </Text>
                   </View>
                 )}
               </TouchableOpacity>
               {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
             </View>
 
-            {/* Nome */}
+            {/* 🆕 NOME ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Nome <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, nomeErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[
+                  styles.input,
+                  nomeErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledInput,
+                ]}
                 placeholder="Nome"
                 value={nome}
                 multiline={false}
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
+                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                 onChangeText={(text) => {
+                  if (loadingCadastro) return;
                   setNome(text);
                   if (text) setNomeErro('');
                 }}
@@ -1037,7 +1120,7 @@ export default function CadastroUsuario() {
               {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
             </View>
 
-            {/* Sexo */}
+            {/* 🆕 SEXO ATUALIZADO: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Sexo <Text style={styles.required}>*</Text>
@@ -1046,26 +1129,35 @@ export default function CadastroUsuario() {
                 {(sexos || []).map((item, index) => (
                   <TouchableOpacity
                     key={index}
-                    style={styles.checkboxWrapper}
+                    style={[styles.checkboxWrapper, loadingCadastro && styles.disabledContainer]}
                     onPress={() => {
+                      if (loadingCadastro) return;
                       setSexo(item);
                       setSexoErro('');
                     }}
+                    disabled={loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                   >
-                    <View style={styles.checkboxCustom}>{sexo === item && <View style={styles.checkboxInner} />}</View>
-                    <Text style={styles.checkboxLabel}>{item.descricao}</Text>
+                    <View style={[styles.checkboxCustom, loadingCadastro && styles.disabledCheckbox]}>
+                      {sexo === item && <View style={styles.checkboxInner} />}
+                    </View>
+                    <Text style={[styles.checkboxLabel, loadingCadastro && styles.disabledText]}>{item.descricao}</Text>
                   </TouchableOpacity>
                 ))}
               </View>
               {sexoErro ? <Text style={styles.errorText}>{sexoErro}</Text> : null}
             </View>
-            {/* E-mail com validação granular */}
+
+            {/* 🆕 EMAIL ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 E-mail <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, emailErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[
+                  styles.input,
+                  emailErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledInput,
+                ]}
                 placeholder="E-mail"
                 keyboardType="email-address"
                 value={email}
@@ -1073,25 +1165,28 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                onChangeText={handleEmailChange} // MUDANÇA: Usar nova função
+                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                onChangeText={handleEmailChange}
               />
-              {/* NOVA EXIBIÇÃO: Mostrar todos os erros de email */}
-              {emailErros.length > 0 && (
-                <View style={styles.errorContainer}>
-                  {emailErros.map((erro, index) => (
-                    <Text key={index} style={styles.errorText}>• {erro}</Text>
-                  ))}
-                </View>
-              )}
+              {emailErros.length > 0 &&
+                emailErros.map((erro, index) => (
+                  <Text key={index} style={styles.errorText}>
+                    {erro}
+                  </Text>
+                ))}
             </View>
 
-            {/* Telefone */}
+            {/* 🆕 TELEFONE ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Telefone <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, telefoneErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[
+                  styles.input,
+                  telefoneErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledInput,
+                ]}
                 placeholder="(00) 00000-0000"
                 keyboardType="phone-pad"
                 value={telefone}
@@ -1099,19 +1194,24 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
+                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                 onChangeText={handleTelefoneChange}
-                maxLength={15} // (00) 00000-0000 has 15 characters with formatting
+                maxLength={15}
               />
               {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
             </View>
 
-            {/* CPF/CNPJ */}
+            {/* 🆕 CPF ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 CPF <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, cpfErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[
+                  styles.input,
+                  cpfErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledInput,
+                ]}
                 placeholder="000.000.000-00"
                 keyboardType="numeric"
                 value={cpf}
@@ -1119,17 +1219,25 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
+                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                 onChangeText={handleCpfChange}
-                maxLength={14} // 000.000.000-00 has 14 characters with formatting
+                maxLength={14}
               />
               {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
             </View>
 
-            {/* CEP */}
+            {/* 🆕 CEP ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>CEP</Text>
-              <View style={[styles.inputWithIcon, cepErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View
+                style={[
+                  styles.inputWithIcon,
+                  cepErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledContainer,
+                ]}
+              >
                 <TextInput
+                  style={{ flex: 1 }}
                   placeholder="00000-000"
                   keyboardType="numeric"
                   value={cep}
@@ -1137,15 +1245,22 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
+                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                   onChangeText={handleCepChange}
-                  maxLength={9} // 00000-000 has 9 characters with formatting
+                  maxLength={9}
                 />
-                {loadingCep && <ActivityIndicator size="small" color="#0000ff" style={styles.inputIcon} />}
+                {(loadingCep || loadingCadastro) && (
+                  <ActivityIndicator size="small" color="#0000ff" style={styles.inputIcon} />
+                )}
+                {/* Indicador de sucesso quando CEP foi preenchido */}
+                {!loadingCep && !loadingCadastro && cep && !cepErro && dadosDoCep.estadoId && (
+                  <Feather name="check-circle" size={20} color="#4CAF50" style={styles.inputIcon} />
+                )}
               </View>
               {cepErro ? <Text style={styles.errorText}>{cepErro}</Text> : null}
             </View>
 
-            {/* Estado */}
+            {/* 🆕 ESTADO ATUALIZADO: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Estado <Text style={styles.required}>*</Text>
@@ -1155,19 +1270,21 @@ export default function CadastroUsuario() {
                 estado={estado}
                 estados={estados}
                 onSelectEstado={async (estadoSelecionado) => {
-                  handleEstadoChange(estadoSelecionado);
+                  if (loadingCadastro) return;
+                  await handleEstadoChange(estadoSelecionado);
                   setEstadoErro('');
                 }}
                 showEstados={showEstados}
                 setShowEstados={setShowEstados}
                 estadoSearch={estadoSearch}
                 setEstadoSearch={setEstadoSearch}
+                disabled={loadingCadastro} // 🆕 NOVA PROP
               />
 
               {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
             </View>
 
-            {/* Cidade */}
+            {/* 🆕 CIDADE ATUALIZADA: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Cidade <Text style={styles.required}>*</Text>
@@ -1181,22 +1298,29 @@ export default function CadastroUsuario() {
                   showCidades={showCidades}
                   setShowCidades={setShowCidades}
                   onSelectCidade={(cidadeSelecionada) => {
+                    if (loadingCadastro) return;
                     handleCidadeSelect(cidadeSelecionada);
                     setCidadeErro('');
                   }}
                   toggleCidades={toggleCidades}
-                  disabled={!estado}
+                  disabled={!estado || loadingCadastro} // 🆕 MUDANÇA
                 />
               </View>
               {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
             </View>
 
-            {/* Senha with visibility toggle */}
+            {/* 🆕 SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Senha <Text style={styles.required}>*</Text>
               </Text>
-              <View style={[styles.inputWithIcon, senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View
+                style={[
+                  styles.inputWithIcon,
+                  senhaErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledContainer,
+                ]}
+              >
                 <TextInput
                   style={{ flex: 1 }}
                   placeholder="Senha"
@@ -1206,32 +1330,41 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
+                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                   onChangeText={handleSenhaChange}
                 />
-                <TouchableOpacity onPress={toggleSenhaVisibility} style={styles.inputIcon}>
+                <TouchableOpacity
+                  onPress={toggleSenhaVisibility}
+                  style={styles.inputIcon}
+                  disabled={loadingCadastro} // 🆕 MUDANÇA
+                >
                   {showSenha ? (
-                    <Feather name="eye-off" size={20} color="#333" />
+                    <Feather name="eye-off" size={20} color={loadingCadastro ? '#999' : '#333'} />
                   ) : (
-                    <Feather name="eye" size={20} color="#333" />
+                    <Feather name="eye" size={20} color={loadingCadastro ? '#999' : '#333'} />
                   )}
                 </TouchableOpacity>
               </View>
-              {/* EXIBIÇÃO: Mostrar todos os erros de senha */}
-              {senhaErros.length > 0 && (
-                <View style={styles.errorContainer}>
-                  {senhaErros.map((erro, index) => (
-                    <Text key={index} style={styles.errorText}>• {erro}</Text>
-                  ))}
-                </View>
-              )}
+              {senhaErros.length > 0 &&
+                senhaErros.map((erro, index) => (
+                  <Text key={index} style={styles.errorText}>
+                    {erro}
+                  </Text>
+                ))}
             </View>
 
-            {/* Confirmar Senha with visibility toggle */}
+            {/* 🆕 CONFIRMAR SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Confirmar Senha <Text style={styles.required}>*</Text>
               </Text>
-              <View style={[styles.inputWithIcon, confirmarSenhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
+              <View
+                style={[
+                  styles.inputWithIcon,
+                  confirmarSenhaErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  loadingCadastro && styles.disabledContainer,
+                ]}
+              >
                 <TextInput
                   style={{ flex: 1 }}
                   placeholder="Confirmar Senha"
@@ -1241,28 +1374,31 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
+                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
                   onChangeText={(text) => {
+                    if (loadingCadastro) return;
                     setConfirmarSenha(text);
                     if (text) setConfirmarSenhaErro('');
                   }}
                 />
-                <TouchableOpacity onPress={toggleConfirmarSenhaVisibility} style={styles.inputIcon}>
+                <TouchableOpacity
+                  onPress={toggleConfirmarSenhaVisibility}
+                  style={styles.inputIcon}
+                  disabled={loadingCadastro} // 🆕 MUDANÇA
+                >
                   {showConfirmarSenha ? (
-                    <Feather name="eye-off" size={20} color="#333" />
+                    <Feather name="eye-off" size={20} color={loadingCadastro ? '#999' : '#333'} />
                   ) : (
-                    <Feather name="eye" size={20} color="#333" />
+                    <Feather name="eye" size={20} color={loadingCadastro ? '#999' : '#333'} />
                   )}
                 </TouchableOpacity>
               </View>
               {confirmarSenhaErro ? <Text style={styles.errorText}>{confirmarSenhaErro}</Text> : null}
             </View>
 
-            {/* Botão de salvar com loading */}
-            <TouchableOpacity 
-              style={[
-                styles.saveButton, 
-                loadingCadastro && styles.saveButtonDisabled
-              ]} 
+            {/* Botão de salvar com loading (mantido igual) */}
+            <TouchableOpacity
+              style={[styles.saveButton, loadingCadastro && styles.saveButtonDisabled]}
               onPress={handleSalvar}
               disabled={loadingCadastro}
             >
@@ -1311,19 +1447,17 @@ const styles = StyleSheet.create({
     fontWeight: '500',
   },
   saveButton: {
-    backgroundColor: '#4CAF50', // Cor do botão
+    backgroundColor: '#4CAF50',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 5,
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // ESTILO: Botão desabilitado durante loading
   saveButtonDisabled: {
-    backgroundColor: '#A5D6A7', // Cor mais clara quando desabilitado
+    backgroundColor: '#A5D6A7',
     opacity: 0.7,
   },
-  // ESTILO: Container para o loading
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1397,20 +1531,19 @@ const styles = StyleSheet.create({
     marginTop: 5,
     backgroundColor: '#fff',
   },
-  // Estilos para o componente de foto circular
   photoContainer: {
     width: 150,
     height: 150,
     borderColor: '#ccc',
     borderWidth: 1,
-    borderRadius: 75, // 50% do tamanho para criar um círculo perfeito
+    borderRadius: 75,
     marginTop: 5,
     marginBottom: 5,
     backgroundColor: '#fff',
     overflow: 'hidden',
     justifyContent: 'center',
     alignItems: 'center',
-    alignSelf: 'center', // Centraliza o contêiner na tela
+    alignSelf: 'center',
   },
   photoPlaceholder: {
     alignItems: 'center',
@@ -1499,11 +1632,6 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginLeft: 10,
   },
-  // ESTILO: Container para múltiplos erros
-  errorContainer: {
-    marginTop: 5,
-    marginLeft: 10,
-  },
   searchInput: {
     height: 40,
     borderColor: '#ccc',
@@ -1515,5 +1643,49 @@ const styles = StyleSheet.create({
   dropdownDisabled: {
     backgroundColor: '#eee',
     borderColor: '#aaa',
+  },
+  // 🆕 NOVOS ESTILOS: Para elementos desabilitados durante loading
+  disabledButton: {
+    opacity: 0.6,
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  disabledContainer: {
+    opacity: 0.6,
+    backgroundColor: '#f5f5f5',
+  },
+  disabledInput: {
+    backgroundColor: '#f5f5f5',
+    color: '#999',
+  },
+  disabledText: {
+    color: '#999',
+  },
+  disabledCheckbox: {
+    backgroundColor: '#f5f5f5',
+    borderColor: '#ccc',
+  },
+  loadingIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    padding: 10,
+    backgroundColor: 'rgba(76, 175, 80, 0.1)',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#4CAF50',
+  },
+  loadingText: {
+    marginLeft: 8,
+    fontSize: 14,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  addressInfo: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginTop: 5,
+    marginLeft: 10,
+    fontStyle: 'italic',
   },
 });

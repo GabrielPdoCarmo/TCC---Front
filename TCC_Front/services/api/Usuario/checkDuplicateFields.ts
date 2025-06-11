@@ -1,6 +1,12 @@
 import api from '../api';
-export const checkDuplicateFields = async (userData: { email?: string; cpf?: string; telefone?: string }) => {
+
+export const checkDuplicateFields = async (userData: { 
+  email?: string; 
+  cpf?: string; 
+  telefone?: string;
+}) => {
   try {
+    // ✅ CORREÇÃO: Usando a rota correta do backend
     const response = await api.post('/usuarios/validar', {
       email: userData.email,
       cpf: userData.cpf?.replace(/\D/g, ''), // Remove formatação do CPF
@@ -9,15 +15,18 @@ export const checkDuplicateFields = async (userData: { email?: string; cpf?: str
 
     return response.data;
   } catch (error: any) {
+
+    
     // Se der erro 400, significa que há duplicação
     if (error.response?.status === 400) {
       return error.response.data;
     }
 
-    // Outros erros, relança a exceção
+    // Para outros erros, relança a exceção
     throw error;
   }
 };
+
 export const validateSingleField = async (field: string, value: string) => {
   try {
     const data: any = {};
@@ -38,7 +47,9 @@ export const validateSingleField = async (field: string, value: string) => {
 
     return false;
   } catch (error) {
+
     return false;
   }
 };
+
 export default checkDuplicateFields;
