@@ -306,8 +306,6 @@ export default function ProfileScreen() {
   // Cache para armazenar cidades por estado
   const cidadesCache = useRef<{ [key: string]: Cidade[] }>({});
 
-  // Reference to store user data until states are loaded
-  const pendingUserData = useRef<Usuario | null>(null);
 
   // Buscar dados iniciais quando o componente montar
   useEffect(() => {
@@ -454,26 +452,46 @@ export default function ProfileScreen() {
 
   // NOVA FUNÇÃO: Verificar se deve limpar o CEP
   const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
-    // Se não há dados do CEP ou CEP está vazio, não fazer nada
-    if (!dadosDoCep.estadoId || !dadosDoCep.cidadeId || !cep.trim()) {
+    // Se não há CEP preenchido, não fazer nada
+    if (!cep.trim()) {
       return;
     }
 
-    // Se o estado ou cidade selecionado for diferente do que veio do CEP
-    const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
-    const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
+    // Se há dados do CEP automaticamente preenchido, verificar se é diferente
+    if (dadosDoCep.estadoId || dadosDoCep.cidadeId) {
+      const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
+      const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
 
-    if (estadoDiferente || cidadeDiferente) {
-      setCep('');
-      setCepErro('');
-      // Limpar dados do CEP já que foi alterado manualmente
-      setDadosDoCep({
-        estadoId: null,
-        cidadeId: null,
-        estadoNome: '',
-        cidadeNome: '',
-      });
+      if (estadoDiferente || cidadeDiferente) {
+        setCep('');
+        setCepErro('');
+        setDadosDoCep({
+          estadoId: null,
+          cidadeId: null,
+          estadoNome: '',
+          cidadeNome: '',
+        });
+        return;
+      }
     }
+
+    // Se chegou até aqui, CEP foi digitado manualmente
+    // Aqui você pode escolher: sempre limpar ou não limpar
+
+    // Subopção 2A: SEMPRE limpar CEP quando estado/cidade mudar (independente de como foi preenchido)
+
+    setCep('');
+    setCepErro('');
+    setDadosDoCep({
+      estadoId: null,
+      cidadeId: null,
+      estadoNome: '',
+      cidadeNome: '',
+    });
+
+    // Subopção 2B: NÃO limpar CEP se foi digitado manualmente
+    // console.log('❌ CEP foi digitado manualmente - não limpar');
+    // return;
   };
 
   // Handlers para inputs formatados
@@ -884,7 +902,7 @@ export default function ProfileScreen() {
   // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
   const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {
     // Verificar se deve limpar o CEP antes de alterar
-    verificarELimparCep(selectedEstado.id, cidadeSelecionada);
+    verificarELimparCep(selectedEstado.id, null);
 
     setEstadoSelecionado(selectedEstado.id);
     setEstado(selectedEstado.nome);

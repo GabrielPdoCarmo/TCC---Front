@@ -231,6 +231,9 @@ export default function CadastroUsuario() {
   const [cidadeErro, setCidadeErro] = useState('');
   const [sexoErro, setSexoErro] = useState('');
 
+  // ✅ ESTADO PARA CONTROLAR BUSCA AUTOMÁTICA
+  const [buscandoAutomaticamente, setBuscandoAutomaticamente] = useState<boolean>(false);
+
   // NOVOS ESTADOS: Para erros granulares de senha
   const [senhaErros, setSenhaErros] = useState<string[]>([]);
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState('');
@@ -259,27 +262,33 @@ export default function CadastroUsuario() {
   const cidadesCache = useRef<{ [key: string]: CidadeType[] }>({});
   const navigation = useNavigation<any>();
 
-  // NOVA FUNÇÃO: Verificar se deve limpar o CEP
+  // ✅ FUNÇÃO CORRIGIDA: Verificar se deve limpar o CEP com lógica inteligente
   const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
-    // Se não há dados do CEP ou CEP está vazio, não fazer nada
-    if (!dadosDoCep.estadoId || !dadosDoCep.cidadeId || !cep.trim()) {
+    // ✅ NOVA CONDIÇÃO: Se está buscando automaticamente, NÃO limpar
+    if (buscandoAutomaticamente) {
       return;
     }
 
-    // Se o estado ou cidade selecionado for diferente do que veio do CEP
-    const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
-    const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
+    // Se não há CEP preenchido, não fazer nada
+    if (!cep.trim()) {
+      return;
+    }
 
-    if (estadoDiferente || cidadeDiferente) {
-      setCep('');
-      setCepErro('');
-      // Limpar dados do CEP já que foi alterado manualmente
-      setDadosDoCep({
-        estadoId: null,
-        cidadeId: null,
-        estadoNome: '',
-        cidadeNome: '',
-      });
+    // Só limpar se CEP foi preenchido automaticamente E foi alterado manualmente depois
+    if (dadosDoCep.estadoId && dadosDoCep.cidadeId) {
+      const estadoDiferente = novoEstadoId && novoEstadoId !== dadosDoCep.estadoId;
+      const cidadeDiferente = novaCidadeId && novaCidadeId !== dadosDoCep.cidadeId;
+
+      if (estadoDiferente || cidadeDiferente) {
+        setCep('');
+        setCepErro('');
+        setDadosDoCep({
+          estadoId: null,
+          cidadeId: null,
+          estadoNome: '',
+          cidadeNome: '',
+        });
+      }
     }
   };
 
@@ -405,21 +414,6 @@ export default function CadastroUsuario() {
     setShowCidades(false);
   };
 
-  const toggleEstados = async () => {
-    if (loadingCadastro) return; // 🆕 Bloquear durante loading
-
-    if (!showEstados && estados.length === 0) {
-      try {
-        const estadosData = await getEstados();
-        setEstados(estadosData || []);
-      } catch (error) {
-        setEstados([]);
-      }
-    }
-    setShowEstados(!showEstados);
-    if (showEstados) setEstadoSearch({ id: 0, nome: '' });
-  };
-
   const toggleCidades = async () => {
     if (loadingCadastro) return; // 🆕 Bloquear durante loading
     if (!estado) return;
@@ -436,27 +430,6 @@ export default function CadastroUsuario() {
     setShowCidades(!showCidades);
     if (!showCidades) setCidadeSearch({ id: 0, nome: '' });
   };
-
-  // Filtragem de cidades com debounce para melhor performance
-  const debouncedCidadeSearch = useCallback(
-    debounce((text: string) => {
-      const normalize = (str: string) =>
-        str
-          .normalize('NFD')
-          .replace(/[\u0300-\u036f]/g, '')
-          .toLowerCase();
-
-      if (!text.trim()) {
-        setCidadesFiltradas(cidades);
-        return;
-      }
-
-      const filtered = cidades.filter((item) => item && item.nome && normalize(item.nome).includes(normalize(text)));
-
-      setCidadesFiltradas(filtered);
-    }, 300),
-    [cidades]
-  );
 
   // No início do arquivo, adicione esta importação
 
@@ -915,12 +888,13 @@ export default function CadastroUsuario() {
     }
   }
 
-  // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
+  // ✅ FUNÇÃO CORRIGIDA: Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     if (loadingCadastro) return; // Bloquear durante loading
 
     try {
       setLoadingCep(true);
+      setBuscandoAutomaticamente(true); // ✅ MARCAR COMO BUSCA AUTOMÁTICA
       setCepErro(''); // Limpar erro anterior
 
       const endereco = await lookupCepAddress(numericCep ?? cep);
@@ -949,6 +923,7 @@ export default function CadastroUsuario() {
         const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
 
         if (estadoEncontrado) {
+          // ✅ BUSCA AUTOMÁTICA: handleEstadoChange não vai limpar o CEP
           cidadesDoEstado = await handleEstadoChange(estadoEncontrado);
           setEstadoSearch(estadoEncontrado);
         } else {
@@ -963,17 +938,20 @@ export default function CadastroUsuario() {
         );
 
         if (cidadeEncontrada) {
+          // ✅ BUSCA AUTOMÁTICA: handleCidadeSelect não vai limpar o CEP
           handleCidadeSelect(cidadeEncontrada);
 
-          // NOVO: Armazenar dados do CEP para validação futura
+          // ✅ SALVAR dados do CEP APÓS selecionar estado/cidade
           const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
           if (estadoEncontrado) {
-            setDadosDoCep({
+            const novosDadosCep = {
               estadoId: estadoEncontrado.id,
               cidadeId: cidadeEncontrada.id,
               estadoNome: estadoEncontrado.nome,
               cidadeNome: cidadeEncontrada.nome,
-            });
+            };
+
+            setDadosDoCep(novosDadosCep);
           }
         } else {
           setCepErro('Cidade não encontrada para este CEP.');
@@ -989,16 +967,9 @@ export default function CadastroUsuario() {
       setCepErro('CEP inválido ou não encontrado.');
     } finally {
       setLoadingCep(false);
+      setBuscandoAutomaticamente(false); // ✅ FINALIZAR BUSCA AUTOMÁTICA
     }
   }
-
-  // Atualiza a busca de cidades
-  const handleCidadeSearchChange = (text: { id: number; nome: string }) => {
-    if (loadingCadastro) return; // Bloquear durante loading
-
-    setCidadeSearch(text);
-    debouncedCidadeSearch(text.nome);
-  };
 
   useEffect(() => {
     const fetchData = async () => {
@@ -1012,17 +983,6 @@ export default function CadastroUsuario() {
     };
     fetchData();
   }, []);
-
-  const filterEstados = (item: string) => {
-    if (!item) return false;
-    const normalize = (text: string) =>
-      text
-        .normalize('NFD')
-        .replace(/[\u0300-\u036f]/g, '')
-        .toLowerCase();
-
-    return normalize(item).includes(normalize(estadoSearch.nome));
-  };
 
   // 🆕 FUNÇÕES ATUALIZADAS: Toggle password visibility com verificação de loading
   const toggleSenhaVisibility = () => {
@@ -1689,3 +1649,4 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
+('');
