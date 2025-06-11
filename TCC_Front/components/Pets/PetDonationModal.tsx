@@ -277,7 +277,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        Alert.alert('Error', 'Não foi possível identificar o usuário conectado.');
+        Alert.alert('Erro', 'Não foi possível identificar o usuário conectado.');
         return;
       }
 
@@ -285,7 +285,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userData = await getUsuarioByIdComCidadeEstado(userIdNumber);
 
       if (!userData) {
-        Alert.alert('Error', 'Não foi possível carregar os dados do usuário.');
+        Alert.alert('Erro', 'Não foi possível carregar os dados do usuário.');
         return;
       }
 
@@ -298,7 +298,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         estado: userData.estado.nome,
       }));
     } catch (error) {
-      Alert.alert('Error', 'Falha ao carregar os dados do usuário. Tente novamente.');
+      Alert.alert('Erro', 'Falha ao carregar os dados do usuário. Tente novamente.');
     }
   };
 
@@ -480,7 +480,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           setIsEditDataLoaded(true);
         }
       } catch (error) {
-        Alert.alert('Error', 'Falha ao carregar os dados. Tente novamente.');
+        Alert.alert('Erro', 'Falha ao carregar os dados. Tente novamente.');
         setIsInitialLoadComplete(true); // Permitir que continue mesmo com erro
         setIsEditDataLoaded(true);
       } finally {
@@ -514,7 +514,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         setRacasFiltradas([]);
       }
     } catch (error) {
-      Alert.alert('Error', 'Falha ao carregar raças para esta espécie. Tente novamente.');
+      Alert.alert('Erro', 'Falha ao carregar raças para esta espécie. Tente novamente.');
     }
   };
 
@@ -836,7 +836,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
-        Alert.alert('Error', 'Não foi possível identificar o usuário conectado.');
+        Alert.alert('Erro', 'Não foi possível identificar o usuário conectado.');
         return;
       }
 
@@ -916,7 +916,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
         onClose();
       } else {
-        Alert.alert('Error', 'Não foi possível registrar o pet. Tente novamente.');
+        Alert.alert('Erro', 'Não foi possível registrar o pet. Tente novamente.');
       }
     } catch (error) {
       let errorMessage = 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
@@ -927,7 +927,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       } else {
       }
 
-      Alert.alert('Error', errorMessage);
+      Alert.alert('Erro', errorMessage);
     } finally {
       setIsLoading(false);
     }

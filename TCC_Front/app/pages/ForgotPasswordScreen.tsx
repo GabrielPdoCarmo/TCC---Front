@@ -15,6 +15,7 @@ import { router } from 'expo-router';
 import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import checkCode from '../../services/api/Codigo/checkCode';
 import sendRecoveryCode from '../../services/api/Codigo/sendRecoveryCode';
+import validator from 'validator';
 
 // NOVA FUNÇÃO: Validação granular de senha
 const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string[] } => {
@@ -49,6 +50,25 @@ const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string
     isValid: errors.length === 0,
     errors,
   };
+};
+
+// FUNÇÃO ATUALIZADA: Validação simples de email usando validator
+const validarEmailSimples = (email: string): { isValid: boolean; errorMessage?: string } => {
+  if (!email) {
+    return { isValid: false, errorMessage: 'O e-mail é obrigatório' };
+  }
+
+  // Usar validator.js para validação básica
+  if (!validator.isEmail(email)) {
+    return { isValid: false, errorMessage: 'E-mail inválido' };
+  }
+
+  // Verificar tamanho usando validator
+  if (!validator.isLength(email, { min: 3, max: 254 })) {
+    return { isValid: false, errorMessage: 'E-mail deve ter entre 3 e 254 caracteres' };
+  }
+
+  return { isValid: true };
 };
 
 export default function ForgotPasswordScreen() {
@@ -114,16 +134,15 @@ export default function ForgotPasswordScreen() {
     if (confirmarSenha) setErroConfirmarSenha('');
   }, [confirmarSenha]);
 
-  // Função para solicitar o código de recuperação
+  // Função para solicitar o código de recuperação - ATUALIZADA
   const solicitarCodigo = async () => {
     setErroEmail('');
 
-    // Validar e-mail
-    if (!email) {
-      setErroEmail('O e-mail é obrigatório');
-      return;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setErroEmail('E-mail inválido');
+    // Validar e-mail usando validator
+    const validacaoEmail = validarEmailSimples(email);
+    
+    if (!validacaoEmail.isValid) {
+      setErroEmail(validacaoEmail.errorMessage || 'E-mail inválido');
       return;
     }
 

@@ -1,4 +1,4 @@
-// pages/LoginScreen.tsx - Versão com debug e modal garantido
+// pages/LoginScreen.tsx - Versão com debug e modal garantido + validação granular de email
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -17,6 +17,7 @@ import { useAuth } from '@/contexts/AuthContext';
 import login from '../../services/api/auth';
 import getUsuarioById from '../../services/api/Usuario/getUsuarioById';
 import WelcomeModal from '../../components/Welcome/WelcomeModal';
+import validator from 'validator';
 
 // Interface para tipagem de erros da API
 interface ApiError {
@@ -25,11 +26,66 @@ interface ApiError {
   status?: number;
 }
 
+// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+const validarEmailCompleto = (email: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!email) {
+    errors.push('O e-mail é obrigatório');
+    return { isValid: false, errors };
+  }
+
+  // Usar validator.js para validação principal
+  if (!validator.isEmail(email)) {
+    errors.push('Formato de e-mail inválido');
+  }
+
+  // Validar tamanho usando validator
+  if (!validator.isLength(email, { min: 3, max: 254 })) {
+    if (email.length < 3) {
+      errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
+    } else {
+      errors.push('O e-mail é muito longo (máximo 254 caracteres)');
+    }
+  }
+
+  // Verificar se não tem espaços
+  if (email.includes(' ')) {
+    errors.push('E-mail não pode conter espaços');
+  }
+
+  // Verificações adicionais para domínio
+  if (email.includes('@')) {
+    const [localPart, domain] = email.split('@');
+    
+    // Verificar parte local
+    if (localPart.length > 64) {
+      errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
+    }
+
+    // Verificar domínio
+    if (domain.length > 253) {
+      errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
+    }
+
+    // Usar validator para verificar se é um FQDN válido
+    if (!validator.isFQDN(domain)) {
+      errors.push('Domínio inválido');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors,
+  };
+};
+
 export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [senha, setSenha] = useState('');
   const [mostrarSenha, setMostrarSenha] = useState(false);
-  const [emailErro, setEmailErro] = useState('');
+  // MUDANÇA: Array de erros para email granular
+  const [emailErros, setEmailErros] = useState<string[]>([]);
   const [senhaErro, setSenhaErro] = useState('');
   const [loading, setLoading] = useState(false);
 
@@ -49,9 +105,14 @@ export default function LoginScreen() {
     }
   }, [isAuthenticated, authLoading, welcomeModalVisible]);
 
-  // Limpar erros quando campos mudam
+  // NOVA VALIDAÇÃO: Limpar erros quando campos mudam
   useEffect(() => {
-    if (email) setEmailErro('');
+    if (email) {
+      const validacaoEmail = validarEmailCompleto(email);
+      setEmailErros(validacaoEmail.errors);
+    } else {
+      setEmailErros([]);
+    }
   }, [email]);
 
   useEffect(() => {
@@ -111,18 +172,22 @@ export default function LoginScreen() {
 
   // ✅ CORRIGIDO: Login sem executar contextLogin até modal fechar
   const handleLogin = async () => {
-    setEmailErro('');
+    setEmailErros([]);
     setSenhaErro('');
 
     // Validações
     let temErros = false;
 
+    // NOVA VALIDAÇÃO GRANULAR: Email usando validator
     if (!email) {
-      setEmailErro('O e-mail é obrigatório');
+      setEmailErros(['O e-mail é obrigatório']);
       temErros = true;
-    } else if (!/\S+@\S+\.\S+/.test(email)) {
-      setEmailErro('E-mail inválido');
-      temErros = true;
+    } else {
+      const validacaoEmail = validarEmailCompleto(email);
+      if (!validacaoEmail.isValid) {
+        setEmailErros(validacaoEmail.errors);
+        temErros = true;
+      }
     }
 
     if (!senha) {
@@ -171,17 +236,23 @@ export default function LoginScreen() {
     } catch (error: unknown) {
       const userFriendlyMessage = getErrorMessage(error);
 
-      Alert.alert('Erro no Login', userFriendlyMessage, [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (userFriendlyMessage.includes('Email ou senha incorretos')) {
-              setEmail('');
-              setSenha('');
-            }
+      // Verificar se o erro tem validação granular de email do backend
+      const serverError = (error as any)?.response?.data || error;
+      if (serverError && serverError.emailErrors) {
+        setEmailErros(serverError.emailErrors);
+      } else {
+        Alert.alert('Erro no Login', userFriendlyMessage, [
+          {
+            text: 'OK',
+            onPress: () => {
+              if (userFriendlyMessage.includes('Email ou senha incorretos')) {
+                setEmail('');
+                setSenha('');
+              }
+            },
           },
-        },
-      ]);
+        ]);
+      }
     } finally {
       setLoading(false);
     }
@@ -242,9 +313,9 @@ export default function LoginScreen() {
           <Image source={require('../../assets/images/Icone/Petz_Up.png')} style={styles.logoImage} />
           <Text style={styles.loginText}>Login:</Text>
 
-          {/* Campo de E-mail */}
+          {/* Campo de E-mail com validação granular */}
           <TextInput
-            style={[styles.input, emailErro ? { borderColor: 'red' } : {}]}
+            style={[styles.input, emailErros.length > 0 ? { borderColor: 'red' } : {}]}
             placeholder="E-mail:"
             placeholderTextColor="#666"
             value={email}
@@ -252,7 +323,14 @@ export default function LoginScreen() {
             keyboardType="email-address"
             autoCapitalize="none"
           />
-          {emailErro ? <Text style={styles.errorTextEmail}>{emailErro}</Text> : null}
+          {/* NOVA EXIBIÇÃO: Mostrar todos os erros de email */}
+          {emailErros.length > 0 && (
+            <View style={styles.errorContainer}>
+              {emailErros.map((erro, index) => (
+                <Text key={index} style={styles.errorTextEmail}>• {erro}</Text>
+              ))}
+            </View>
+          )}
 
           {/* Campo de Senha */}
           <View style={[styles.senhaContainer, senhaErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
@@ -272,7 +350,7 @@ export default function LoginScreen() {
 
           <TouchableOpacity
             onPress={() => router.push('/pages/ForgotPasswordScreen')}
-            style={[styles.forgotPasswordContainer, (emailErro || senhaErro) && { marginTop: 0 }]}
+            style={[styles.forgotPasswordContainer, (emailErros.length > 0 || senhaErro) && { marginTop: 0 }]}
           >
             <Text style={styles.forgotPasswordText}>Esqueceu sua senha?</Text>
           </TouchableOpacity>
@@ -415,6 +493,13 @@ const styles = StyleSheet.create({
     color: 'red',
     fontSize: 12,
     marginTop: 0,
+    paddingLeft: 20,
+    width: '100%',
+  },
+  // NOVO ESTILO: Container para múltiplos erros de email
+  errorContainer: {
+    marginTop: 5,
+    marginBottom: 10,
     paddingLeft: 20,
     width: '100%',
   },

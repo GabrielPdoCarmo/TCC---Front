@@ -1,5 +1,6 @@
 import api from '../api';
 import { cpf } from 'cpf-cnpj-validator';
+import validator from 'validator';
 
 interface UsuarioPayload {
   nome: string;
@@ -14,7 +15,7 @@ interface UsuarioPayload {
   foto?: File | null;
 }
 
-// Função para validar CPF (existente)
+// Função para validar CPF (mantida igual)
 export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
   // Remove caracteres não numéricos
   const cpfNumerico = cpfValue.replace(/\D/g, '');
@@ -31,7 +32,7 @@ export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?
   return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
 };
 
-// FUNÇÃO: Validação de telefone
+// Função para validar telefone (mantida igual)
 export const validateTelefone = (
   telefoneValue: string
 ): { isValid: boolean; formattedTelefone?: string; errorMessage?: string } => {
@@ -84,7 +85,73 @@ export const validateTelefone = (
   return { isValid: false, errorMessage: 'Número de telefone inválido' };
 };
 
-// NOVA FUNÇÃO: Validação granular de senha
+// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+export const validateEmail = (email: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!email) {
+    errors.push('O e-mail é obrigatório');
+    return { isValid: false, errors };
+  }
+
+  // Usar validator.js para validação principal
+  if (!validator.isEmail(email)) {
+    errors.push('Formato de e-mail inválido');
+  }
+
+  // Validar tamanho usando validator
+  if (!validator.isLength(email, { min: 3, max: 254 })) {
+    if (email.length < 3) {
+      errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
+    } else {
+      errors.push('O e-mail é muito longo (máximo 254 caracteres)');
+    }
+  }
+
+  // Verificar se não tem espaços
+  if (email.includes(' ')) {
+    errors.push('E-mail não pode conter espaços');
+  }
+
+  // Verificações específicas de domínio
+  if (email.includes('@')) {
+    const [localPart, domain] = email.split('@');
+    
+    // Verificar parte local
+    if (localPart.length > 64) {
+      errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
+    }
+
+    // Verificar domínio usando validator
+    if (domain.length > 253) {
+      errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
+    }
+
+    // Verificar se é um FQDN válido
+    if (!validator.isFQDN(domain)) {
+      errors.push('Domínio inválido');
+    }
+
+    // Verificar se não tem partes vazias no domínio
+    const domainParts = domain.split('.');
+    if (domainParts.some(part => part.length === 0)) {
+      errors.push('Domínio não pode ter partes vazias');
+    }
+
+    // Verificar TLD
+    const tld = domainParts[domainParts.length - 1];
+    if (tld && tld.length < 2) {
+      errors.push('Extensão do domínio deve ter pelo menos 2 caracteres');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+// Validação granular de senha (mantida igual)
 export const validateSenha = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -93,22 +160,18 @@ export const validateSenha = (senha: string): { isValid: boolean; errors: string
     return { isValid: false, errors };
   }
 
-  // Verificar se a senha tem pelo menos 8 caracteres
   if (senha.length < 8) {
     errors.push('A senha deve ter pelo menos 8 caracteres');
   }
 
-  // Verificar se tem pelo menos uma letra minúscula
   if (!/[a-z]/.test(senha)) {
     errors.push('A senha deve possuir letras minúsculas');
   }
 
-  // Verificar se tem pelo menos uma letra maiúscula
   if (!/[A-Z]/.test(senha)) {
     errors.push('A senha deve possuir letras maiúsculas');
   }
 
-  // Verificar se tem pelo menos um caractere especial
   if (!/[!@#$%^&*()_+\-=\[\]{};':"\\|,.<>\/?]/.test(senha)) {
     errors.push('A senha deve possuir caracteres especiais');
   }
@@ -119,10 +182,22 @@ export const validateSenha = (senha: string): { isValid: boolean; errors: string
   };
 };
 
-// Função createUsuario ATUALIZADA com validação granular
+// Função createUsuario ATUALIZADA com validação usando validator
 export const createUsuario = async (usuarioData: UsuarioPayload) => {
   try {
-    // NOVA VALIDAÇÃO GRANULAR: Validar senha antes de enviar
+    // VALIDAÇÃO ATUALIZADA: Usar validator para email
+    const emailValidation = validateEmail(usuarioData.email);
+
+    if (!emailValidation.isValid) {
+      // Retornar erro com array de erros específicos
+      throw {
+        error: 'E-mail inválido',
+        message: emailValidation.errors.join(', '),
+        emailErrors: emailValidation.errors
+      };
+    }
+
+    // Validação de senha (mantida igual)
     const senhaValidation = validateSenha(usuarioData.senha);
 
     if (!senhaValidation.isValid) {
@@ -134,21 +209,18 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
       };
     }
 
-    // Validar CPF antes de enviar
+    // Validar CPF
     const cpfValidation = validateCpf(usuarioData.cpf);
-
     if (!cpfValidation.isValid) {
       throw new Error(cpfValidation.errorMessage);
     }
 
-    // Validar telefone antes de enviar
+    // Validar telefone
     const telefoneValidation = validateTelefone(usuarioData.telefone);
-
     if (!telefoneValidation.isValid) {
       throw new Error(telefoneValidation.errorMessage);
     }
 
-    // Usando o CPF e telefone formatados
     const formattedCpf = cpfValidation.formattedCpf;
     const formattedTelefone = telefoneValidation.formattedTelefone;
 
@@ -156,8 +228,8 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
 
     formData.append('nome', usuarioData.nome);
     formData.append('sexo_id', String(usuarioData.sexo_id));
-    formData.append('telefone', formattedTelefone || usuarioData.telefone); // Usa o telefone formatado
-    formData.append('email', usuarioData.email);
+    formData.append('telefone', formattedTelefone || usuarioData.telefone);
+    formData.append('email', usuarioData.email); // Email já validado com validator
     formData.append('senha', usuarioData.senha);
     formData.append('cpf', formattedCpf || usuarioData.cpf);
     formData.append('cidade_id', String(usuarioData.cidade_id));
@@ -180,7 +252,7 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
     return response.data;
   } catch (error: any) {
     // Se o erro já tem a estrutura de validação granular, propagar
-    if (error.passwordErrors) {
+    if (error.passwordErrors || error.emailErrors) {
       throw error;
     }
     

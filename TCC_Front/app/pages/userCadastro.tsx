@@ -27,6 +27,8 @@ import Feather from 'react-native-vector-icons/Feather';
 import { Redirect, router } from 'expo-router';
 // Adicione esta linha no início do arquivo, junto com as outras importações
 import { cpf as cpfValidator } from 'cpf-cnpj-validator';
+// IMPORTAÇÃO ATUALIZADA: Para validação de email
+import validator from 'validator';
 
 // Define the cidade type to ensure consistency throughout the component
 type CidadeType = {
@@ -99,7 +101,73 @@ const stripNonNumeric = (text: string): string => {
   return text.replace(/\D/g, '');
 };
 
-// NOVA FUNÇÃO: Validação granular de senha
+// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+const validarEmail = (email: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!email) {
+    errors.push('O e-mail é obrigatório');
+    return { isValid: false, errors };
+  }
+
+  // Usar validator.js para validação principal
+  if (!validator.isEmail(email)) {
+    errors.push('Formato de e-mail inválido');
+  }
+
+  // Validar tamanho usando validator
+  if (!validator.isLength(email, { min: 3, max: 254 })) {
+    if (email.length < 3) {
+      errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
+    } else {
+      errors.push('O e-mail é muito longo (máximo 254 caracteres)');
+    }
+  }
+
+  // Verificar se não tem espaços
+  if (email.includes(' ')) {
+    errors.push('E-mail não pode conter espaços');
+  }
+
+  // Verificações específicas de domínio
+  if (email.includes('@')) {
+    const [localPart, domain] = email.split('@');
+    
+    // Verificar parte local
+    if (localPart.length > 64) {
+      errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
+    }
+
+    // Verificar domínio usando validator
+    if (domain.length > 253) {
+      errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
+    }
+
+    // Verificar se é um FQDN válido
+    if (!validator.isFQDN(domain)) {
+      errors.push('Domínio inválido');
+    }
+
+    // Verificar se não tem partes vazias no domínio
+    const domainParts = domain.split('.');
+    if (domainParts.some(part => part.length === 0)) {
+      errors.push('Domínio não pode ter partes vazias');
+    }
+
+    // Verificar TLD
+    const tld = domainParts[domainParts.length - 1];
+    if (tld && tld.length < 2) {
+      errors.push('Extensão do domínio deve ter pelo menos 2 caracteres');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+// FUNÇÃO EXISTENTE: Validação granular de senha
 const validarSenha = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -178,7 +246,8 @@ export default function CadastroUsuario() {
   const [confirmarSenhaErro, setConfirmarSenhaErro] = useState('');
   
   const [email, setEmail] = useState('');
-  const [emailErro, setEmailErro] = useState('');
+  // NOVO ESTADO: Para erros granulares de email
+  const [emailErros, setEmailErros] = useState<string[]>([]); // MUDANÇA: Array de erros
   const [cep, setCep] = useState('');
   const [cepErro, setCepErro] = useState('');
   const [showSenha, setShowSenha] = useState<boolean>(false);
@@ -383,7 +452,8 @@ export default function CadastroUsuario() {
     [cidades]
   );
 
-  const validarEmail = (email: string) => {
+  // Substitua a função validarEmail existente por esta:
+  const validarEmailSimples = (email: string) => {
     const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
     return regex.test(email);
   };
@@ -434,7 +504,7 @@ export default function CadastroUsuario() {
       setSexoErro('');
       setSenhaErros([]); // Limpar erros granulares
       setConfirmarSenhaErro('');
-      setEmailErro('');
+      setEmailErros([]); // NOVA LIMPEZA: Limpar erros granulares de email
       setCepErro('');
 
       let hasError = false;
@@ -466,12 +536,16 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
+      // NOVA VALIDAÇÃO GRANULAR DE EMAIL
       if (!email) {
-        setEmailErro('O e-mail é obrigatório.');
+        setEmailErros(['O e-mail é obrigatório']);
         hasError = true;
-      } else if (!validarEmail(email)) {
-        setEmailErro('E-mail inválido. Informe um e-mail válido.');
-        hasError = true;
+      } else {
+        const validacaoEmail = validarEmail(email);
+        if (!validacaoEmail.isValid) {
+          setEmailErros(validacaoEmail.errors);
+          hasError = true;
+        }
       }
 
       if (!sexo.id) {
@@ -489,7 +563,7 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      // NOVA VALIDAÇÃO GRANULAR DE SENHA
+      // VALIDAÇÃO GRANULAR DE SENHA
       if (!senha) {
         setSenhaErros(['A senha é obrigatória']);
         hasError = true;
@@ -537,7 +611,7 @@ export default function CadastroUsuario() {
         }
 
         if (validationResponse.duplicateFields?.includes('email')) {
-          setEmailErro('Este e-mail já está cadastrado no sistema.');
+          setEmailErros(['Este e-mail já está cadastrado no sistema.']);
           validationHasError = true;
         }
 
@@ -611,7 +685,7 @@ export default function CadastroUsuario() {
               setCpfErro('Este CPF já está cadastrado no sistema.');
             }
             if (fields.includes('email')) {
-              setEmailErro('Este e-mail já está cadastrado no sistema.');
+              setEmailErros(['Este e-mail já está cadastrado no sistema.']);
             }
             if (fields.includes('telefone')) {
               setTelefoneErro('Este telefone já está cadastrado no sistema.');
@@ -621,7 +695,7 @@ export default function CadastroUsuario() {
             const message = serverError.message?.toLowerCase() || '';
 
             if (message.includes('email') || message.includes('e-mail')) {
-              setEmailErro('Este e-mail já está cadastrado no sistema.');
+              setEmailErros(['Este e-mail já está cadastrado no sistema.']);
             } else if (message.includes('cpf')) {
               setCpfErro('Este CPF já está cadastrado no sistema.');
             } else if (message.includes('telefone')) {
@@ -638,7 +712,11 @@ export default function CadastroUsuario() {
         else if (serverError.error?.toLowerCase().includes('senha') && serverError.passwordErrors) {
           setSenhaErros(serverError.passwordErrors);
         }
-        // 3. Outros erros
+        // 3. NOVO: Tratar erro de email com validação granular
+        else if (serverError.error?.toLowerCase().includes('e-mail') && serverError.emailErrors) {
+          setEmailErros(serverError.emailErrors);
+        }
+        // 4. Outros erros
         else {
           Alert.alert('Erro', serverError.message || 'Erro inesperado.');
         }
@@ -676,7 +754,19 @@ export default function CadastroUsuario() {
     if (text) setTelefoneErro('');
   };
 
-  // NOVA FUNÇÃO: Handler para senha com validação granular
+  // FUNÇÃO ATUALIZADA: Handler para email com validação usando validator
+  const handleEmailChange = (text: string) => {
+    setEmail(text);
+    
+    if (text) {
+      const validacaoEmail = validarEmail(text);
+      setEmailErros(validacaoEmail.errors);
+    } else {
+      setEmailErros([]);
+    }
+  };
+
+  // FUNÇÃO: Handler para senha com validação granular
   const handleSenhaChange = (text: string) => {
     setSenha(text);
     
@@ -969,13 +1059,13 @@ export default function CadastroUsuario() {
               </View>
               {sexoErro ? <Text style={styles.errorText}>{sexoErro}</Text> : null}
             </View>
-            {/* E-mail */}
+            {/* E-mail com validação granular */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 E-mail <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
-                style={[styles.input, emailErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                style={[styles.input, emailErros.length > 0 ? { borderColor: 'red', borderWidth: 1 } : {}]}
                 placeholder="E-mail"
                 keyboardType="email-address"
                 value={email}
@@ -983,12 +1073,16 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                onChangeText={(text) => {
-                  setEmail(text);
-                  if (text) setEmailErro('');
-                }}
+                onChangeText={handleEmailChange} // MUDANÇA: Usar nova função
               />
-              {emailErro ? <Text style={styles.errorText}>{emailErro}</Text> : null}
+              {/* NOVA EXIBIÇÃO: Mostrar todos os erros de email */}
+              {emailErros.length > 0 && (
+                <View style={styles.errorContainer}>
+                  {emailErros.map((erro, index) => (
+                    <Text key={index} style={styles.errorText}>• {erro}</Text>
+                  ))}
+                </View>
+              )}
             </View>
 
             {/* Telefone */}
@@ -1122,7 +1216,7 @@ export default function CadastroUsuario() {
                   )}
                 </TouchableOpacity>
               </View>
-              {/* NOVA EXIBIÇÃO: Mostrar todos os erros de senha */}
+              {/* EXIBIÇÃO: Mostrar todos os erros de senha */}
               {senhaErros.length > 0 && (
                 <View style={styles.errorContainer}>
                   {senhaErros.map((erro, index) => (
@@ -1224,12 +1318,12 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
-  // NOVO ESTILO: Botão desabilitado durante loading
+  // ESTILO: Botão desabilitado durante loading
   saveButtonDisabled: {
     backgroundColor: '#A5D6A7', // Cor mais clara quando desabilitado
     opacity: 0.7,
   },
-  // NOVO ESTILO: Container para o loading
+  // ESTILO: Container para o loading
   loadingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -1303,7 +1397,7 @@ const styles = StyleSheet.create({
     marginTop: 5,
     backgroundColor: '#fff',
   },
-  // Novos estilos para o componente de foto circular
+  // Estilos para o componente de foto circular
   photoContainer: {
     width: 150,
     height: 150,
@@ -1405,7 +1499,7 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginLeft: 10,
   },
-  // NOVO ESTILO: Container para múltiplos erros
+  // ESTILO: Container para múltiplos erros
   errorContainer: {
     marginTop: 5,
     marginLeft: 10,

@@ -1,5 +1,6 @@
 import api from '../api';
 import { cpf } from 'cpf-cnpj-validator';
+import validator from 'validator';
 
 interface UsuarioUpdatePayload {
   id: number;
@@ -15,7 +16,7 @@ interface UsuarioUpdatePayload {
   senha?: string; // Adicionando senha como opcional
 }
 
-// Função para validar CPF (existente)
+// Função para validar CPF (mantida igual)
 export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
   // Remove caracteres não numéricos
   const cpfNumerico = cpfValue.replace(/\D/g, '');
@@ -32,7 +33,7 @@ export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?
   return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
 };
 
-// FUNÇÃO: Validação de telefone
+// FUNÇÃO: Validação de telefone (mantida igual)
 export const validateTelefone = (
   telefoneValue: string
 ): { isValid: boolean; formattedTelefone?: string; errorMessage?: string } => {
@@ -85,7 +86,73 @@ export const validateTelefone = (
   return { isValid: false, errorMessage: 'Número de telefone inválido' };
 };
 
-// NOVA FUNÇÃO: Validação granular de senha
+// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+export const validateEmail = (email: string): { isValid: boolean; errors: string[] } => {
+  const errors: string[] = [];
+
+  if (!email) {
+    errors.push('O e-mail é obrigatório');
+    return { isValid: false, errors };
+  }
+
+  // Usar validator.js para validação principal
+  if (!validator.isEmail(email)) {
+    errors.push('Formato de e-mail inválido');
+  }
+
+  // Validar tamanho usando validator
+  if (!validator.isLength(email, { min: 3, max: 254 })) {
+    if (email.length < 3) {
+      errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
+    } else {
+      errors.push('O e-mail é muito longo (máximo 254 caracteres)');
+    }
+  }
+
+  // Verificar se não tem espaços
+  if (email.includes(' ')) {
+    errors.push('E-mail não pode conter espaços');
+  }
+
+  // Verificações específicas de domínio
+  if (email.includes('@')) {
+    const [localPart, domain] = email.split('@');
+    
+    // Verificar parte local
+    if (localPart.length > 64) {
+      errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
+    }
+
+    // Verificar domínio usando validator
+    if (domain.length > 253) {
+      errors.push('Domínio do e-mail é muito longo (máximo 253 caracteres)');
+    }
+
+    // Verificar se é um FQDN válido
+    if (!validator.isFQDN(domain)) {
+      errors.push('Domínio inválido');
+    }
+
+    // Verificar se não tem partes vazias no domínio
+    const domainParts = domain.split('.');
+    if (domainParts.some(part => part.length === 0)) {
+      errors.push('Domínio não pode ter partes vazias');
+    }
+
+    // Verificar TLD
+    const tld = domainParts[domainParts.length - 1];
+    if (tld && tld.length < 2) {
+      errors.push('Extensão do domínio deve ter pelo menos 2 caracteres');
+    }
+  }
+
+  return {
+    isValid: errors.length === 0,
+    errors
+  };
+};
+
+// FUNÇÃO EXISTENTE: Validação granular de senha (mantida igual)
 export const validateSenha = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -125,6 +192,20 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     const { id, ...usuarioInfo } = usuarioData;
     const formData = new FormData();
 
+    // VALIDAÇÃO ATUALIZADA: Usar validator para email
+    if (usuarioInfo.email) {
+      const emailValidation = validateEmail(usuarioInfo.email);
+
+      if (!emailValidation.isValid) {
+        // Retornar erro com array de erros específicos
+        throw {
+          error: 'E-mail inválido',
+          message: emailValidation.errors.join(', '),
+          emailErrors: emailValidation.errors,
+        };
+      }
+    }
+
     // Validar CPF se fornecido
     if (usuarioInfo.cpf) {
       const cpfValidation = validateCpf(usuarioInfo.cpf);
@@ -151,7 +232,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
       formData.append('telefone', formattedTelefone || usuarioInfo.telefone);
     }
 
-    // NOVA VALIDAÇÃO GRANULAR: Validar senha se fornecida
+    // VALIDAÇÃO GRANULAR: Validar senha se fornecida
     if (usuarioInfo.senha) {
       const senhaValidation = validateSenha(usuarioInfo.senha);
 
@@ -167,7 +248,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
 
     // Adicionar campos ao FormData apenas se existirem
     if (usuarioInfo.nome) formData.append('nome', usuarioInfo.nome);
-    if (usuarioInfo.email) formData.append('email', usuarioInfo.email);
+    if (usuarioInfo.email) formData.append('email', usuarioInfo.email); // Email já validado com validator
 
     // Telefone já foi tratado acima, não precisa adicionar novamente aqui
 
@@ -194,7 +275,7 @@ export const updateUsuario = async (usuarioData: UsuarioUpdatePayload) => {
     return response.data;
   } catch (error: any) {
     // Se o erro já tem a estrutura de validação granular, propagar
-    if (error.passwordErrors) {
+    if (error.passwordErrors || error.emailErrors) {
       throw error;
     }
 
