@@ -709,6 +709,8 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   // ========================================
   // HANDLE SUBMIT COM VERIFICAÇÃO DE LOADING
   // ========================================
+  // Substitua a função handleSubmit existente por esta versão corrigida:
+
   const handleSubmit = async () => {
     if (fotoProcessando) {
       Alert.alert(
@@ -718,10 +720,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       );
       return;
     }
+
     if (formData.foto && typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
       // Aguardar um pouco mais para garantir que a foto está estável
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
+
     // ✅ VERIFICAÇÃO APRIMORADA DE LOADING
     if (!canShowForm()) {
       Alert.alert('Aguarde', 'Os dados ainda estão sendo carregados. Aguarde um momento e tente novamente.');
@@ -860,17 +864,15 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           fotoProcessada = formData.foto;
         } else {
           // ✅ Caso não seja nem file:// nem http://, tratar como nova foto
-
           fotoProcessada = {
             uri: formData.foto,
             type: 'image/jpeg',
             name: `${formData.nome.replace(/\s+/g, '_')}_${Date.now()}.jpg`,
           };
         }
-      } else {
       }
 
-      const petPayload: PetPayload = {
+      const petPayload: any = {
         nome: formData.nome,
         especie_id: formData.especie.id,
         raca_id: getSelectedRacaId(),
@@ -884,50 +886,117 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         motivoDoacao: formData.motivoDoacao,
         status_id: 1,
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
-        foto: fotoProcessada, // ✅ Agora processada corretamente
+        foto: fotoProcessada,
       };
 
       setIsLoading(true);
 
       let response;
+      let operationSuccess = false;
+
+      // 🚨 CORREÇÃO PRINCIPAL: Verificação robusta de sucesso
       if (isEditMode && pet) {
-        response = await updatePet({
-          id: pet.id,
-          ...petPayload,
-        });
-        if (response) {
-          Alert.alert('Success', 'Pet atualizado com sucesso!');
+        try {
+          response = await updatePet({
+            id: pet.id,
+            ...petPayload,
+          });
+
+          // 🔍 VERIFICAÇÃO ESPECÍFICA DA RESPOSTA
+          if (
+            response &&
+            !response.error &&
+            !response.message?.toLowerCase().includes('erro') &&
+            response !== false &&
+            response !== null
+          ) {
+            operationSuccess = true;
+          } else {
+            // A API retornou, mas indica erro
+            operationSuccess = false;
+            const errorMsg = response?.message || response?.error || 'Erro desconhecido na atualização';
+            throw new Error(errorMsg);
+          }
+        } catch (updateError) {
+          operationSuccess = false;
+
+          throw updateError; // Re-throw para ser capturado pelo catch externo
         }
       } else {
-        response = await postPet(petPayload);
-        if (response) {
-          Alert.alert('Success', 'Pet cadastrado com sucesso!');
+        try {
+          response = await postPet(petPayload);
+
+          // 🔍 VERIFICAÇÃO ESPECÍFICA DA RESPOSTA
+          if (
+            response &&
+            !response.error &&
+            !response.message?.toLowerCase().includes('erro') &&
+            response !== false &&
+            response !== null &&
+            (response.id || response.success || typeof response === 'object')
+          ) {
+            operationSuccess = true;
+          } else {
+            // A API retornou, mas indica erro
+            operationSuccess = false;
+            const errorMsg = response?.message || response?.error || 'Erro desconhecido na criação';
+            throw new Error(errorMsg);
+          }
+        } catch (createError) {
+          operationSuccess = false;
+
+          throw createError; // Re-throw para ser capturado pelo catch externo
         }
       }
 
-      if (response) {
-        onSubmit(formData);
+      // 🚨 SÓ EXECUTAR AÇÕES DE SUCESSO SE REALMENTE DEU CERTO
+      if (operationSuccess) {
+        // Mostrar mensagem de sucesso
+        Alert.alert('Sucesso!', isEditMode ? 'Pet atualizado com sucesso!' : 'Pet cadastrado com sucesso!', [
+          {
+            text: 'OK',
+            onPress: () => {
+              // Executar callback de sucesso
+              onSubmit(formData);
 
-        // ========================================
-        // USAR AS NOVAS FUNÇÕES PARA LIMPEZA
-        // ========================================
-        resetarFormulario();
-        limparTodosOsErros();
-
-        onClose();
+              // Limpar formulário e fechar modal
+              resetarFormulario();
+              limparTodosOsErros();
+              onClose();
+            },
+          },
+        ]);
       } else {
-        Alert.alert('Erro', 'Não foi possível registrar o pet. Tente novamente.');
+        // Se chegou aqui, algo deu errado mesmo sem exception
+        throw new Error('Operação não foi concluída com sucesso');
       }
     } catch (error) {
       let errorMessage = 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
 
       // ✅ TRATAMENTO DE ERRO MAIS ESPECÍFICO
       if (error instanceof Error) {
-        errorMessage = error.message;
-      } else {
+        // Verificar se é erro de rede
+        if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
+          errorMessage = 'Erro de conexão. Verifique sua internet e tente novamente.';
+        }
+        // Verificar se é erro de validação do servidor
+        else if (error.message.includes('validation') || error.message.includes('required')) {
+          errorMessage = 'Dados inválidos. Verifique os campos e tente novamente.';
+        }
+        // Verificar se é erro de autenticação
+        else if (error.message.includes('unauthorized') || error.message.includes('401')) {
+          errorMessage = 'Sessão expirada. Faça login novamente.';
+        }
+        // Usar mensagem específica do erro se disponível
+        else if (error.message && error.message.length > 0) {
+          errorMessage = error.message;
+        }
       }
 
       Alert.alert('Erro', errorMessage);
+
+      // 🚨 IMPORTANTE: NÃO fechar o modal nem limpar dados em caso de erro
+      // O usuário deve poder corrigir e tentar novamente
     } finally {
       setIsLoading(false);
     }
