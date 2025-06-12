@@ -260,20 +260,75 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
   // 🆕 Função para reenviar email voluntariamente
   const handleVoluntaryResendEmail = async () => {
-    if (!termoData) return;
+    if (!termoData) {
+      Alert.alert('Erro', 'Dados do termo não encontrados. Tente fechar e reabrir o termo.');
+      return;
+    }
+
+    if (!termoData.id) {
+      Alert.alert('Erro', 'ID do termo não encontrado. Tente fechar e reabrir o termo.');
+      return;
+    }
 
     try {
       setSendingEmail(true);
-      await sendTermoDoacaoEmail(termoData.id);
+      
+      
+      const response = await sendTermoDoacaoEmail(termoData.id);
+      
+      
       setSendingEmail(false);
       
       // Mostrar mensagem de sucesso e então fechar o modal
-      Alert.alert('Sucesso', 'Termo reenviado com sucesso para seu email!', [
-        { text: 'OK', onPress: () => onTermoCompleted() }
-      ]);
-    } catch (error) {
-      Alert.alert('Erro', 'Não foi possível reenviar o termo. Tente novamente mais tarde.');
+      Alert.alert(
+        'Sucesso', 
+        `Termo reenviado com sucesso para ${termoData.doador_email}!`, 
+        [{ text: 'OK', onPress: () => onTermoCompleted() }]
+      );
+    } catch (error: any) {
       setSendingEmail(false);
+      
+
+      let errorMessage = 'Não foi possível reenviar o termo.';
+      
+      if (error.message) {
+        if (error.message.includes('Sessão expirada') || error.message.includes('não autenticado')) {
+          errorMessage = 'Sua sessão expirou. Faça login novamente.';
+          Alert.alert('Sessão Expirada', errorMessage, [
+            { text: 'OK', onPress: () => onTermoCompleted() }
+          ]);
+          return;
+        } else if (error.message.includes('Termo não encontrado')) {
+          errorMessage = 'Termo não encontrado no sistema. Tente recarregar a tela.';
+        } else if (error.message.includes('Email não disponível')) {
+          errorMessage = 'Email não disponível para envio. Verifique seu perfil.';
+        } else if (error.message.includes('Falha no envio')) {
+          errorMessage = 'Falha no servidor de email. Tente novamente em alguns minutos.';
+        } else {
+          errorMessage = `Erro: ${error.message}`;
+        }
+      } else if (error.status) {
+        switch (error.status) {
+          case 401:
+            errorMessage = 'Não autorizado. Faça login novamente.';
+            break;
+          case 403:
+            errorMessage = 'Sem permissão para reenviar o termo.';
+            break;
+          case 404:
+            errorMessage = 'Termo não encontrado no servidor.';
+            break;
+          case 500:
+            errorMessage = 'Erro interno do servidor. Tente novamente mais tarde.';
+            break;
+          default:
+            errorMessage = `Erro do servidor (${error.status}). Tente novamente.`;
+        }
+      }
+
+      Alert.alert('Erro no Reenvio', errorMessage, [
+        { text: 'OK' }
+      ]);
     }
   };
 
@@ -800,7 +855,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
             <Text style={styles.successIcon}>✅</Text>
             <Text style={styles.successTitle}>{successTexts.title}</Text>
             <Text style={styles.successMessage}>{successTexts.message}</Text>
-            <Text style={styles.successSubMessage}>Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
+            <Text style={styles.successSubMessage}>📧 Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
             <View style={styles.successTimer}>
               <ActivityIndicator size="small" color="#2E8B57" />
               <Text style={styles.timerText}>Liberando acesso em alguns segundos...</Text>
@@ -877,7 +932,7 @@ const styles = StyleSheet.create({
   // 🆕 Container de warning para visualização voluntária
   voluntaryWarningContainer: {
     flexDirection: 'row',
-    backgroundColor: '#D3E2F0FF',
+    backgroundColor: '#E3F2FD',
     padding: 15,
     borderRadius: 10,
     marginBottom: 20,
@@ -992,7 +1047,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#4682B4',
+    color: '#1E88E5',
     marginBottom: 15,
   },
   termoHeader: {
@@ -1017,7 +1072,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#4682B4',
+    color: '#1E88E5',
     marginBottom: 8,
   },
   dataText: {
