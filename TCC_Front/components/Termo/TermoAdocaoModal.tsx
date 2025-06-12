@@ -1,4 +1,4 @@
-// TermoAdocaoModal.tsx - Atualizado com exibição de localização completa
+// TermoAdocaoModal.tsx - Atualizado com modal de anúncios dos patrocinadores
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -15,6 +15,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createOrUpdateTermoCompromisso, getTermoByPetWithNameCheck } from '@/services/api/TermoAdocao/checkCanAdopt';
 import { sendTermoEmail } from '@/services/api/TermoAdocao/sendTermoEmail';
+import SponsorModal from '@/components/Sponsor/SponsorModal'; // 🆕 Import do modal de patrocinadores
 
 interface Pet {
   id: number;
@@ -99,6 +100,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
+  // 🆕 Estado para controlar o modal de patrocinadores
+  const [sponsorModalVisible, setSponsorModalVisible] = useState(false);
 
   // 🆕 📱 Função para formatar telefone no padrão brasileiro
   const formatTelefone = (telefone: string | undefined): string => {
@@ -185,16 +188,13 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     // Lógica baseada no modo
     if (isNameUpdateMode || nameNeedsUpdate) {
       // Modo de atualização de nome - carregar dados e ir para formulário
-
       await loadExistingTermoData();
       setStep('form');
     } else if (hasExistingTermo) {
       // Modo de visualização - carregar termo completo
-
       await loadTermoCompleto();
     } else {
       // Modo de criação - ir direto para formulário
-
       setStep('form');
     }
 
@@ -339,7 +339,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🆕 📧 Função para enviar termo por email (com callback para o fluxo iOS)
+  // 🆕 📧 Função para enviar termo por email (com modal de patrocinadores)
   const handleSendEmail = async () => {
     if (!termoData) return;
 
@@ -363,21 +363,20 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
             response.data.destinatarios?.doador || termoData.doador_email
           }\n\n📱 Verifique a caixa de entrada e spam.`;
 
+      setSendingEmail(false);
+
       Alert.alert('Emails Enviados! 📧', mensagemSucesso, [
         {
           text: 'OK',
           onPress: () => {
-            // Notificar que email foi enviado (fecha modal e vai para WhatsApp habilitado)
-            if (onEmailSent) {
-              onEmailSent();
-            } else {
-              // Fallback: fechar modal
-              handleClose();
-            }
+            // 🆕 Abrir modal de patrocinadores após sucesso
+            setSponsorModalVisible(true);
           },
         },
       ]);
     } catch (error: any) {
+      setSendingEmail(false);
+      
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
           { text: 'OK', onPress: handleClose },
@@ -396,8 +395,19 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       }
 
       Alert.alert('Erro no Envio', errorMessage);
-    } finally {
-      setSendingEmail(false);
+    }
+  };
+
+  // 🆕 Função para fechar modal de patrocinadores e continuar fluxo
+  const handleSponsorModalClose = () => {
+    setSponsorModalVisible(false);
+    
+    // Após fechar modal de patrocinadores, continuar com o fluxo normal
+    if (onEmailSent) {
+      onEmailSent();
+    } else {
+      // Fallback: fechar modal
+      handleClose();
     }
   };
 
@@ -412,6 +422,8 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     setSendingEmail(false);
     setAuthToken(null);
     setInitialLoadComplete(false);
+    // 🆕 Reset modal de patrocinadores
+    setSponsorModalVisible(false);
 
     onClose();
   };
@@ -440,207 +452,215 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     : 'Preparando criação do termo...';
 
   return (
-    <Modal visible={visible} animationType="slide" transparent>
-      <View style={styles.modalOverlay}>
-        <View style={styles.modalContainer}>
-          {/* Header */}
-          <View style={styles.header}>
-            <Text style={styles.headerTitle}>{headerTitle}</Text>
-            <View style={styles.headerActions}>
-              <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
-                <Text style={styles.closeButtonText}>✕</Text>
-              </TouchableOpacity>
+    <>
+      <Modal visible={visible} animationType="slide" transparent>
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContainer}>
+            {/* Header */}
+            <View style={styles.header}>
+              <Text style={styles.headerTitle}>{headerTitle}</Text>
+              <View style={styles.headerActions}>
+                <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
+                  <Text style={styles.closeButtonText}>✕</Text>
+                </TouchableOpacity>
+              </View>
             </View>
-          </View>
 
-          {/* Content */}
-          {step === 'loading' && (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#4682B4" />
-              <Text style={styles.loadingText}>{loadingText}</Text>
-            </View>
-          )}
-
-          {step === 'form' && (
-            <ScrollView
-              style={styles.formContainer}
-              contentContainerStyle={styles.formContentContainer}
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.sectionTitle}>{formTitle}</Text>
-
-              {/* Aviso especial para atualização de nome */}
-              {isNameUpdateMode && (
-                <View style={styles.updateWarningContainer}>
-                  <Text style={styles.updateWarningIcon}>🔄</Text>
-                  <Text style={styles.updateWarningText}>
-                    Dados pessoais do doador ou do adotante foram alterado no perfil. Para continuar com o processo de
-                    adoção, você precisa atualizar o termo de adoção.
-                  </Text>
-                </View>
-              )}
-
-              <View style={styles.petInfoContainer}>
-                <Text style={styles.petInfoTitle}>Pet: {pet.nome}</Text>
-                <Text style={styles.petInfoText}>Raça: {pet.raca_nome || pet.pet_raca_nome || 'Não informado'}</Text>
-                <Text style={styles.petInfoText}>Idade: {pet.idade} anos</Text>
-                <Text style={styles.petInfoText}>Dono: {pet.usuario_nome || 'Não informado'}</Text>
-                {/* Telefone formatado do dono do pet */}
-                {pet.usuario_telefone && (
-                  <Text style={styles.petInfoText}>Telefone: {formatTelefone(pet.usuario_telefone)}</Text>
-                )}
+            {/* Content */}
+            {step === 'loading' && (
+              <View style={styles.loadingContainer}>
+                <ActivityIndicator size="large" color="#4682B4" />
+                <Text style={styles.loadingText}>{loadingText}</Text>
               </View>
+            )}
 
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>
-                  Assinatura Digital
-                  <Text style={styles.required}> *</Text>
-                </Text>
-                <TextInput
-                  style={styles.textInput}
-                  value={assinaturaDigital}
-                  onChangeText={setAssinaturaDigital}
-                  placeholder="Digite seu nome completo"
-                  placeholderTextColor="#999"
-                />
-                {/* Texto explicativo para atualização de nome */}
-              </View>
-
-              <View style={styles.inputContainer}>
-                <Text style={styles.inputLabel}>Observações (opcional)</Text>
-                <TextInput
-                  style={[styles.textInput, styles.textArea]}
-                  value={observacoes}
-                  onChangeText={setObservacoes}
-                  placeholder="Digite suas observações sobre a adoção"
-                  placeholderTextColor="#999"
-                  multiline
-                  numberOfLines={3}
-                />
-              </View>
-
-              <TouchableOpacity
-                style={[styles.createButton, loading && styles.disabledButton, isNameUpdateMode && styles.updateButton]}
-                onPress={handleCreateTermo}
-                disabled={loading}
+            {step === 'form' && (
+              <ScrollView
+                style={styles.formContainer}
+                contentContainerStyle={styles.formContentContainer}
+                showsVerticalScrollIndicator={false}
               >
-                {loading ? (
-                  <ActivityIndicator color="#FFFFFF" />
-                ) : (
-                  <Text style={styles.createButtonText}>{buttonText}</Text>
-                )}
-              </TouchableOpacity>
-            </ScrollView>
-          )}
+                <Text style={styles.sectionTitle}>{formTitle}</Text>
 
-          {step === 'termo' && termoData && (
-            <ScrollView
-              style={styles.termoContainer}
-              contentContainerStyle={styles.termoContentContainer}
-              showsVerticalScrollIndicator={false}
-            >
-              <Text style={styles.termoTitle}>TERMO DE COMPROMISSO DE ADOÇÃO</Text>
-
-              <View style={styles.termoHeader}>
-                <Text style={styles.termoId}>ID: {termoData.id}</Text>
-                <Text style={styles.termoDate}>Data: {formatDate(termoData.data_assinatura)}</Text>
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>DADOS DO PET</Text>
-                <Text style={styles.dataText}>Nome: {termoData.pet_nome}</Text>
-                <Text style={styles.dataText}>Espécie: {termoData.pet_especie_nome}</Text>
-                <Text style={styles.dataText}>Raça: {termoData.pet_raca_nome}</Text>
-                <Text style={styles.dataText}>Sexo: {termoData.pet_sexo_nome}</Text>
-                <Text style={styles.dataText}>Idade: {termoData.pet_idade} anos</Text>
-              </View>
-
-              {/* 🆕 Seção do doador COM localização */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
-                <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
-                <Text style={styles.dataText}>Email: {termoData.doador_email}</Text>
-                <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
-                <Text style={styles.dataText}>
-                  Localização:{' '}
-                  {termoData.localizacaoDoador ||
-                    formatLocalizacao(termoData.doador_cidade_nome, termoData.doador_estado_nome)}
-                </Text>
-              </View>
-
-              {/* 🆕 Seção do adotante COM localização */}
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
-                <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
-                <Text style={styles.dataText}>Email: {termoData.adotante_email}</Text>
-                <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
-                <Text style={styles.dataText}>
-                  Localização:{' '}
-                  {termoData.localizacaoAdotante ||
-                    formatLocalizacao(termoData.adotante_cidade_nome, termoData.adotante_estado_nome)}
-                </Text>
-                {termoData.adotante_cpf && <Text style={styles.dataText}>CPF: {termoData.adotante_cpf}</Text>}
-              </View>
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>COMPROMISSOS DO ADOTANTE</Text>
-                <Text style={styles.commitmentText}>
-                  1. Proporcionar cuidados veterinários adequados ao pet.{'\n'}
-                  2. Oferecer alimentação adequada e de qualidade.{'\n'}
-                  3. Providenciar abrigo seguro e confortável.{'\n'}
-                  4. Não abandonar, maltratar ou submeter o animal a maus-tratos.{'\n'}
-                  5. Entrar em contato com o doador antes de repassar a terceiros.{'\n'}
-                  6. Permitir visitas do doador mediante agendamento prévio.{'\n'}
-                  7. Informar mudanças de endereço ou contato.
-                </Text>
-              </View>
-
-              {termoData.observacoes && (
-                <View style={styles.section}>
-                  <Text style={styles.sectionTitle}>OBSERVAÇÕES</Text>
-                  <Text style={styles.dataText}>{termoData.observacoes}</Text>
-                </View>
-              )}
-
-              <View style={styles.section}>
-                <Text style={styles.sectionTitle}>ASSINATURA DIGITAL</Text>
-                <Text style={styles.dataText}>Assinatura: {termoData.assinatura_digital}</Text>
-                <Text style={styles.dataText}>Data: {formatDate(termoData.data_assinatura)}</Text>
-                <Text style={styles.hashText}>Hash: {termoData.hash_documento}</Text>
-              </View>
-
-              {/* 🆕 Botão atualizado com texto indicando envio para ambos */}
-              <TouchableOpacity
-                style={[styles.emailButton, sendingEmail && styles.disabledButton]}
-                onPress={handleSendEmail}
-                disabled={sendingEmail}
-              >
-                {sendingEmail ? (
-                  <View style={styles.loadingContainer}>
-                    <ActivityIndicator color="#FFFFFF" />
-                    <Text style={styles.emailButtonText}>Enviando para ambos...</Text>
+                {/* Aviso especial para atualização de nome */}
+                {isNameUpdateMode && (
+                  <View style={styles.updateWarningContainer}>
+                    <Text style={styles.updateWarningIcon}>🔄</Text>
+                    <Text style={styles.updateWarningText}>
+                      Dados pessoais do doador ou do adotante foram alterado no perfil. Para continuar com o processo de
+                      adoção, você precisa atualizar o termo de adoção.
+                    </Text>
                   </View>
-                ) : (
-                  <Text style={styles.emailButtonText}>
-                    {isNameUpdateMode ? 'Enviar Termo Atualizado (Para Ambos)' : 'Enviar por Email (Para Ambos)'}
-                  </Text>
                 )}
-              </TouchableOpacity>
 
-              {/* 🆕 Informação sobre os destinatários */}
-              <View style={styles.emailInfoContainer}>
-                <Text style={styles.emailInfoText}>Este termo será enviado por email para:</Text>
-                <Text style={styles.emailInfoDetail}>• Você (Adotante): {termoData.adotante_email}</Text>
-                <Text style={styles.emailInfoDetail}>• Doador: {termoData.doador_email}</Text>
-                <Text style={styles.emailInfoNote}>
-                  Cada pessoa receberá um email personalizado com as informações relevantes.
-                </Text>
-              </View>
-            </ScrollView>
-          )}
+                <View style={styles.petInfoContainer}>
+                  <Text style={styles.petInfoTitle}>Pet: {pet.nome}</Text>
+                  <Text style={styles.petInfoText}>Raça: {pet.raca_nome || pet.pet_raca_nome || 'Não informado'}</Text>
+                  <Text style={styles.petInfoText}>Idade: {pet.idade} anos</Text>
+                  <Text style={styles.petInfoText}>Dono: {pet.usuario_nome || 'Não informado'}</Text>
+                  {/* Telefone formatado do dono do pet */}
+                  {pet.usuario_telefone && (
+                    <Text style={styles.petInfoText}>Telefone: {formatTelefone(pet.usuario_telefone)}</Text>
+                  )}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>
+                    Assinatura Digital
+                    <Text style={styles.required}> *</Text>
+                  </Text>
+                  <TextInput
+                    style={styles.textInput}
+                    value={assinaturaDigital}
+                    onChangeText={setAssinaturaDigital}
+                    placeholder="Digite seu nome completo"
+                    placeholderTextColor="#999"
+                  />
+                  {/* Texto explicativo para atualização de nome */}
+                </View>
+
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Observações (opcional)</Text>
+                  <TextInput
+                    style={[styles.textInput, styles.textArea]}
+                    value={observacoes}
+                    onChangeText={setObservacoes}
+                    placeholder="Digite suas observações sobre a adoção"
+                    placeholderTextColor="#999"
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.createButton, loading && styles.disabledButton, isNameUpdateMode && styles.updateButton]}
+                  onPress={handleCreateTermo}
+                  disabled={loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#FFFFFF" />
+                  ) : (
+                    <Text style={styles.createButtonText}>{buttonText}</Text>
+                  )}
+                </TouchableOpacity>
+              </ScrollView>
+            )}
+
+            {step === 'termo' && termoData && (
+              <ScrollView
+                style={styles.termoContainer}
+                contentContainerStyle={styles.termoContentContainer}
+                showsVerticalScrollIndicator={false}
+              >
+                <Text style={styles.termoTitle}>TERMO DE COMPROMISSO DE ADOÇÃO</Text>
+
+                <View style={styles.termoHeader}>
+                  <Text style={styles.termoId}>ID: {termoData.id}</Text>
+                  <Text style={styles.termoDate}>Data: {formatDate(termoData.data_assinatura)}</Text>
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>DADOS DO PET</Text>
+                  <Text style={styles.dataText}>Nome: {termoData.pet_nome}</Text>
+                  <Text style={styles.dataText}>Espécie: {termoData.pet_especie_nome}</Text>
+                  <Text style={styles.dataText}>Raça: {termoData.pet_raca_nome}</Text>
+                  <Text style={styles.dataText}>Sexo: {termoData.pet_sexo_nome}</Text>
+                  <Text style={styles.dataText}>Idade: {termoData.pet_idade} anos</Text>
+                </View>
+
+                {/* 🆕 Seção do doador COM localização */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
+                  <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
+                  <Text style={styles.dataText}>Email: {termoData.doador_email}</Text>
+                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.doador_telefone)}</Text>
+                  <Text style={styles.dataText}>
+                    Localização:{' '}
+                    {termoData.localizacaoDoador ||
+                      formatLocalizacao(termoData.doador_cidade_nome, termoData.doador_estado_nome)}
+                  </Text>
+                </View>
+
+                {/* 🆕 Seção do adotante COM localização */}
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
+                  <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
+                  <Text style={styles.dataText}>Email: {termoData.adotante_email}</Text>
+                  <Text style={styles.dataText}>Telefone: {formatTelefone(termoData.adotante_telefone)}</Text>
+                  <Text style={styles.dataText}>
+                    Localização:{' '}
+                    {termoData.localizacaoAdotante ||
+                      formatLocalizacao(termoData.adotante_cidade_nome, termoData.adotante_estado_nome)}
+                  </Text>
+                  {termoData.adotante_cpf && <Text style={styles.dataText}>CPF: {termoData.adotante_cpf}</Text>}
+                </View>
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>COMPROMISSOS DO ADOTANTE</Text>
+                  <Text style={styles.commitmentText}>
+                    1. Proporcionar cuidados veterinários adequados ao pet.{'\n'}
+                    2. Oferecer alimentação adequada e de qualidade.{'\n'}
+                    3. Providenciar abrigo seguro e confortável.{'\n'}
+                    4. Não abandonar, maltratar ou submeter o animal a maus-tratos.{'\n'}
+                    5. Entrar em contato com o doador antes de repassar a terceiros.{'\n'}
+                    6. Permitir visitas do doador mediante agendamento prévio.{'\n'}
+                    7. Informar mudanças de endereço ou contato.
+                  </Text>
+                </View>
+
+                {termoData.observacoes && (
+                  <View style={styles.section}>
+                    <Text style={styles.sectionTitle}>OBSERVAÇÕES</Text>
+                    <Text style={styles.dataText}>{termoData.observacoes}</Text>
+                  </View>
+                )}
+
+                <View style={styles.section}>
+                  <Text style={styles.sectionTitle}>ASSINATURA DIGITAL</Text>
+                  <Text style={styles.dataText}>Assinatura: {termoData.assinatura_digital}</Text>
+                  <Text style={styles.dataText}>Data: {formatDate(termoData.data_assinatura)}</Text>
+                  <Text style={styles.hashText}>Hash: {termoData.hash_documento}</Text>
+                </View>
+
+                {/* 🆕 Botão atualizado com texto indicando envio para ambos */}
+                <TouchableOpacity
+                  style={[styles.emailButton, sendingEmail && styles.disabledButton]}
+                  onPress={handleSendEmail}
+                  disabled={sendingEmail}
+                >
+                  {sendingEmail ? (
+                    <View style={styles.loadingContainer}>
+                      <ActivityIndicator color="#FFFFFF" />
+                      <Text style={styles.emailButtonText}>Enviando para ambos...</Text>
+                    </View>
+                  ) : (
+                    <Text style={styles.emailButtonText}>
+                      {isNameUpdateMode ? 'Enviar Termo Atualizado (Para Ambos)' : 'Enviar por Email (Para Ambos)'}
+                    </Text>
+                  )}
+                </TouchableOpacity>
+
+                {/* 🆕 Informação sobre os destinatários */}
+                <View style={styles.emailInfoContainer}>
+                  <Text style={styles.emailInfoText}>Este termo será enviado por email para:</Text>
+                  <Text style={styles.emailInfoDetail}>• Você (Adotante): {termoData.adotante_email}</Text>
+                  <Text style={styles.emailInfoDetail}>• Doador: {termoData.doador_email}</Text>
+                  <Text style={styles.emailInfoNote}>
+                    Cada pessoa receberá um email personalizado com as informações relevantes.
+                  </Text>
+                </View>
+              </ScrollView>
+            )}
+          </View>
         </View>
-      </View>
-    </Modal>
+      </Modal>
+
+      {/* 🆕 Modal de Anúncios dos Patrocinadores */}
+      <SponsorModal
+        visible={sponsorModalVisible}
+        onClose={handleSponsorModalClose}
+      />
+    </>
   );
 };
 

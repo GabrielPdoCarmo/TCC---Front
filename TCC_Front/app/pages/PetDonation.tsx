@@ -1,4 +1,4 @@
-// PetDonationScreen.tsx - Otimizado com loading no botão add e ordenação por ID
+// PetDonationScreen.tsx - Com botão para visualizar termo
 
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
@@ -73,6 +73,8 @@ export default function PetDonationScreen() {
   const [petModalVisible, setPetModalVisible] = useState(false);
   // Estado para controlar a visibilidade do modal de termo
   const [termoModalVisible, setTermoModalVisible] = useState(false);
+  // 🆕 Estado para controlar se o modal de termo foi aberto voluntariamente
+  const [isVoluntaryTermoView, setIsVoluntaryTermoView] = useState(false);
   // Estado para armazenar a lista de pets
   const [pets, setPets] = useState<Pet[]>([]);
   // 🆕 MELHORADO: Loading com estados mais específicos
@@ -84,6 +86,8 @@ export default function PetDonationScreen() {
   const [addButtonLoading, setAddButtonLoading] = useState(false);
   // 🆕 Estado para controlar se o botão add está habilitado
   const [addButtonEnabled, setAddButtonEnabled] = useState(false);
+  // 🆕 Estado para controlar se o botão de visualizar termo está habilitado
+  const [viewTermoButtonEnabled, setViewTermoButtonEnabled] = useState(false);
   // Estado para armazenar o usuário atual
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
   // Estado para controlar erros
@@ -156,32 +160,33 @@ export default function PetDonationScreen() {
           const temTermo = result.data.temTermo || false;
           const dadosDesatualizados = result.data.dadosDesatualizados || false;
 
-       
-
           setCanCreatePets(podecastrar);
           setDataOutdated(dadosDesatualizados);
           setInitialCheckDone(true);
 
+          // 🆕 Habilitar botão de visualizar termo se usuário já tem termo
+          setViewTermoButtonEnabled(temTermo);
+
           // 🆕 CORREÇÃO PRINCIPAL: Lógica melhorada para decidir quando mostrar modal
           if (dadosDesatualizados && temTermo) {
             // Caso 1: Usuário tem termo mas dados estão desatualizados
-           
             setIsDataUpdateMode(true);
+            setIsVoluntaryTermoView(false);
             setTermoModalVisible(true);
           } else if (!temTermo && !podecastrar) {
             // Caso 2: Usuário não tem termo nenhum
-           
             setIsDataUpdateMode(false);
+            setIsVoluntaryTermoView(false);
             setTermoModalVisible(true);
           } else if (temTermo && podecastrar && !dadosDesatualizados) {
             // Caso 3: Usuário tem termo válido e atualizado
-            
             setTermoModalVisible(false);
             setIsDataUpdateMode(false);
+            setIsVoluntaryTermoView(false);
           } else {
             // Caso 4: Situação não esperada, por segurança mostrar modal
-            
             setIsDataUpdateMode(false);
+            setIsVoluntaryTermoView(false);
             setTermoModalVisible(true);
           }
         } else {
@@ -189,12 +194,12 @@ export default function PetDonationScreen() {
           setCanCreatePets(false);
           setDataOutdated(false);
           setIsDataUpdateMode(false);
+          setIsVoluntaryTermoView(false);
           setTermoModalVisible(true);
           setInitialCheckDone(true);
+          setViewTermoButtonEnabled(false);
         }
       } catch (error: any) {
-        
-
         if (error.message && error.message.includes('Sessão expirada')) {
           Alert.alert('Sessão Expirada', 'Sua sessão expirou. Por favor, faça login novamente.', [
             { text: 'OK', onPress: () => router.back() },
@@ -206,8 +211,10 @@ export default function PetDonationScreen() {
         setCanCreatePets(false);
         setDataOutdated(false);
         setIsDataUpdateMode(false);
+        setIsVoluntaryTermoView(false);
         setTermoModalVisible(true);
         setInitialCheckDone(true);
+        setViewTermoButtonEnabled(false);
       } finally {
         setTermoLoading(false);
         setIsCheckingPermissions(false);
@@ -330,11 +337,9 @@ export default function PetDonationScreen() {
   useEffect(() => {
     const initializeScreen = async () => {
       if (initialCheckDone) {
-       
         return;
       }
 
-      
       checkCountRef.current = 0; // Reset contador
 
       try {
@@ -342,14 +347,15 @@ export default function PetDonationScreen() {
         // 🆕 SEMPRE fazer a verificação na primeira vez, mas de forma inteligente
         await checkUserPermissions(true);
       } catch (error) {
-    
         setCanCreatePets(false);
         setDataOutdated(false);
         setIsDataUpdateMode(false);
+        setIsVoluntaryTermoView(false);
         setTermoModalVisible(true);
         setTermoLoading(false);
         setInitialCheckDone(true);
         setInitialLoading(false);
+        setViewTermoButtonEnabled(false);
       }
     };
 
@@ -368,43 +374,62 @@ export default function PetDonationScreen() {
   }, [canCreatePets, initialCheckDone, dataOutdated]);
 
   // Focus effect CONTROLADO (SEM LOOPS)
- useFocusEffect(
-  useCallback(() => {
-    // 🆕 Só verificar novamente se:
-    // 1. Já passou pela inicialização
-    // 2. Não está carregando
-    // 3. Modal não está visível (evita conflitos)
-    if (initialCheckDone && !termoLoading && !isCheckingPermissions && !initialLoading && !termoModalVisible) {
-  
-      const timeoutId = setTimeout(() => {
-        checkUserPermissions(false); // Verificação suave, sem forçar
-      }, 1000);
+  useFocusEffect(
+    useCallback(() => {
+      // 🆕 Só verificar novamente se:
+      // 1. Já passou pela inicialização
+      // 2. Não está carregando
+      // 3. Modal não está visível (evita conflitos)
+      if (initialCheckDone && !termoLoading && !isCheckingPermissions && !initialLoading && !termoModalVisible) {
+        const timeoutId = setTimeout(() => {
+          checkUserPermissions(false); // Verificação suave, sem forçar
+        }, 1000);
 
-      return () => {
-        clearTimeout(timeoutId);
-      };
+        return () => {
+          clearTimeout(timeoutId);
+        };
+      }
+    }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, termoModalVisible, checkUserPermissions])
+  );
+
+  // 🆕 Função para abrir o termo voluntariamente
+  const handleViewTermo = () => {
+    if (!viewTermoButtonEnabled) {
+      Alert.alert('Termo não disponível', 'Você ainda não possui um termo de responsabilidade.', [{ text: 'OK' }]);
+      return;
     }
-  }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, termoModalVisible, checkUserPermissions])
-);
 
+    setIsVoluntaryTermoView(true);
+    setIsDataUpdateMode(false);
+    setTermoModalVisible(true);
+  };
 
   // Callback quando termo for concluído (SEM LOOPS)
   const handleTermoCompleted = useCallback(() => {
-  const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
+    const modoTexto = isDataUpdateMode ? 'atualizado' : 'criado';
 
+    setTermoModalVisible(false);
+    setCanCreatePets(true);
+    setDataOutdated(false);
+    setIsDataUpdateMode(false);
+    setIsVoluntaryTermoView(false);
 
-  setTermoModalVisible(false);
-  setCanCreatePets(true);
-  setDataOutdated(false);
-  setIsDataUpdateMode(false);
+    // 🆕 Habilitar botão de visualizar termo após completar
+    setViewTermoButtonEnabled(true);
 
-  // Reset contador para permitir nova verificação se necessário
-  checkCountRef.current = 0;
+    // Reset contador para permitir nova verificação se necessário
+    checkCountRef.current = 0;
 
-  // 🆕 EVITAR verificação imediata após completar termo
-  // O usuário já assinou/atualizou, não precisa verificar novamente
+    // 🆕 EVITAR verificação imediata após completar termo
+    // O usuário já assinou/atualizou, não precisa verificar novamente
+  }, [isDataUpdateMode]);
 
-}, [isDataUpdateMode]);
+  // 🆕 Callback quando termo é fechado voluntariamente
+  const handleTermoVoluntaryClosed = useCallback(() => {
+    setTermoModalVisible(false);
+    setIsVoluntaryTermoView(false);
+    setIsDataUpdateMode(false);
+  }, []);
 
   // Função para abrir o modal no modo de adição COM loading
   const handleOpenModal = async () => {
@@ -613,8 +638,27 @@ export default function PetDonationScreen() {
             <View style={{ width: 60 }} />
             <Text style={styles.headerTitle}>Doação</Text>
             <View style={styles.headerIcons}>
-              <TouchableOpacity style={styles.settingsButton} onPress={() => router.push('/pages/ConfigScreen')}>
-                <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.settingsIcon} />
+              {/* 🆕 Botão para visualizar termo */}
+              <TouchableOpacity
+                style={[
+                  styles.headerButton,
+                  !viewTermoButtonEnabled && styles.headerButtonDisabled
+                ]}
+                onPress={handleViewTermo}
+                disabled={!viewTermoButtonEnabled}
+              >
+                <Image 
+                  source={require('../../assets/images/Icone/document-icon.png')} 
+                  style={[
+                    styles.headerIcon,
+                    !viewTermoButtonEnabled && styles.headerIconDisabled
+                  ]} 
+                />
+              </TouchableOpacity>
+              
+              {/* Botão de configurações */}
+              <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/pages/ConfigScreen')}>
+                <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
               </TouchableOpacity>
             </View>
           </View>
@@ -709,8 +753,9 @@ export default function PetDonationScreen() {
               email: currentUser.email,
               telefone: currentUser.telefone,
             }}
-            onTermoCompleted={handleTermoCompleted}
+            onTermoCompleted={isVoluntaryTermoView ? handleTermoVoluntaryClosed : handleTermoCompleted}
             isDataUpdateMode={isDataUpdateMode}
+            isVoluntaryView={isVoluntaryTermoView}
           />
         )}
       </ImageBackground>
@@ -754,7 +799,29 @@ const styles = StyleSheet.create({
   },
   headerIcons: {
     flexDirection: 'row',
+    gap: 10,
   },
+  // 🆕 Estilos para os botões do header
+  headerButton: {
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    borderRadius: 25,
+    padding: 8,
+    width: 40,
+    height: 40,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  headerButtonDisabled: {
+    backgroundColor: 'rgba(255, 255, 255, 0.5)',
+  },
+  headerIcon: {
+    width: 24,
+    height: 24,
+  },
+  headerIconDisabled: {
+    opacity: 0.5,
+  },
+  // Manter estilos antigos para compatibilidade
   settingsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,

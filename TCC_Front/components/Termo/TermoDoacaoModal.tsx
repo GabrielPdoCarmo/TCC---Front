@@ -1,4 +1,4 @@
-// TermoDoacaoModalAuto.tsx - CORREÇÃO para não salvar rota quando usuário volta sem assinar
+// TermoDoacaoModalAuto.tsx - Com suporte a visualização voluntária
 
 import React, { useState, useEffect } from 'react';
 import {
@@ -50,6 +50,7 @@ interface TermoDoacaoModalAutoProps {
   };
   onTermoCompleted: () => void;
   isDataUpdateMode?: boolean;
+  isVoluntaryView?: boolean; // 🆕 Nova prop para identificar visualização voluntária
 }
 
 interface FormData {
@@ -70,6 +71,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   usuarioLogado,
   onTermoCompleted,
   isDataUpdateMode = false,
+  isVoluntaryView = false, // 🆕 Nova prop
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
@@ -92,9 +94,16 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     compromesteContato: false,
   });
 
-  // 🚫 Bloquear botão de voltar do Android quando modal estiver aberto
+  // 🚫 Bloquear botão de voltar do Android quando modal estiver aberto (EXCETO visualização voluntária)
   useEffect(() => {
     const backAction = () => {
+      // 🆕 Se for visualização voluntária, permitir voltar normalmente
+      if (isVoluntaryView) {
+        handleGoBack();
+        return true;
+      }
+
+      // Comportamento original para casos obrigatórios
       if (visible && !emailSent) {
         const message = isDataUpdateMode
           ? 'Você precisa reAssinar o termo com seus dados atualizados para continuar cadastrando pets.'
@@ -111,7 +120,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
 
     const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
     return () => backHandler.remove();
-  }, [visible, emailSent, isDataUpdateMode]);
+  }, [visible, emailSent, isDataUpdateMode, isVoluntaryView]);
 
   // Função para obter o token de autenticação
   const getAuthToken = async () => {
@@ -145,12 +154,10 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     if (visible) {
       initializeModal();
     }
-  }, [visible, isDataUpdateMode]);
+  }, [visible, isDataUpdateMode, isVoluntaryView]);
 
   // Função para inicializar o modal
   const initializeModal = async () => {
-    const modoTexto = isDataUpdateMode ? 'atualização de dados' : 'criação inicial';
-
     setStep('loading');
     setEmailSent(false);
 
@@ -158,12 +165,37 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     const token = await getAuthToken();
     setAuthToken(token);
 
-    // Lógica diferente baseada no modo
-    if (isDataUpdateMode) {
+    // 🆕 Lógica diferente baseada no modo
+    if (isVoluntaryView) {
+      // Para visualização voluntária, sempre mostrar o termo existente
+      await loadExistingTermoForView();
+    } else if (isDataUpdateMode) {
+      // Para atualização de dados, carregar dados existentes para o formulário
       await loadExistingTermoData();
       setStep('form');
     } else {
+      // Para criação inicial, verificar se já existe
       await checkExistingTermo();
+    }
+  };
+
+  // 🆕 Função para carregar termo existente apenas para visualização
+  const loadExistingTermoForView = async () => {
+    try {
+      const response = await getTermoDoacao();
+
+      if (response && response.data) {
+        setTermoData(response.data);
+        setStep('termo');
+      } else {
+        Alert.alert('Termo não encontrado', 'Você ainda não possui um termo de responsabilidade.', [
+          { text: 'OK', onPress: () => onTermoCompleted() }
+        ]);
+      }
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível carregar o termo. Tente novamente mais tarde.', [
+        { text: 'OK', onPress: () => onTermoCompleted() }
+      ]);
     }
   };
 
@@ -223,6 +255,25 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       } else {
         setStep('form');
       }
+    }
+  };
+
+  // 🆕 Função para reenviar email voluntariamente
+  const handleVoluntaryResendEmail = async () => {
+    if (!termoData) return;
+
+    try {
+      setSendingEmail(true);
+      await sendTermoDoacaoEmail(termoData.id);
+      setSendingEmail(false);
+      
+      // Mostrar mensagem de sucesso e então fechar o modal
+      Alert.alert('Sucesso', 'Termo reenviado com sucesso para seu email!', [
+        { text: 'OK', onPress: () => onTermoCompleted() }
+      ]);
+    } catch (error) {
+      Alert.alert('Erro', 'Não foi possível reenviar o termo. Tente novamente mais tarde.');
+      setSendingEmail(false);
     }
   };
 
@@ -341,17 +392,27 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }, 3000);
   };
 
-  // 🆕 CORREÇÃO PRINCIPAL: Função para voltar à tela anterior SEM salvar lastRoute
+  // 🆕 CORREÇÃO PRINCIPAL: Função para voltar baseada no contexto
   const handleGoBack = async () => {
     try {
-      // 🚨 IMPORTANTE: Limpar qualquer lastRoute que possa ter sido salvo para PetDonation
+      if (isVoluntaryView) {
+        // 🆕 Se for visualização voluntária, simplesmente fechar o modal
+        onTermoCompleted();
+        return;
+      }
+
+      // 🚨 Para casos obrigatórios: Limpar qualquer lastRoute que possa ter sido salvo para PetDonation
       await AsyncStorage.removeItem('@App:lastRoute');
       
       // Voltar para a tela principal ao invés de tentar voltar para doação
       router.replace('/pages/PetAdoptionScreen');
     } catch (error) {
       // Em caso de erro, ainda assim voltar para tela principal
-      router.replace('/pages/PetAdoptionScreen');
+      if (isVoluntaryView) {
+        onTermoCompleted();
+      } else {
+        router.replace('/pages/PetAdoptionScreen');
+      }
     }
   };
 
@@ -373,24 +434,66 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     });
   };
 
-  // Textos dinâmicos baseados no modo
-  const headerTitle = isDataUpdateMode ? 'Atualização de Termo' : 'Termo de Responsabilidade';
+  // 🆕 Textos dinâmicos baseados no modo
+  const getHeaderTexts = () => {
+    if (isVoluntaryView) {
+      return {
+        title: 'Visualizar Termo',
+        subtitle: 'Termo de responsabilidade atual'
+      };
+    }
+    
+    if (isDataUpdateMode) {
+      return {
+        title: 'Atualização de Termo',
+        subtitle: 'Requer nova assinatura com dados atualizados'
+      };
+    }
+    
+    return {
+      title: 'Termo de Responsabilidade',
+      subtitle: 'Obrigatório para cadastrar pets'
+    };
+  };
 
-  const headerSubtitle = isDataUpdateMode
-    ? 'Requer nova assinatura com dados atualizados'
-    : 'Obrigatório para cadastrar pets';
+  const getWarningText = () => {
+    if (isVoluntaryView) {
+      return 'Este é seu termo de responsabilidade atual. Você pode reenviar uma cópia para seu email se necessário.';
+    }
+    
+    if (isDataUpdateMode) {
+      return 'Seus dados pessoais foram alterados. Para continuar cadastrando pets, você precisa reAssinar o termo com suas informações atualizadas.';
+    }
+    
+    return 'Para cadastrar pets para doação, você precisa assinar este termo de responsabilidade.';
+  };
 
-  const warningText = isDataUpdateMode
-    ? 'Seus dados pessoais foram alterados. Para continuar cadastrando pets, você precisa reAssinar o termo com suas informações atualizadas.'
-    : 'Para cadastrar pets para doação, você precisa assinar este termo de responsabilidade.';
+  const getButtonText = () => {
+    if (isVoluntaryView) {
+      return 'Fechar';
+    }
+    
+    return isDataUpdateMode ? 'Atualizar Termo' : 'Assinar Termo';
+  };
 
-  const buttonText = isDataUpdateMode ? 'Atualizar Termo' : 'Assinar Termo';
+  const getSuccessTexts = () => {
+    if (isDataUpdateMode) {
+      return {
+        title: 'Termo Atualizado com Sucesso!',
+        message: 'Seu termo foi atualizado com seus dados atuais e reenviado por email.'
+      };
+    }
+    
+    return {
+      title: 'Termo Assinado com Sucesso!',
+      message: 'Seu termo de responsabilidade foi criado e enviado por email.'
+    };
+  };
 
-  const successTitle = isDataUpdateMode ? 'Termo Atualizado com Sucesso!' : 'Termo Assinado com Sucesso!';
-
-  const successMessage = isDataUpdateMode
-    ? 'Seu termo foi atualizado com seus dados atuais e reenviado por email.'
-    : 'Seu termo de responsabilidade foi criado e enviado por email.';
+  const headerTexts = getHeaderTexts();
+  const warningText = getWarningText();
+  const buttonText = getButtonText();
+  const successTexts = getSuccessTexts();
 
   // Função para mostrar os dados que foram alterados
   const renderDataChangesInfo = () => {
@@ -430,7 +533,9 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       animationType="slide"
       transparent={false}
       onRequestClose={() => {
-        if (!emailSent) {
+        if (isVoluntaryView) {
+          handleGoBack();
+        } else if (!emailSent) {
           Alert.alert('Termo Obrigatório', 'Você precisa assinar o termo para continuar.', [{ text: 'OK' }]);
         }
       }}
@@ -438,8 +543,8 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
       <View style={styles.container}>
         {/* Header fixo */}
         <View style={styles.header}>
-          <Text style={styles.headerTitle}>{headerTitle}</Text>
-          <Text style={styles.headerSubtitle}>{headerSubtitle}</Text>
+          <Text style={styles.headerTitle}>{headerTexts.title}</Text>
+          <Text style={styles.headerSubtitle}>{headerTexts.subtitle}</Text>
         </View>
 
         {/* Content */}
@@ -447,7 +552,12 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
           <View style={styles.loadingContainer}>
             <ActivityIndicator size="large" color="#4682B4" />
             <Text style={styles.loadingText}>
-              {isDataUpdateMode ? 'Carregando dados para atualização...' : 'Verificando termo de responsabilidade...'}
+              {isVoluntaryView 
+                ? 'Carregando termo...' 
+                : isDataUpdateMode 
+                  ? 'Carregando dados para atualização...' 
+                  : 'Verificando termo de responsabilidade...'
+              }
             </Text>
           </View>
         )}
@@ -616,6 +726,14 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
               </View>
             ) : (
               <ScrollView contentContainerStyle={styles.termoContentContainer} showsVerticalScrollIndicator={false}>
+                {/* 🆕 Warning para visualização voluntária */}
+                {isVoluntaryView && (
+                  <View style={styles.voluntaryWarningContainer}>
+                    <Text style={styles.warningIcon}>📋</Text>
+                    <Text style={styles.voluntaryWarningText}>{warningText}</Text>
+                  </View>
+                )}
+
                 <Text style={styles.termoTitle}>TERMO DE RESPONSABILIDADE DE DOAÇÃO</Text>
 
                 <View style={styles.termoHeader}>
@@ -651,6 +769,27 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
                   <Text style={styles.dataText}>Assinatura: {termoData.assinatura_digital}</Text>
                   <Text style={styles.dataText}>Data: {formatDate(termoData.data_assinatura)}</Text>
                 </View>
+
+                {/* 🆕 Botões para visualização voluntária */}
+                {isVoluntaryView && (
+                  <View style={styles.voluntaryButtonContainer}>
+                    <TouchableOpacity
+                      style={[styles.resendEmailButton, sendingEmail && styles.disabledButton]}
+                      onPress={handleVoluntaryResendEmail}
+                      disabled={sendingEmail}
+                    >
+                      {sendingEmail ? (
+                        <ActivityIndicator color="#FFFFFF" size="small" />
+                      ) : (
+                        <Text style={styles.resendEmailButtonText}>Reenviar por Email</Text>
+                      )}
+                    </TouchableOpacity>
+
+                    <TouchableOpacity style={styles.voluntaryBackButton} onPress={handleGoBack}>
+                      <Text style={styles.voluntaryBackButtonText}>Fechar</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
               </ScrollView>
             )}
           </View>
@@ -659,9 +798,9 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
         {step === 'email-sent' && (
           <View style={styles.successContainer}>
             <Text style={styles.successIcon}>✅</Text>
-            <Text style={styles.successTitle}>{successTitle}</Text>
-            <Text style={styles.successMessage}>{successMessage}</Text>
-            <Text style={styles.successSubMessage}>📧 Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
+            <Text style={styles.successTitle}>{successTexts.title}</Text>
+            <Text style={styles.successMessage}>{successTexts.message}</Text>
+            <Text style={styles.successSubMessage}>Verifique sua caixa de entrada: {usuarioLogado.email}</Text>
             <View style={styles.successTimer}>
               <ActivityIndicator size="small" color="#2E8B57" />
               <Text style={styles.timerText}>Liberando acesso em alguns segundos...</Text>
@@ -673,7 +812,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   );
 };
 
-// Estilos mantidos iguais...
+// Estilos
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -735,6 +874,17 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
     borderLeftColor: '#2196F3',
   },
+  // 🆕 Container de warning para visualização voluntária
+  voluntaryWarningContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#D3E2F0FF',
+    padding: 15,
+    borderRadius: 10,
+    marginBottom: 20,
+    borderLeftWidth: 4,
+    borderLeftColor: '#2196F3',
+    alignItems: 'center',
+  },
   warningIcon: {
     fontSize: 24,
     marginRight: 10,
@@ -743,6 +893,13 @@ const styles = StyleSheet.create({
     flex: 1,
     fontSize: 14,
     color: '#856404',
+    lineHeight: 20,
+  },
+  // 🆕 Texto de warning para visualização voluntária
+  voluntaryWarningText: {
+    flex: 1,
+    fontSize: 14,
+    color: '#1E88E5',
     lineHeight: 20,
   },
   inputContainer: {
@@ -835,7 +992,7 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: 'bold',
     textAlign: 'center',
-    color: '#2E8B57',
+    color: '#4682B4',
     marginBottom: 15,
   },
   termoHeader: {
@@ -860,7 +1017,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontSize: 14,
     fontWeight: 'bold',
-    color: '#2E8B57',
+    color: '#4682B4',
     marginBottom: 8,
   },
   dataText: {
@@ -872,6 +1029,36 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#333',
     lineHeight: 18,
+  },
+  // 🆕 Container de botões para visualização voluntária
+  voluntaryButtonContainer: {
+    marginTop: 30,
+    paddingTop: 20,
+    borderTopWidth: 1,
+    borderTopColor: '#DDD',
+  },
+  resendEmailButton: {
+    backgroundColor: '#1E88E5',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+    marginBottom: 15,
+  },
+  resendEmailButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
+  },
+  voluntaryBackButton: {
+    backgroundColor: '#4CAF50',
+    paddingVertical: 12,
+    borderRadius: 8,
+    alignItems: 'center',
+  },
+  voluntaryBackButtonText: {
+    color: '#FFFFFF',
+    fontSize: 14,
+    fontWeight: 'bold',
   },
   successContainer: {
     flex: 1,
