@@ -25,7 +25,7 @@ import getEstados from '@/services/api/Estados/getEstados';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
-import getByNomePet_StatusId from '@/services/api/Pets/getByNomePet_StatusId'; // Esta API filtra por status_id específico
+import getMyPetsByName from '@/services/api/Pets/getMyPetsByName'; // Esta API filtra por status_id específico
 import getRacaById from '@/services/api/Raca/getRacaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
@@ -185,9 +185,7 @@ export default function MypetsFilter() {
     return [];
   };
 
-  // Buscar pets por nome - A API já filtra por status_id = 3 e 4 automaticamente
-  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName com debugging melhorado
-  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName com carregamento de detalhes completos
+  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName sem erros de TypeScript
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
       clearSearch();
@@ -197,17 +195,15 @@ export default function MypetsFilter() {
     try {
       setSearchLoading(true);
 
-      // Chamar a API
-      const response = await getByNomePet_StatusId(name);
+      // 🆕 USAR A NOVA API SIMPLIFICADA
+      const response = await getMyPetsByName(name);
 
-      // Normalizar resposta
-      const petsArray = normalizeApiResponseWithDebug(response);
+      // 🔧 CORREÇÃO: Garantir que pets seja sempre um array válido
+      const pets: Pet[] = Array.isArray(response) ? response : [];
 
-      if (petsArray.length > 0) {
-        // 🆕 CARREGAR DETALHES COMPLETOS DOS PETS ENCONTRADOS
-
-        const petsWithDetails = await loadPetsWithDetailsForSearch(petsArray);
-
+      if (pets.length > 0) {
+        // Carregar detalhes completos dos pets encontrados
+        const petsWithDetails = await loadPetsWithDetailsForSearch(pets);
         setSearchResults(petsWithDetails);
       } else {
         setSearchResults([]);
@@ -215,15 +211,7 @@ export default function MypetsFilter() {
 
       setHasActiveSearch(true);
       setSearchLoading(false);
-    } catch (err) {
-      const errorMessage = err?.toString() || '';
-      if (
-        errorMessage.includes('Pet não encontrado') ||
-        errorMessage.includes('404') ||
-        errorMessage.includes('Not found')
-      ) {
-      }
-
+    } catch (error) {
       setSearchResults([]);
       setHasActiveSearch(true);
       setSearchLoading(false);

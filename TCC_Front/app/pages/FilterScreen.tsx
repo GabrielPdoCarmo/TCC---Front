@@ -17,7 +17,13 @@ import {
 import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
-// Importar os serviços necessários para carregar as opções de filtro
+// Adicione estes imports
+import getRacaById from '@/services/api/Raca/getRacaById';
+import getstatusById from '@/services/api/Status/getstatusById';
+import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
+import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
+import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
+import checkFavorito from '@/services/api/Favoritos/checkFavorito';
 import getEspecies from '@/services/api/Especies/getEspecies';
 import getFaixaEtaria from '@/services/api/Faixa-etaria/getFaixaEtaria';
 import getRacasPorEspecie from '@/services/api/Raca/getRacasPorEspecie';
@@ -73,13 +79,23 @@ interface Pet {
   id: number;
   nome: string;
   raca_id: number;
+  raca_nome?: string; // 🆕 Campo adicional
   idade: string;
   usuario_id: number;
+  usuario_nome?: string; // 🆕 Campo adicional
+  usuario_foto?: string | null; // 🆕 Campo adicional
+  usuario_telefone?: string; // 🆕 Campo adicional
+  usuario_email?: string; // 🆕 Campo adicional
+  usuario_cidade_id?: number; // 🆕 Campo adicional
+  usuario_estado_id?: number; // 🆕 Campo adicional
   foto?: string;
   faixa_etaria_id: number;
+  faixa_etaria_unidade?: string; // 🆕 Campo adicional
   status_id: number;
+  status_nome?: string; // 🆕 Campo adicional
   sexo_id?: number;
   especie_id?: number;
+  favorito?: boolean; // 🆕 Campo adicional
 }
 
 interface FilterParams {
@@ -142,32 +158,152 @@ export default function FilterScreen() {
   const params = useLocalSearchParams();
   const currentFilters = params.filters ? JSON.parse(decodeURIComponent(params.filters as string)) : {};
 
+  const loadPetsWithDetailsForAdoption = async (pets: Pet[]): Promise<Pet[]> => {
+    if (!Array.isArray(pets) || pets.length === 0) {
+      return [];
+    }
+
+    try {
+      // Obter usuarioId para favoritos
+      let usuarioId = null;
+      try {
+        const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
+        if (userIdFromStorage) {
+          usuarioId = parseInt(userIdFromStorage);
+        }
+      } catch (error) {}
+
+      return await Promise.all(
+        pets.map(async (pet: Pet, index: number) => {
+          try {
+            // 🔄 Carregar informações da raça
+            let racaInfo = null;
+            if (pet.raca_id) {
+              try {
+                racaInfo = await getRacaById(pet.raca_id);
+              } catch (error) {}
+            }
+
+            // 🔄 Carregar informações do status
+            let statusInfo = null;
+            if (pet.status_id) {
+              try {
+                statusInfo = await getstatusById(pet.status_id);
+              } catch (error) {}
+            }
+
+            // 🔄 Carregar informações da faixa etária
+            let faixaEtariaInfo = null;
+            if (pet.faixa_etaria_id) {
+              try {
+                faixaEtariaInfo = await getFaixaEtariaById(pet.faixa_etaria_id);
+              } catch (error) {}
+            }
+
+            // 🔄 Carregar informações do usuário responsável
+            let usuarioInfo = null;
+            let usuarioFotoInfo = null;
+
+            if (pet.usuario_id) {
+              try {
+                usuarioInfo = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+              } catch (error) {}
+            }
+
+            if (pet.usuario_id) {
+              try {
+                usuarioFotoInfo = await getUsuarioById(pet.usuario_id);
+              } catch (error) {}
+            }
+
+            // 🔄 Verificar se é favorito
+            let isFavorito = false;
+            if (usuarioId) {
+              try {
+                isFavorito = await checkFavorito(usuarioId, pet.id);
+              } catch (error) {}
+            }
+
+            // 🔄 Montar objeto final com dados completos
+            const petCompleto = {
+              ...pet,
+              raca_nome: racaInfo?.nome || 'Raça não informada',
+              usuario_nome: usuarioInfo?.nome || usuarioFotoInfo?.nome || 'Responsável não informado',
+              usuario_foto: usuarioFotoInfo?.foto || null,
+              usuario_telefone: usuarioFotoInfo?.telefone || usuarioInfo?.telefone,
+              usuario_email: usuarioFotoInfo?.email || usuarioInfo?.email,
+              usuario_cidade_id: usuarioInfo?.cidade?.id,
+              usuario_estado_id: usuarioInfo?.estado?.id,
+              status_nome: statusInfo?.nome || 'Disponível para adoção',
+              faixa_etaria_unidade: faixaEtariaInfo?.unidade || '',
+              favorito: isFavorito,
+            };
+
+            return petCompleto;
+          } catch (petError) {
+            // Retornar pet com dados básicos em caso de erro
+            return {
+              ...pet,
+              raca_nome: 'Erro ao carregar raça',
+              usuario_nome: 'Erro ao carregar responsável',
+              usuario_foto: null,
+              status_nome: 'Disponível para adoção',
+              faixa_etaria_unidade: '',
+              favorito: false,
+            };
+          }
+        })
+      );
+    } catch (error) {
+      // Retornar pets originais com dados básicos
+      return pets.map((pet) => ({
+        ...pet,
+        raca_nome: 'Erro ao carregar dados',
+        usuario_nome: 'Erro ao carregar dados',
+        usuario_foto: null,
+        status_nome: 'Disponível para adoção',
+        faixa_etaria_unidade: '',
+        favorito: false,
+      }));
+    }
+  };
   // Normalizar resposta da API para busca por nome
   const normalizeApiResponse = (response: any): Pet[] => {
     if (!response) {
       return [];
     }
 
+    // Se a resposta já é um array de pets
     if (Array.isArray(response)) {
-      return response;
+      const validPets = response.filter((item) => item && typeof item === 'object' && item.id);
+
+      return validPets;
     }
 
+    // Se é um objeto com ID (pet único)
     if (typeof response === 'object' && response.id) {
       return [response as Pet];
     }
 
+    // Se é um objeto que pode conter o array em alguma propriedade
     if (typeof response === 'object') {
       const possibleArrays = ['data', 'pets', 'results', 'items'];
+
       for (const prop of possibleArrays) {
         if (response[prop]) {
-          return normalizeApiResponse(response[prop]);
+          if (Array.isArray(response[prop])) {
+            const validPets = response[prop].filter((item: any) => item && typeof item === 'object' && item.id);
+
+            return validPets;
+          } else if (response[prop] && typeof response[prop] === 'object' && response[prop].id) {
+            return [response[prop] as Pet];
+          }
         }
       }
     }
 
     return [];
   };
-
   // Buscar pets por nome - SIMPLIFICADO (já filtra por status_id = 2)
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
@@ -178,14 +314,25 @@ export default function FilterScreen() {
     try {
       setSearchLoading(true);
 
-      // getPetByName já filtra automaticamente por status_id = 2
+      // Chamar a API
       const response = await getPetByName(name);
 
+      // Normalizar resposta
       const petsArray = normalizeApiResponse(response);
 
-      setSearchResults(petsArray);
-      setHasActiveSearch(true);
+      // Filtrar apenas pets com status_id = 2
+      const petsParaAdocao = petsArray.filter((pet) => pet.status_id === 2);
 
+      if (petsParaAdocao.length > 0) {
+        // 🆕 NOVA PARTE: Carregar detalhes completos
+        const petsWithDetails = await loadPetsWithDetailsForAdoption(petsParaAdocao);
+
+        setSearchResults(petsWithDetails);
+      } else {
+        setSearchResults([]);
+      }
+
+      setHasActiveSearch(true);
       setSearchLoading(false);
     } catch (err) {
       const errorMessage = err?.toString() || '';
@@ -193,8 +340,12 @@ export default function FilterScreen() {
         errorMessage.includes('Pet não encontrado') ||
         errorMessage.includes('404') ||
         errorMessage.includes('Not found')
-      )
-        setSearchResults([]);
+      ) {
+      } else {
+        Alert.alert('Erro na Busca', `Ocorreu um erro ao buscar o pet "${name}". Tente novamente.`, [{ text: 'OK' }]);
+      }
+
+      setSearchResults([]);
       setHasActiveSearch(true);
       setSearchLoading(false);
     }
