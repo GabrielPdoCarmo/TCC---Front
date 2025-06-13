@@ -4,7 +4,7 @@
     "slug": "TCC_Front",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/images/Icone/Petz_Up.png",
+    "icon": "./assets/images/Icone/Pets_Up.png",
     "scheme": "myapp",
     "userInterfaceStyle": "automatic",
     "newArchEnabled": true,
@@ -13,7 +13,7 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/images/Icone/Petz_Up.png",
+        "foregroundImage": "./assets/images/Icone/Pets_Up.png",
         "backgroundColor": "#4682B4"
       }
     },
@@ -27,7 +27,7 @@
       [
         "expo-splash-screen",
         {
-          "image": "./assets/images/Icone/Petz_Up.png",
+          "image": "./assets/images/Icone/Pets_Up.png",
           "imageWidth": 200,
           "resizeMode": "contain",
           "backgroundColor": "#4682B4"

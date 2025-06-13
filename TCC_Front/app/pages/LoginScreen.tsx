@@ -248,7 +248,7 @@ export default function LoginScreen() {
       if (userDetails?.foto) {
         photoUrl = userDetails.foto;
         if (!photoUrl.startsWith('http://') && !photoUrl.startsWith('https://')) {
-          photoUrl = `https://petzup-api.onrender.com${photoUrl}`;
+          photoUrl = `https://petsup-api.onrender.com${photoUrl}`;
         }
       }
 
@@ -321,7 +321,7 @@ export default function LoginScreen() {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
         <Image
-          source={require('../../assets/images/Icone/Petz_Up.png')}
+          source={require('../../assets/images/Icone/Pets_Up.png')}
           style={styles.logoImage}
           resizeMode="contain"
         />
@@ -334,7 +334,7 @@ export default function LoginScreen() {
     <ImageBackground source={require('../../assets/images/backgrounds/Fundo_01.png')} style={styles.backgroundImage}>
       <SafeAreaView style={styles.container}>
         <View style={styles.mainContent}>
-          <Image source={require('../../assets/images/Icone/Petz_Up.png')} style={styles.logoImage} />
+          <Image source={require('../../assets/images/Icone/Pets_Up.png')} style={styles.logoImage} />
           <Text style={styles.loginText}>Login:</Text>
 
           {/* Campo de E-mail com validação granular usando validator.js */}
