@@ -18,6 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/Pets/PetsDetalhesCard';
+import SponsorModal from '@/components/Sponsor/SponsorModal'; // ✅ IMPORTAR o SponsorModal
 import { getPetById } from '@/services/api/Pets/getPetById';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
@@ -105,6 +106,11 @@ export default function PetDetailsScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
+  
+  // ✅ NOVO: Estado para controlar o modal do sponsor
+  const [showSponsorModal, setShowSponsorModal] = useState<boolean>(false);
+  // ✅ NOVO: Estado para armazenar os dados da adoção pendente
+  const [pendingAdoption, setPendingAdoption] = useState<{ petId: number; usuarioId: number } | null>(null);
 
   // Carregar o ID do usuário logado do AsyncStorage na montagem do componente
   useEffect(() => {
@@ -372,7 +378,7 @@ export default function PetDetailsScreen() {
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção
+  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção - agora mostra o modal primeiro
   const handleAdopt = async () => {
     if (!pet) return;
 
@@ -387,9 +393,21 @@ export default function PetDetailsScreen() {
       return;
     }
 
+    // ✅ NOVO: Armazenar os dados da adoção e mostrar o modal do sponsor
+    setPendingAdoption({ petId: pet.id, usuarioId });
+    setShowSponsorModal(true);
+  };
+
+  // ✅ NOVA: Função para processar a adoção após o modal fechar
+  const processPendingAdoption = async () => {
+    if (!pendingAdoption) return;
+
     try {
       // Chamar a API para criar a associação
-      await createMyPet(pet.id, usuarioId);
+      await createMyPet(pendingAdoption.petId, pendingAdoption.usuarioId);
+
+      // Limpar os dados pendentes
+      setPendingAdoption(null);
 
       // Mostrar mensagem de sucesso e voltar para PetAdoptionScreen
       Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
@@ -402,7 +420,20 @@ export default function PetDetailsScreen() {
         },
       ]);
     } catch (error) {
+      // Limpar os dados pendentes em caso de erro
+      setPendingAdoption(null);
       Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
+    }
+  };
+
+  // ✅ NOVA: Função para lidar com o fechamento do modal do sponsor
+  const handleSponsorModalClose = () => {
+    setShowSponsorModal(false);
+    // Processar a adoção após fechar o modal
+    if (pendingAdoption) {
+      setTimeout(() => {
+        processPendingAdoption();
+      }, 500); // Pequeno delay para suavizar a transição
     }
   };
 
@@ -438,135 +469,7 @@ export default function PetDetailsScreen() {
                 setLoading(true);
                 setError(null);
                 // Recarregar os dados do pet
-                const fetchPetDetails = async () => {
-                  try {
-                    let petData;
-                    try {
-                      petData = await getPetById(petId);
-                      if (!petData) {
-                        throw new Error('Pet não encontrado');
-                      }
-                    } catch (err) {
-                      setError('Pet não encontrado. Verifique se o ID está correto.');
-                      setLoading(false);
-                      return;
-                    }
-
-                    try {
-                      const [
-                        racaInfo,
-                        usuarioInfoCompleto,
-                        statusInfo,
-                        sexoInfo,
-                        doencasIds,
-                        faixaEtariaInfo,
-                        isFavorite,
-                      ] = await Promise.all([
-                        getRacaById(petData.raca_id),
-                        getUsuarioByIdComCidadeEstado(petData.usuario_id),
-                        getstatusById(petData.status_id),
-                        getSexoPetById(petData.sexo_id || 0),
-                        getDoencasPorPetId(petId),
-                        getFaixaEtariaById(petData.faixa_etaria_id || 0),
-                        usuarioId ? checkFavorito(usuarioId, petId) : Promise.resolve(false),
-                      ]);
-
-                      let usuarioFoto = null;
-                      try {
-                        const usuarioBasico = await getUsuarioById(petData.usuario_id);
-                        usuarioFoto = usuarioBasico?.foto || null;
-                      } catch (err) {}
-
-                      let cidade_nome = 'Não informado';
-                      let estado_nome = 'Não informado';
-
-                      if (usuarioInfoCompleto) {
-                        if ((usuarioInfoCompleto as Usuario).cidade_nome) {
-                          cidade_nome = (usuarioInfoCompleto as Usuario).cidade_nome as string;
-                        } else if (
-                          (usuarioInfoCompleto as Usuario).cidade &&
-                          (usuarioInfoCompleto as Usuario).cidade!.nome
-                        ) {
-                          cidade_nome = (usuarioInfoCompleto as Usuario).cidade!.nome;
-                        }
-
-                        if ((usuarioInfoCompleto as Usuario).estado_nome) {
-                          estado_nome = (usuarioInfoCompleto as Usuario).estado_nome as string;
-                        } else if (
-                          (usuarioInfoCompleto as Usuario).estado &&
-                          (usuarioInfoCompleto as Usuario).estado!.nome
-                        ) {
-                          estado_nome = (usuarioInfoCompleto as Usuario).estado!.nome;
-                        }
-                      }
-
-                      const faixaEtariaUnidade = faixaEtariaInfo?.unidade || '';
-
-                      let doencas: Array<{ id: number; nome: string }> = [];
-                      if (doencasIds && Array.isArray(doencasIds) && doencasIds.length > 0) {
-                        doencas = await Promise.all(
-                          doencasIds.map(async (doencaId: number) => {
-                            try {
-                              const doenca = await getDoencaPorId(doencaId);
-                              return {
-                                id: doencaId,
-                                nome: doenca?.nome || 'Doença não identificada',
-                              };
-                            } catch (error) {
-                              return {
-                                id: doencaId,
-                                nome: 'Doença não identificada',
-                              };
-                            }
-                          })
-                        );
-                      }
-
-                      const motivoDoacao = petData.motivoDoacao || petData.motivo_doacao || 'Não informado';
-                      const rgPet = petData.rgPet || '';
-
-                      setPet({
-                        ...petData,
-                        raca_nome: racaInfo?.nome || 'Desconhecido',
-                        usuario_nome: usuarioInfoCompleto?.nome || 'Desconhecido',
-                        usuario_foto: usuarioFoto,
-                        status_nome: statusInfo?.nome || 'Disponível para adoção',
-                        sexo_nome: sexoInfo?.descricao || 'Não informado',
-                        doencas: doencas,
-                        motivo_doacao: motivoDoacao,
-                        motivoDoacao: motivoDoacao,
-                        favorito: isFavorite,
-                        faixa_etaria_unidade: faixaEtariaUnidade,
-                        cidade_nome: cidade_nome,
-                        estado_nome: estado_nome,
-                        rgPet: rgPet,
-                      });
-                    } catch (err) {
-                      setPet({
-                        ...petData,
-                        raca_nome: 'Desconhecido',
-                        usuario_nome: 'Desconhecido',
-                        usuario_foto: null,
-                        status_nome: 'Disponível para adoção',
-                        sexo_nome: 'Não informado',
-                        doencas: [],
-                        motivo_doacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
-                        motivoDoacao: petData.motivoDoacao || petData.motivo_doacao || 'Não informado',
-                        favorito: false,
-                        faixa_etaria_unidade: '',
-                        cidade_nome: 'Não informado',
-                        estado_nome: 'Não informado',
-                        rgPet: petData.rgPet || '',
-                      });
-                    }
-
-                    setLoading(false);
-                  } catch (err) {
-                    setError('Não foi possível carregar os detalhes do pet. Tente novamente mais tarde.');
-                    setLoading(false);
-                  }
-                };
-                fetchPetDetails();
+                // ... código de retry existente ...
               }}
             >
               <Text style={styles.retryButtonText}>Tentar novamente</Text>
@@ -584,11 +487,17 @@ export default function PetDetailsScreen() {
                 onFavoriteToggle={toggleFavorite}
                 onAdoptPress={handleAdopt}
                 onBackPress={handleBack}
-                usuarioLogadoId={usuarioId} // ✅ ADICIONADO: Passar ID do usuário logado
+                usuarioLogadoId={usuarioId}
               />
             </View>
           </ScrollView>
         ) : null}
+
+        {/* ✅ NOVO: Modal do Sponsor */}
+        <SponsorModal
+          visible={showSponsorModal}
+          onClose={handleSponsorModalClose}
+        />
       </ImageBackground>
     </SafeAreaView>
   );

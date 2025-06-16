@@ -1,4 +1,4 @@
-// PetAdoptionScreen.tsx - Otimizado com ordenação por ID
+// PetAdoptionScreen.tsx - Otimizado com ordenação por ID e SponsorModal
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -17,6 +17,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
 import PetsCard from '@/components/Pets/PetsCard';
+import SponsorModal from '@/components/Sponsor/SponsorModal'; // ✅ IMPORTAR o SponsorModal
 import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
@@ -83,6 +84,10 @@ export default function PetAdoptionScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
+
+  // ✅ NOVO: Estados para controlar o modal do sponsor
+  const [showSponsorModal, setShowSponsorModal] = useState<boolean>(false);
+  const [pendingAdoption, setPendingAdoption] = useState<{ petId: number; usuarioId: number } | null>(null);
 
   const { user, token, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
   const usuarioId = user?.id || null;
@@ -369,7 +374,7 @@ export default function PetAdoptionScreen() {
     }
   }, [activeFilters, hasActiveSearch, searchResults, allPets, loading]);
 
-  // Função para lidar com a adoção de um pet
+  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção de um pet - agora mostra o modal primeiro
   const handleAdopt = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
@@ -387,8 +392,20 @@ export default function PetAdoptionScreen() {
       return;
     }
 
+    // ✅ NOVO: Armazenar os dados da adoção e mostrar o modal do sponsor
+    setPendingAdoption({ petId, usuarioId });
+    setShowSponsorModal(true);
+  };
+
+  // ✅ NOVA: Função para processar a adoção após o modal fechar
+  const processPendingAdoption = async () => {
+    if (!pendingAdoption) return;
+
     try {
-      await createMyPet(petId, usuarioId);
+      await createMyPet(pendingAdoption.petId, pendingAdoption.usuarioId);
+
+      // Limpar os dados pendentes
+      setPendingAdoption(null);
 
       Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
         {
@@ -399,7 +416,20 @@ export default function PetAdoptionScreen() {
         },
       ]);
     } catch (error) {
+      // Limpar os dados pendentes em caso de erro
+      setPendingAdoption(null);
       Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
+    }
+  };
+
+  // ✅ NOVA: Função para lidar com o fechamento do modal do sponsor
+  const handleSponsorModalClose = () => {
+    setShowSponsorModal(false);
+    // Processar a adoção após fechar o modal
+    if (pendingAdoption) {
+      setTimeout(() => {
+        processPendingAdoption();
+      }, 500); // Pequeno delay para suavizar a transição
     }
   };
 
@@ -691,6 +721,12 @@ export default function PetAdoptionScreen() {
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
         </View>
+
+        {/* ✅ NOVO: Modal do Sponsor */}
+        <SponsorModal
+          visible={showSponsorModal}
+          onClose={handleSponsorModalClose}
+        />
       </ImageBackground>
     </SafeAreaView>
   );
