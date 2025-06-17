@@ -32,6 +32,7 @@ import deleteTermoByPet from '@/services/api/TermoAdocao/deleteTermoByPet';
 import checkPetHasTermo from '@/services/api/TermoAdocao/checkPetHasTermo';
 import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt';
 import updateStatus from '@/services/api/Status/updateStatus';
+import transferPet from '@/services/api/Pets/transferPet';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -614,32 +615,39 @@ export default function MyPetsScreen() {
   };
 
   // 🆕 ATUALIZADA: Iniciar WhatsApp SEM re-ordenação desnecessária
-  const handleStartWhatsApp = async () => {
-    if (!selectedPet || !usuario) return;
+  // 🆕 ATUALIZADA: Iniciar WhatsApp COM transferência automática do pet (mantendo contato do doador original)
+const handleStartWhatsApp = async () => {
+  if (!selectedPet || !usuario) return;
 
-    try {
-      const donoPet = selectedPet.usuario_nome || 'responsável';
-      const nomePet = selectedPet.nome;
-      const nomeInteressado = usuario.nome;
-      const telefone = selectedPet.usuario_telefone;
+  try {
+    // 🚨 IMPORTANTE: Salvar dados do dono ORIGINAL antes da transferência
+    const doadorOriginal = {
+      nome: selectedPet.usuario_nome || 'responsável',
+      telefone: selectedPet.usuario_telefone,
+      email: selectedPet.usuario_email,
+    };
+    
+    const nomePet = selectedPet.nome;
+    const nomeInteressado = usuario.nome;
+    const telefone = doadorOriginal.telefone; // Usar telefone do doador original
 
-      if (!telefone) {
-        setModalState('closed');
-        setSelectedPet(null);
+    if (!telefone) {
+      setModalState('closed');
+      setSelectedPet(null);
 
-        Alert.alert(
-          'Contato não disponível',
-          `O telefone do responsável por ${nomePet} não está disponível no momento.\n\n${
-            selectedPet.usuario_email
-              ? `Você pode tentar entrar em contato pelo email: ${selectedPet.usuario_email}`
-              : 'Tente entrar em contato através do app posteriormente.'
-          }`,
-          [{ text: 'OK' }]
-        );
-        return;
-      }
+      Alert.alert(
+        'Contato não disponível',
+        `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${
+          doadorOriginal.email
+            ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
+            : 'Tente entrar em contato através do app posteriormente.'
+        }`,
+        [{ text: 'OK' }]
+      );
+      return;
+    }
 
-      const mensagem = `Olá ${donoPet}! 👋
+    const mensagem = `Olá ${doadorOriginal.nome}! 👋
 
 Meu nome é ${nomeInteressado} e tenho interesse em adotar o pet *${nomePet}* que vi no app de adoção.
 
@@ -650,79 +658,136 @@ Gostaria de saber mais detalhes sobre:
 
 Agradeço desde já! 🐾❤️`;
 
-      let numeroLimpo = telefone.replace(/\D/g, '');
+    let numeroLimpo = telefone.replace(/\D/g, '');
 
-      if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
-        numeroLimpo = numeroLimpo.substring(1);
+    if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
+      numeroLimpo = numeroLimpo.substring(1);
+    }
+    if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
+      numeroLimpo = '55' + numeroLimpo;
+    }
+
+    const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
+
+    const canOpen = await Linking.canOpenURL(whatsappUrl);
+
+    if (canOpen) {
+      try {
+        // 🆕 NOVO: Primeiro atualizar o status para "Adotado"
+        console.log('🔄 Atualizando status do pet para "Adotado"...');
+        await updateStatus(selectedPet.id);
+
+        // 🆕 NOVO: Depois transferir o pet para o usuário logado
+        console.log('🔄 Transferindo propriedade do pet...');
+        const transferResult = await transferPet({
+          id: selectedPet.id,
+          novo_usuario_id: usuarioId!
+        });
+
+        console.log('✅ Pet transferido com sucesso:', transferResult);
+
+        // 🆕 ATUALIZADA: Atualizar o pet com transferência MAS mantendo dados de contato do doador original
+        const updatedPet = {
+          ...selectedPet,
+          status_id: 4,
+          status_nome: 'Adotado',
+          // 🚨 TRANSFERIR PROPRIEDADE (IDs de localização e proprietário)
+          usuario_id: usuarioId!, // Novo proprietário
+          cidade_id: usuario.cidade?.id, // Nova cidade do pet
+          estado_id: usuario.estado?.id, // Novo estado do pet
+          usuario_cidade_id: usuario.cidade?.id, // Cidade do novo proprietário
+          usuario_estado_id: usuario.estado?.id, // Estado do novo proprietário
+          
+          // 🚨 MANTER DADOS DE CONTATO DO DOADOR ORIGINAL para futuras comunicações
+          doador_original_nome: doadorOriginal.nome,
+          doador_original_telefone: doadorOriginal.telefone,
+          doador_original_email: doadorOriginal.email,
+          
+          // 🚨 ATUALIZAR DADOS DO NOVO PROPRIETÁRIO (mas manter contato do doador)
+          usuario_nome: usuario.nome, // Nome do novo proprietário
+          usuario_foto: usuario.foto || null, // Foto do novo proprietário
+          usuario_telefone: doadorOriginal.telefone, // MANTER telefone do doador para contato
+          usuario_email: doadorOriginal.email, // MANTER email do doador para contato
+        };
+
+        // Atualizar listas locais
+        const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+        const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+
+        setAllMyPets(updatedAllPets);
+        setFilteredMyPets(updatedFilteredPets);
+
+        if (hasActiveSearch) {
+          const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+          setSearchResults(updatedSearchResults);
+        }
+
+      } catch (transferError: any) {
+        // Se a transferência falhar, mostrar erro mas ainda tentar abrir WhatsApp
+        console.error('❌ Erro na transferência:', transferError);
+        
+        Alert.alert(
+          'Aviso',
+          `O status foi atualizado, mas houve um problema na transferência de propriedade: ${transferError.message}\n\nO WhatsApp ainda será aberto para você iniciar o contato.`,
+          [{ text: 'OK' }]
+        );
+
+        // Atualizar apenas o status (sem transferência)
+        const updatedPet = {
+          ...selectedPet,
+          status_id: 4,
+          status_nome: 'Adotado',
+        };
+
+        const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+        const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+
+        setAllMyPets(updatedAllPets);
+        setFilteredMyPets(updatedFilteredPets);
+
+        if (hasActiveSearch) {
+          const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+          setSearchResults(updatedSearchResults);
+        }
       }
-      if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
-        numeroLimpo = '55' + numeroLimpo;
-      }
 
-      const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
-
-      const canOpen = await Linking.canOpenURL(whatsappUrl);
-
-      if (canOpen) {
-        try {
-          await updateStatus(selectedPet.id);
-
-          // 🆕 ATUALIZADA: Atualização simples sem re-ordenação por ID
-          const updatedPet = {
-            ...selectedPet,
-            status_id: 4,
-            status_nome: 'Adotado',
-          };
-
-          const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-          const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-
-          setAllMyPets(updatedAllPets); // Mantém ordem existente
-          setFilteredMyPets(updatedFilteredPets); // Mantém ordem existente
-
-          if (hasActiveSearch) {
-            const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-            setSearchResults(updatedSearchResults); // Mantém ordem existente
-          }
-        } catch (statusError) {}
-
-        setModalState('closed');
-        setSelectedPet(null);
-
-        await Linking.openURL(whatsappUrl);
-
-        setTimeout(() => {
-          Alert.alert(
-            'Processo de Adoção Iniciado! 🎉',
-            `Uma conversa foi iniciada com ${donoPet} e o status do ${nomePet} foi atualizado para "Adotado". Complete a conversa para finalizar o processo de adoção.`,
-            [{ text: 'Perfeito!' }]
-          );
-        }, 1500);
-      } else {
-        setModalState('closed');
-        setSelectedPet(null);
-
-        Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${donoPet}:`, [
-          {
-            text: 'Ver número',
-            onPress: () => {
-              Alert.alert('Telefone', telefone, [{ text: 'OK' }]);
-            },
-          },
-          { text: 'OK' },
-        ]);
-      }
-    } catch (error) {
       setModalState('closed');
       setSelectedPet(null);
 
-      Alert.alert(
-        'Erro na comunicação',
-        'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
-        [{ text: 'OK' }]
-      );
+      await Linking.openURL(whatsappUrl);
+
+      setTimeout(() => {
+        Alert.alert(
+          'Processo de Adoção Iniciado! 🎉',
+          `Uma conversa foi iniciada com ${doadorOriginal.nome} (doador original) e ${nomePet} agora é oficialmente seu! O pet foi transferido para sua conta, mas você ainda pode manter contato com quem doou.`,
+          [{ text: 'Perfeito!' }]
+        );
+      }, 1500);
+    } else {
+      setModalState('closed');
+      setSelectedPet(null);
+
+      Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${doadorOriginal.nome} (doador):`, [
+        {
+          text: 'Ver número',
+          onPress: () => {
+            Alert.alert('Telefone do Doador', telefone, [{ text: 'OK' }]);
+          },
+        },
+        { text: 'OK' },
+      ]);
     }
-  };
+  } catch (error) {
+    setModalState('closed');
+    setSelectedPet(null);
+
+    Alert.alert(
+      'Erro na comunicação',
+      'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
+      [{ text: 'OK' }]
+    );
+  }
+};
 
   const handleCloseAllModals = () => {
     setModalState('closed');
