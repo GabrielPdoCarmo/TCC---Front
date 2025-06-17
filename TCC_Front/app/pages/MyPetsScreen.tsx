@@ -800,63 +800,154 @@ Agradeço desde já! 🐾❤️`;
   };
 
   // Remover pet dos meus pets usando deleteMyPet
-  const handleRemovePet = async (pet: Pet) => {
-    if (!usuarioId) {
-      Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
-      return;
+  // 🎯 VERSÃO SIMPLIFICADA: Usar informações já disponíveis do usuário
+const handleRemovePet = async (pet: Pet) => {
+  if (!usuarioId) {
+    Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
+    return;
+  }
+
+  try {
+    // 🔍 BUSCAR: Informações do dono anterior usando função existente
+    let donoAnterior = {
+      nome: pet.usuario_nome || 'Dono não identificado',
+      telefone: pet.usuario_telefone || 'Não informado',
+      cidade: 'Carregando...',
+      estado: 'Carregando...',
+    };
+
+    // Tentar buscar informações completas do usuário (que já inclui cidade e estado)
+    try {
+      const usuarioDetalhes = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+      if (usuarioDetalhes) {
+        donoAnterior.nome = usuarioDetalhes.nome || donoAnterior.nome;
+        donoAnterior.cidade = usuarioDetalhes.cidade?.nome || 'Cidade não identificada';
+        donoAnterior.estado = usuarioDetalhes.estado?.nome || 'Estado não identificado';
+        
+        // Buscar telefone se não temos ainda
+        if (donoAnterior.telefone === 'Não informado') {
+          const usuarioCompleto = await getUsuarioById(pet.usuario_id);
+          donoAnterior.telefone = usuarioCompleto?.telefone || 'Não informado';
+        }
+      } else {
+        // Fallback para informações básicas se não conseguir buscar
+        donoAnterior.cidade = 'Cidade não identificada';
+        donoAnterior.estado = 'Estado não identificado';
+      }
+    } catch (fetchError) {
+      console.log('Não foi possível buscar informações do usuário:', fetchError);
+      // Usar informações básicas disponíveis no pet
+      donoAnterior.cidade = 'Cidade não identificada';
+      donoAnterior.estado = 'Estado não identificado';
     }
 
-    try {
-      const temTermo = await checkPetHasTermo(pet.id);
+    const temTermo = await checkPetHasTermo(pet.id);
 
-      const alertTitle = 'Confirmar Remoção';
-      const alertMessage = temTermo
-        ? `Deseja realmente remover ${pet.nome} dos seus pets?\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.`
-        : `Deseja realmente remover ${pet.nome} dos seus pets?`;
+    // 📋 INFORMAÇÕES: Dono anterior com dados disponíveis
+    const infoDonoAnterior = `\n\n📍 Dono anterior: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}`;
+    
+    const alertTitle = 'Confirmar Remoção';
+    const alertMessage = temTermo
+      ? `Deseja realmente remover ${pet.nome} dos seus pets?${infoDonoAnterior}\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.`
+      : `Deseja realmente remover ${pet.nome} dos seus pets?${infoDonoAnterior}`;
 
-      Alert.alert(alertTitle, alertMessage, [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Remover',
-          style: 'destructive',
-          onPress: async () => {
-            try {
-              if (temTermo) {
-                try {
-                  const termoResult = await deleteTermoByPet(pet.id);
+    Alert.alert(alertTitle, alertMessage, [
+      { text: 'Cancelar', style: 'cancel' },
+      {
+        text: 'Remover',
+        style: 'destructive',
+        onPress: async () => {
+          try {
+            if (temTermo) {
+              try {
+                const termoResult = await deleteTermoByPet(pet.id);
 
-                  if (termoResult) {
-                    console.log(`✅ Termo deletado: ${JSON.stringify(termoResult.data)}`);
-                  } else {
-                    console.log('ℹ️ Pet não possuía termo (verificação adicional)');
-                  }
-                } catch (termoError: any) {
-                  if (termoError.message.includes('permissão')) {
-                    Alert.alert(
-                      'Erro de Permissão',
-                      'Você não tem permissão para deletar o termo de compromisso deste pet.',
-                      [{ text: 'OK' }]
-                    );
-                    return;
-                  }
+                if (termoResult) {
+                  console.log(`✅ Termo deletado: ${JSON.stringify(termoResult.data)}`);
+                } else {
+                  console.log('ℹ️ Pet não possuía termo (verificação adicional)');
+                }
+              } catch (termoError: any) {
+                if (termoError.message.includes('permissão')) {
+                  Alert.alert(
+                    'Erro de Permissão',
+                    'Você não tem permissão para deletar o termo de compromisso deste pet.',
+                    [{ text: 'OK' }]
+                  );
+                  return;
+                }
 
-                  const continuarSemTermo = await new Promise<boolean>((resolve) => {
-                    Alert.alert(
-                      'Erro ao Deletar Termo',
-                      `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e remover apenas o pet?`,
-                      [
-                        { text: 'Cancelar', onPress: () => resolve(false) },
-                        { text: 'Continuar', onPress: () => resolve(true) },
-                      ]
-                    );
-                  });
+                const continuarSemTermo = await new Promise<boolean>((resolve) => {
+                  Alert.alert(
+                    'Erro ao Deletar Termo',
+                    `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e remover apenas o pet?`,
+                    [
+                      { text: 'Cancelar', onPress: () => resolve(false) },
+                      { text: 'Continuar', onPress: () => resolve(true) },
+                    ]
+                  );
+                });
 
-                  if (!continuarSemTermo) {
-                    return;
-                  }
+                if (!continuarSemTermo) {
+                  return;
                 }
               }
+            }
 
+            await deleteMyPet(pet.id, usuarioId);
+
+            setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
+            setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
+
+            if (hasActiveSearch) {
+              setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
+            }
+
+            // ✅ SUCESSO: Mensagem com informações do dono anterior
+            const mensagemSucesso = `✅ ${pet.nome} foi removido com sucesso!
+
+📋 Informações do dono anterior:
+📍 ${donoAnterior.nome}
+🏙️ ${donoAnterior.cidade}, ${donoAnterior.estado}
+📞 ${donoAnterior.telefone}
+
+${temTermo ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
+
+            Alert.alert('Pet Removido', mensagemSucesso, [
+              { 
+                text: 'Ver Contato', 
+                onPress: () => {
+                  Alert.alert(
+                    'Contato do Dono Anterior', 
+                    `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`, 
+                    [{ text: 'OK' }]
+                  );
+                }
+              },
+              { text: 'OK', style: 'default' }
+            ]);
+
+          } catch (error: any) {
+            Alert.alert(
+              'Erro',
+              `Não foi possível remover o pet ${pet.nome}. Tente novamente.\n\nDetalhes: ${
+                error.message || 'Erro desconhecido'
+              }`
+            );
+          }
+        },
+      },
+    ]);
+  } catch (error: any) {
+    Alert.alert(
+      'Erro na Verificação',
+      `Não foi possível verificar informações do pet.\n\n📍 Dono: ${pet.usuario_nome || 'Não identificado'}\n\nDeseja continuar com a remoção?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Continuar',
+          onPress: async () => {
+            try {
               await deleteMyPet(pet.id, usuarioId);
 
               setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
@@ -866,51 +957,20 @@ Agradeço desde já! 🐾❤️`;
                 setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
               }
 
-              const successMessage = temTermo
-                ? `${pet.nome} e seu termo de compromisso foram removidos com sucesso.`
-                : `${pet.nome} foi removido dos seus pets.`;
-
-              Alert.alert('Sucesso', successMessage);
-            } catch (error: any) {
               Alert.alert(
-                'Erro',
-                `Não foi possível remover o pet ${pet.nome}. Tente novamente.\n\nDetalhes: ${
-                  error.message || 'Erro desconhecido'
-                }`
+                'Pet Removido', 
+                `${pet.nome} foi removido dos seus pets!\n\n📍 Pet doado por: ${pet.usuario_nome || 'Dono anterior'}`, 
+                [{ text: 'OK' }]
               );
+            } catch (removeError) {
+              Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
             }
           },
         },
-      ]);
-    } catch (error: any) {
-      Alert.alert(
-        'Erro na Verificação',
-        `Não foi possível verificar se o pet possui termo de compromisso.\n\nDeseja continuar com a remoção?`,
-        [
-          { text: 'Cancelar', style: 'cancel' },
-          {
-            text: 'Continuar',
-            onPress: async () => {
-              try {
-                await deleteMyPet(pet.id, usuarioId);
-
-                setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-                setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-
-                if (hasActiveSearch) {
-                  setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
-                }
-
-                Alert.alert('Sucesso', `${pet.nome} foi removido dos seus pets.`);
-              } catch (removeError) {
-                Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
-              }
-            },
-          },
-        ]
-      );
-    }
-  };
+      ]
+    );
+  }
+};
 
   // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
