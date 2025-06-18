@@ -33,7 +33,7 @@ import checkPetHasTermo from '@/services/api/TermoAdocao/checkPetHasTermo';
 import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt';
 import updateStatus from '@/services/api/Status/updateStatus';
 import transferPet from '@/services/api/Pets/transferPet';
-import removePet from '@/services/api/Pets/removePet'; // ✅ NOVO IMPORT
+import removePet from '@/services/api/Pets/removePet';
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
 import { useAuth } from '@/contexts/AuthContext';
