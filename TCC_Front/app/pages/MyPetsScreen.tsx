@@ -33,6 +33,7 @@ import checkPetHasTermo from '@/services/api/TermoAdocao/checkPetHasTermo';
 import { checkCanAdopt } from '@/services/api/TermoAdocao/checkCanAdopt';
 import updateStatus from '@/services/api/Status/updateStatus';
 import transferPet from '@/services/api/Pets/transferPet';
+import removePet from '@/services/api/Pets/removePet'; // ✅ NOVO IMPORT
 import TermoAdocaoModal from '@/components/Termo/TermoAdocaoModal';
 import AdoptionModal from '@/components/Termo/AdoptionModal';
 import { useAuth } from '@/contexts/AuthContext';
@@ -45,6 +46,7 @@ interface Pet {
   raca_nome?: string;
   idade: string;
   usuario_id: number;
+  doador_id?: number;
   usuario_nome?: string;
   usuario_foto?: string | null;
   usuario_cidade_id?: number;
@@ -502,6 +504,8 @@ export default function MyPetsScreen() {
   };
 
   // Função principal para comunicação
+  // 🆕 ATUALIZADA: Função principal para comunicação (permite dono acessar termo e WhatsApp)
+  // 🆕 ATUALIZADA: Função principal para comunicação (corrigida para donos)
   const handleCommunicate = async (pet: Pet) => {
     try {
       if (!usuarioId || !usuario) {
@@ -509,49 +513,73 @@ export default function MyPetsScreen() {
         return;
       }
 
-      if (pet.usuario_id === usuarioId) {
-        Alert.alert(
-          'Informação',
-          'Este é seu próprio pet. Você pode ver as informações dele, mas não precisa de termo de adoção.'
-        );
-        return;
-      }
+      const isOwner = pet.usuario_id === usuarioId;
 
       setSelectedPet(pet);
       setEmailWasSent(false);
       setTermoModalOrigin('obter');
 
-      try {
-        const verificacao = await checkCanAdopt(pet.id);
+      // 🎯 LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
+      if (isOwner) {
+        // ✅ PARA DONOS: Verificar apenas se tem termo, sem usar checkCanAdopt
+        try {
+          const temTermo = await checkPetHasTermo(pet.id);
+          setHasExistingTermo(temTermo);
+          setNameNeedsUpdate(false); // Dono não precisa atualizar nome
 
-        const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
-
-        setHasExistingTermo(temTermo);
-        setNameNeedsUpdate(nomeDesatualizado);
-
-        if (nomeDesatualizado) {
-          setIsNameUpdateMode(true);
-          setTermoModalOrigin('update');
-          setModalState('termo-creation');
-        } else if (temTermo && podeAdotar) {
-          setIsNameUpdateMode(false);
-          setModalState('whatsapp-enabled');
-        } else if (temTermo && !podeAdotar) {
-          Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
-            { text: 'OK' },
-          ]);
-          return;
-        } else {
+          if (temTermo) {
+            // Se tem termo, vai direto para o estado "whatsapp-enabled"
+            setIsNameUpdateMode(false);
+            setModalState('whatsapp-enabled');
+          } else {
+            // Se não tem termo, pode criar um ou ir direto para WhatsApp
+            setIsNameUpdateMode(false);
+            setModalState('whatsapp-initial');
+          }
+        } catch (error) {
+          // Em caso de erro na verificação, permitir acesso básico para o dono
+          console.log('Erro ao verificar termo para dono:', error);
+          setHasExistingTermo(false);
+          setNameNeedsUpdate(false);
           setIsNameUpdateMode(false);
           setModalState('whatsapp-initial');
         }
-      } catch (error) {
-        setHasExistingTermo(false);
-        setNameNeedsUpdate(false);
-        setIsNameUpdateMode(false);
-        setModalState('whatsapp-initial');
+      } else {
+        // ✅ PARA ADOTANTES: Usar a lógica original com checkCanAdopt
+        try {
+          const verificacao = await checkCanAdopt(pet.id);
+          const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
+
+          setHasExistingTermo(temTermo);
+          setNameNeedsUpdate(nomeDesatualizado);
+
+          if (nomeDesatualizado) {
+            setIsNameUpdateMode(true);
+            setTermoModalOrigin('update');
+            setModalState('termo-creation');
+          } else if (temTermo && podeAdotar) {
+            setIsNameUpdateMode(false);
+            setModalState('whatsapp-enabled');
+          } else if (temTermo && !podeAdotar) {
+            Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
+              { text: 'OK' },
+            ]);
+            return;
+          } else {
+            setIsNameUpdateMode(false);
+            setModalState('whatsapp-initial');
+          }
+        } catch (error) {
+          // Em caso de erro na verificação, permitir acesso básico
+          console.log('Erro ao verificar status para adotante:', error);
+          setHasExistingTermo(false);
+          setNameNeedsUpdate(false);
+          setIsNameUpdateMode(false);
+          setModalState('whatsapp-initial');
+        }
       }
     } catch (error: any) {
+      console.error('Erro geral na comunicação:', error);
       Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
     }
   };
@@ -616,38 +644,109 @@ export default function MyPetsScreen() {
 
   // 🆕 ATUALIZADA: Iniciar WhatsApp SEM re-ordenação desnecessária
   // 🆕 ATUALIZADA: Iniciar WhatsApp COM transferência automática do pet (mantendo contato do doador original)
-const handleStartWhatsApp = async () => {
-  if (!selectedPet || !usuario) return;
+  // 🆕 ATUALIZADA: Iniciar WhatsApp COM transferência automática do pet (ordem correta)
+  // 🆕 ATUALIZADA: Iniciar WhatsApp COM suporte para dono do pet
+  const handleStartWhatsApp = async () => {
+    if (!selectedPet || !usuario) return;
 
-  try {
-    // 🚨 IMPORTANTE: Salvar dados do dono ORIGINAL antes da transferência
-    const doadorOriginal = {
-      nome: selectedPet.usuario_nome || 'responsável',
-      telefone: selectedPet.usuario_telefone,
-      email: selectedPet.usuario_email,
-    };
-    
-    const nomePet = selectedPet.nome;
-    const nomeInteressado = usuario.nome;
-    const telefone = doadorOriginal.telefone; // Usar telefone do doador original
+    try {
+      const isOwner = selectedPet.usuario_id === usuarioId;
 
-    if (!telefone) {
-      setModalState('closed');
-      setSelectedPet(null);
+      // 🎯 LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
+      if (isOwner) {
+        // ✅ DONO DO PET: Lógica para compartilhar informações ou se comunicar com interessados
+        setModalState('closed');
+        setSelectedPet(null);
 
-      Alert.alert(
-        'Contato não disponível',
-        `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${
-          doadorOriginal.email
-            ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
-            : 'Tente entrar em contato através do app posteriormente.'
-        }`,
-        [{ text: 'OK' }]
-      );
-      return;
-    }
+        const nomePet = selectedPet.nome;
+        const telefoneDoUsuario = usuario.telefone;
 
-    const mensagem = `Olá ${doadorOriginal.nome}! 👋
+        if (!telefoneDoUsuario) {
+          Alert.alert(
+            'Telefone não cadastrado',
+            `Para facilitar o contato de interessados em ${nomePet}, adicione seu telefone no perfil.`,
+            [
+              {
+                text: 'Ir para Perfil',
+                onPress: () => router.push('/pages/ProfileScreen'),
+              },
+              { text: 'Agora Não' },
+            ]
+          );
+          return;
+        }
+
+        // Opções para o dono do pet
+        Alert.alert(`Opções para ${nomePet}`, 'Como dono deste pet, você pode:', [
+          {
+            text: 'Compartilhar Contato',
+            onPress: () => {
+              // Criar mensagem para compartilhar
+              const mensagemCompartilhar = `🐾 Olá! Tenho um pet disponível para adoção:
+
+*${nomePet}*
+📍 Localização: ${usuario.cidade?.nome || 'Não informado'}
+👤 Responsável: ${usuario.nome}
+📞 Contato: ${telefoneDoUsuario}
+
+Entre em contato comigo para mais informações sobre a adoção! ❤️`;
+
+              // Usar share nativo ou abrir WhatsApp
+              const whatsappUrl = `whatsapp://send?text=${encodeURIComponent(mensagemCompartilhar)}`;
+
+              Linking.canOpenURL(whatsappUrl)
+                .then((canOpen) => {
+                  if (canOpen) {
+                    Linking.openURL(whatsappUrl);
+                  } else {
+                    Alert.alert('Mensagem para Compartilhar', mensagemCompartilhar, [{ text: 'OK' }]);
+                  }
+                })
+                .catch(() => {
+                  Alert.alert('Mensagem para Compartilhar', mensagemCompartilhar, [{ text: 'OK' }]);
+                });
+            },
+          },
+          {
+            text: 'Ver Termo',
+            onPress: () => {
+              // Reabrir modal para ver termo
+              setSelectedPet(selectedPet);
+              setTermoModalOrigin('ver');
+              setModalState('termo-creation');
+            },
+          },
+          { text: 'Cancelar', style: 'cancel' },
+        ]);
+      } else {
+        // ✅ ADOTANTE: Lógica original de adoção
+        const doadorOriginal = {
+          nome: selectedPet.usuario_nome || 'responsável',
+          telefone: selectedPet.usuario_telefone,
+          email: selectedPet.usuario_email,
+        };
+
+        const nomePet = selectedPet.nome;
+        const nomeInteressado = usuario.nome;
+        const telefone = doadorOriginal.telefone;
+
+        if (!telefone) {
+          setModalState('closed');
+          setSelectedPet(null);
+
+          Alert.alert(
+            'Contato não disponível',
+            `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${
+              doadorOriginal.email
+                ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
+                : 'Tente entrar em contato através do app posteriormente.'
+            }`,
+            [{ text: 'OK' }]
+          );
+          return;
+        }
+
+        const mensagem = `Olá ${doadorOriginal.nome}! 👋
 
 Meu nome é ${nomeInteressado} e tenho interesse em adotar o pet *${nomePet}* que vi no app de adoção.
 
@@ -658,136 +757,129 @@ Gostaria de saber mais detalhes sobre:
 
 Agradeço desde já! 🐾❤️`;
 
-    let numeroLimpo = telefone.replace(/\D/g, '');
+        let numeroLimpo = telefone.replace(/\D/g, '');
 
-    if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
-      numeroLimpo = numeroLimpo.substring(1);
-    }
-    if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
-      numeroLimpo = '55' + numeroLimpo;
-    }
-
-    const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
-
-    const canOpen = await Linking.canOpenURL(whatsappUrl);
-
-    if (canOpen) {
-      try {
-        // 🆕 NOVO: Primeiro atualizar o status para "Adotado"
-        console.log('🔄 Atualizando status do pet para "Adotado"...');
-        await updateStatus(selectedPet.id);
-
-        // 🆕 NOVO: Depois transferir o pet para o usuário logado
-        console.log('🔄 Transferindo propriedade do pet...');
-        const transferResult = await transferPet({
-          id: selectedPet.id,
-          novo_usuario_id: usuarioId!
-        });
-
-        console.log('✅ Pet transferido com sucesso:', transferResult);
-
-        // 🆕 ATUALIZADA: Atualizar o pet com transferência MAS mantendo dados de contato do doador original
-        const updatedPet = {
-          ...selectedPet,
-          status_id: 4,
-          status_nome: 'Adotado',
-          // 🚨 TRANSFERIR PROPRIEDADE (IDs de localização e proprietário)
-          usuario_id: usuarioId!, // Novo proprietário
-          cidade_id: usuario.cidade?.id, // Nova cidade do pet
-          estado_id: usuario.estado?.id, // Novo estado do pet
-          usuario_cidade_id: usuario.cidade?.id, // Cidade do novo proprietário
-          usuario_estado_id: usuario.estado?.id, // Estado do novo proprietário
-          
-          // 🚨 MANTER DADOS DE CONTATO DO DOADOR ORIGINAL para futuras comunicações
-          doador_original_nome: doadorOriginal.nome,
-          doador_original_telefone: doadorOriginal.telefone,
-          doador_original_email: doadorOriginal.email,
-          
-          // 🚨 ATUALIZAR DADOS DO NOVO PROPRIETÁRIO (mas manter contato do doador)
-          usuario_nome: usuario.nome, // Nome do novo proprietário
-          usuario_foto: usuario.foto || null, // Foto do novo proprietário
-          usuario_telefone: doadorOriginal.telefone, // MANTER telefone do doador para contato
-          usuario_email: doadorOriginal.email, // MANTER email do doador para contato
-        };
-
-        // Atualizar listas locais
-        const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-        const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-
-        setAllMyPets(updatedAllPets);
-        setFilteredMyPets(updatedFilteredPets);
-
-        if (hasActiveSearch) {
-          const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-          setSearchResults(updatedSearchResults);
+        if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
+          numeroLimpo = numeroLimpo.substring(1);
+        }
+        if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
+          numeroLimpo = '55' + numeroLimpo;
         }
 
-      } catch (transferError: any) {
-        // Se a transferência falhar, mostrar erro mas ainda tentar abrir WhatsApp
-        console.error('❌ Erro na transferência:', transferError);
-        
-        Alert.alert(
-          'Aviso',
-          `O status foi atualizado, mas houve um problema na transferência de propriedade: ${transferError.message}\n\nO WhatsApp ainda será aberto para você iniciar o contato.`,
-          [{ text: 'OK' }]
-        );
+        const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
 
-        // Atualizar apenas o status (sem transferência)
-        const updatedPet = {
-          ...selectedPet,
-          status_id: 4,
-          status_nome: 'Adotado',
-        };
+        const canOpen = await Linking.canOpenURL(whatsappUrl);
 
-        const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-        const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+        if (canOpen) {
+          try {
+            // 🆕 SEQUÊNCIA CORRETA: Primeiro transferir, depois WhatsApp
+            console.log('🔄 Transferindo propriedade do pet...');
+            const transferResult = await transferPet({
+              id: selectedPet.id,
+              usuario_id: selectedPet.usuario_id, // Doador original
+              adotante_id: usuarioId!, // Novo proprietário
+            });
 
-        setAllMyPets(updatedAllPets);
-        setFilteredMyPets(updatedFilteredPets);
+            console.log('✅ Pet transferido com sucesso:', transferResult);
 
-        if (hasActiveSearch) {
-          const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-          setSearchResults(updatedSearchResults);
+            // Atualizar pet localmente
+            const dadosTransferencia = transferResult.pet || selectedPet;
+
+            const updatedPet = {
+              ...selectedPet,
+              status_id: dadosTransferencia.status_id || 4,
+              status_nome: 'Adotado',
+              usuario_id: usuarioId!,
+              cidade_id: usuario.cidade?.id || dadosTransferencia.cidade_id,
+              estado_id: usuario.estado?.id || dadosTransferencia.estado_id,
+              usuario_cidade_id: usuario.cidade?.id,
+              usuario_estado_id: usuario.estado?.id,
+              doador_original_nome: doadorOriginal.nome,
+              doador_original_telefone: doadorOriginal.telefone,
+              doador_original_email: doadorOriginal.email,
+              usuario_nome: usuario.nome,
+              usuario_foto: usuario.foto || null,
+              usuario_telefone: doadorOriginal.telefone,
+              usuario_email: doadorOriginal.email,
+            };
+
+            // Atualizar listas locais
+            const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+            const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+
+            setAllMyPets(updatedAllPets);
+            setFilteredMyPets(updatedFilteredPets);
+
+            if (hasActiveSearch) {
+              const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+              setSearchResults(updatedSearchResults);
+            }
+          } catch (transferError: any) {
+            console.error('❌ Erro na transferência:', transferError);
+
+            let errorMessage = 'Erro desconhecido na transferência';
+
+            if (transferError.message.includes('não está disponível para adoção')) {
+              errorMessage = 'Este pet não está mais disponível para adoção.';
+            } else if (transferError.message.includes('não é o doador')) {
+              errorMessage = 'Erro de permissão: você não pode transferir este pet.';
+            } else if (transferError.message.includes('Pet não encontrado')) {
+              errorMessage = 'Pet não encontrado no sistema.';
+            } else if (transferError.message.includes('Usuário adotante não encontrado')) {
+              errorMessage = 'Erro no seu cadastro de usuário.';
+            } else if (transferError.message.includes('conexão')) {
+              errorMessage = 'Erro de conexão. Verifique sua internet.';
+            } else {
+              errorMessage = transferError.message || 'Erro na transferência do pet';
+            }
+
+            Alert.alert(
+              'Erro na Adoção',
+              `Não foi possível processar a adoção: ${errorMessage}\n\nTente novamente ou entre em contato com o suporte.`,
+              [{ text: 'OK' }]
+            );
+
+            setModalState('closed');
+            setSelectedPet(null);
+            return;
+          }
+
+          setModalState('closed');
+          setSelectedPet(null);
+
+          await Linking.openURL(whatsappUrl);
+
+          setTimeout(() => {
+            Alert.alert(
+              'Processo de Adoção Iniciado! 🎉',
+              `Uma conversa foi iniciada com ${doadorOriginal.nome} (doador original) e ${nomePet} agora é oficialmente seu! O pet foi transferido para sua conta.`,
+              [{ text: 'Perfeito!' }]
+            );
+          }, 1500);
+        } else {
+          setModalState('closed');
+          setSelectedPet(null);
+
+          Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${doadorOriginal.nome} (doador):`, [
+            {
+              text: 'Ver número',
+              onPress: () => {
+                Alert.alert('Telefone do Doador', telefone, [{ text: 'OK' }]);
+              },
+            },
+            { text: 'OK' },
+          ]);
         }
       }
-
+    } catch (error) {
       setModalState('closed');
       setSelectedPet(null);
 
-      await Linking.openURL(whatsappUrl);
-
-      setTimeout(() => {
-        Alert.alert(
-          'Processo de Adoção Iniciado! 🎉',
-          `Uma conversa foi iniciada com ${doadorOriginal.nome} (doador original) e ${nomePet} agora é oficialmente seu! O pet foi transferido para sua conta, mas você ainda pode manter contato com quem doou.`,
-          [{ text: 'Perfeito!' }]
-        );
-      }, 1500);
-    } else {
-      setModalState('closed');
-      setSelectedPet(null);
-
-      Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${doadorOriginal.nome} (doador):`, [
-        {
-          text: 'Ver número',
-          onPress: () => {
-            Alert.alert('Telefone do Doador', telefone, [{ text: 'OK' }]);
-          },
-        },
+      Alert.alert('Erro na comunicação', 'Não foi possível processar a operação automaticamente. Tente novamente.', [
         { text: 'OK' },
       ]);
     }
-  } catch (error) {
-    setModalState('closed');
-    setSelectedPet(null);
-
-    Alert.alert(
-      'Erro na comunicação',
-      'Não foi possível abrir o WhatsApp automaticamente. Tente entrar em contato diretamente com o responsável pelo pet.',
-      [{ text: 'OK' }]
-    );
-  }
-};
+  };
 
   const handleCloseAllModals = () => {
     setModalState('closed');
@@ -801,6 +893,10 @@ Agradeço desde já! 🐾❤️`;
 
   // Remover pet dos meus pets usando deleteMyPet
   // 🎯 VERSÃO SIMPLIFICADA: Usar informações já disponíveis do usuário
+  // 🆕 CORRIGIDA: Função para remover pet COM remoção adequada do termo
+  // Função corrigida para remover pet - SOMENTE remove da interface SE o backend confirmar sucesso
+ // 🎯 FUNÇÃO AJUSTADA para trabalhar com sua API deleteMyPet específica
+// 🎯 FUNÇÃO CORRIGIDA: Sempre usar deleteMyPet (que corresponde ao backend corrigido)
 const handleRemovePet = async (pet: Pet) => {
   if (!usuarioId) {
     Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
@@ -808,7 +904,7 @@ const handleRemovePet = async (pet: Pet) => {
   }
 
   try {
-    // 🔍 BUSCAR: Informações do dono anterior usando função existente
+    // Buscar informações do dono anterior/doador original
     let donoAnterior = {
       nome: pet.usuario_nome || 'Dono não identificado',
       telefone: pet.usuario_telefone || 'Não informado',
@@ -816,71 +912,94 @@ const handleRemovePet = async (pet: Pet) => {
       estado: 'Carregando...',
     };
 
-    // Tentar buscar informações completas do usuário (que já inclui cidade e estado)
     try {
       const usuarioDetalhes = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
       if (usuarioDetalhes) {
         donoAnterior.nome = usuarioDetalhes.nome || donoAnterior.nome;
         donoAnterior.cidade = usuarioDetalhes.cidade?.nome || 'Cidade não identificada';
         donoAnterior.estado = usuarioDetalhes.estado?.nome || 'Estado não identificado';
-        
-        // Buscar telefone se não temos ainda
+
         if (donoAnterior.telefone === 'Não informado') {
           const usuarioCompleto = await getUsuarioById(pet.usuario_id);
           donoAnterior.telefone = usuarioCompleto?.telefone || 'Não informado';
         }
       } else {
-        // Fallback para informações básicas se não conseguir buscar
         donoAnterior.cidade = 'Cidade não identificada';
         donoAnterior.estado = 'Estado não identificado';
       }
     } catch (fetchError) {
       console.log('Não foi possível buscar informações do usuário:', fetchError);
-      // Usar informações básicas disponíveis no pet
       donoAnterior.cidade = 'Cidade não identificada';
       donoAnterior.estado = 'Estado não identificado';
     }
 
+    // Verificar se tem termo
     const temTermo = await checkPetHasTermo(pet.id);
 
-    // 📋 INFORMAÇÕES: Dono anterior com dados disponíveis
-    const infoDonoAnterior = `\n\n📍 Dono anterior: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}`;
-    
-    const alertTitle = 'Confirmar Remoção';
-    const alertMessage = temTermo
-      ? `Deseja realmente remover ${pet.nome} dos seus pets?${infoDonoAnterior}\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.`
-      : `Deseja realmente remover ${pet.nome} dos seus pets?${infoDonoAnterior}`;
+    // ✅ NOVA LÓGICA: Determinar ação baseada no relacionamento do usuário com o pet
+    const isAdotanteAtual = pet.usuario_id === usuarioId && pet.status_id === 4;
+    const isDoadorOriginal = pet.doador_id === usuarioId;
+    const isResponsavelAtual = pet.usuario_id === usuarioId;
+
+    let alertTitle = '';
+    let alertMessage = '';
+    let acaoType: 'devolver' | 'remover' = 'remover';
+
+    if (isAdotanteAtual) {
+      acaoType = 'devolver';
+      alertTitle = 'Confirmar Devolução';
+      alertMessage = `Deseja realmente devolver ${pet.nome} ao doador original?\n\n📍 Doador original: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}\n\n🔄 DEVOLUÇÃO: O pet voltará para o doador original e ficará disponível para adoção novamente.${
+        temTermo ? '\n\n⚠️ ATENÇÃO: O termo de compromisso será removido junto com a devolução.' : ''
+      }`;
+    } else {
+      acaoType = 'remover';
+      alertTitle = 'Confirmar Remoção';
+      alertMessage = `Deseja realmente remover ${pet.nome} dos seus pets?\n\n📍 Informações: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}\n\n🗑️ REMOÇÃO: O pet será removido da sua lista de interesses.${
+        temTermo ? '\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.' : ''
+      }`;
+    }
 
     Alert.alert(alertTitle, alertMessage, [
       { text: 'Cancelar', style: 'cancel' },
       {
-        text: 'Remover',
+        text: acaoType === 'devolver' ? 'Devolver' : 'Remover',
         style: 'destructive',
         onPress: async () => {
+          setLoading(true);
+          
           try {
+            console.log(`🚀 Iniciando ${acaoType} do pet ID: ${pet.id} para usuário: ${usuarioId}`);
+
+            // Variáveis de controle
+            let termoRemovidoComSucesso = false;
+            let petOperacaoSucesso = false;
+
+            // ETAPA 1: Remover termo (se existir)
             if (temTermo) {
               try {
+                console.log('🗑️ Deletando termo do pet...');
                 const termoResult = await deleteTermoByPet(pet.id);
-
-                if (termoResult) {
-                  console.log(`✅ Termo deletado: ${JSON.stringify(termoResult.data)}`);
-                } else {
-                  console.log('ℹ️ Pet não possuía termo (verificação adicional)');
-                }
+                console.log('📥 Resposta deleteTermoByPet:', termoResult);
+                
+                termoRemovidoComSucesso = true;
+                console.log('✅ Termo deletado com sucesso');
               } catch (termoError: any) {
-                if (termoError.message.includes('permissão')) {
+                console.error('❌ Erro ao deletar termo:', termoError);
+                
+                if (termoError.message?.includes('permissão') || termoError.message?.includes('autorizado')) {
                   Alert.alert(
                     'Erro de Permissão',
-                    'Você não tem permissão para deletar o termo de compromisso deste pet.',
+                    'Você não tem permissão para deletar o termo de compromisso deste pet. Somente o criador do termo pode removê-lo.',
                     [{ text: 'OK' }]
                   );
+                  setLoading(false);
                   return;
                 }
 
                 const continuarSemTermo = await new Promise<boolean>((resolve) => {
                   Alert.alert(
                     'Erro ao Deletar Termo',
-                    `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e remover apenas o pet?`,
+                    `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e ${acaoType === 'devolver' ? 'devolver' : 'remover'} apenas o pet?`,
                     [
                       { text: 'Cancelar', onPress: () => resolve(false) },
                       { text: 'Continuar', onPress: () => resolve(true) },
@@ -889,89 +1008,182 @@ const handleRemovePet = async (pet: Pet) => {
                 });
 
                 if (!continuarSemTermo) {
+                  setLoading(false);
                   return;
                 }
               }
+            } else {
+              termoRemovidoComSucesso = true; // Não havia termo
             }
 
-            await deleteMyPet(pet.id, usuarioId);
-
-            setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-            setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-
-            if (hasActiveSearch) {
-              setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
+            // ✅ ETAPA 2: SEMPRE usar deleteMyPet (backend corrigido decide a ação)
+            console.log('🗑️ Usando deleteMyPet para remoção/devolução...');
+            
+            try {
+              const deleteResult = await deleteMyPet(pet.id, usuarioId);
+              
+              console.log('📥 Resposta deleteMyPet:', deleteResult);
+              console.log('🔍 Tipo da resposta:', typeof deleteResult);
+              console.log('🔍 Conteúdo da resposta:', JSON.stringify(deleteResult, null, 2));
+              
+              // ✅ VERIFICAÇÃO ROBUSTA para deleteMyPet
+              if (deleteResult !== null && deleteResult !== undefined) {
+                // Verificar se há indicação de erro na resposta
+                if (deleteResult.success === false) {
+                  throw new Error(deleteResult.message || 'API retornou success = false');
+                }
+                
+                if (deleteResult.error) {
+                  throw new Error(deleteResult.error);
+                }
+                
+                // Verificar se tem informação sobre a ação realizada
+                const acaoRealizada = deleteResult.acao || 'acao_desconhecida';
+                console.log('✅ Ação realizada pelo backend:', acaoRealizada);
+                
+                petOperacaoSucesso = true;
+                console.log('✅ Pet removido/devolvido com sucesso via deleteMyPet');
+              } else {
+                throw new Error('API deleteMyPet retornou null/undefined');
+              }
+            } catch (deleteError: any) {
+              console.error('❌ Erro no deleteMyPet:', deleteError);
+              
+              // 🔍 LOG DETALHADO do erro
+              console.log('🔍 Tipo do erro:', typeof deleteError);
+              console.log('🔍 Erro completo:', deleteError);
+              console.log('🔍 Mensagem do erro:', deleteError.message);
+              console.log('🔍 Response do erro:', deleteError.response?.data);
+              console.log('🔍 Status do erro:', deleteError.response?.status);
+              
+              throw deleteError; // Propagar para tratamento específico
             }
 
-            // ✅ SUCESSO: Mensagem com informações do dono anterior
-            const mensagemSucesso = `✅ ${pet.nome} foi removido com sucesso!
+            // ✅ SÓ ATUALIZAR INTERFACE SE OPERAÇÃO FOI BEM-SUCEDIDA
+            if (petOperacaoSucesso) {
+              console.log('🔄 Atualizando interface após sucesso confirmado...');
+              
+              setAllMyPets((prevPets) => {
+                const novosMyPets = prevPets.filter((p) => p.id !== pet.id);
+                console.log(`📊 AllMyPets: ${prevPets.length} -> ${novosMyPets.length}`);
+                return novosMyPets;
+              });
+              
+              setFilteredMyPets((prevPets) => {
+                const novosFilteredPets = prevPets.filter((p) => p.id !== pet.id);
+                console.log(`📊 FilteredMyPets: ${prevPets.length} -> ${novosFilteredPets.length}`);
+                return novosFilteredPets;
+              });
 
-📋 Informações do dono anterior:
+              if (hasActiveSearch) {
+                setSearchResults((prevResults) => {
+                  const novosSearchResults = prevResults.filter((p) => p.id !== pet.id);
+                  console.log(`📊 SearchResults: ${prevResults.length} -> ${novosSearchResults.length}`);
+                  return novosSearchResults;
+                });
+              }
+
+              // ✅ FEEDBACK DE SUCESSO BASEADO NO QUE FOI SOLICITADO
+              if (acaoType === 'devolver') {
+                const mensagemSucesso = `🔄 ${pet.nome} foi devolvido com sucesso!
+
+📋 Detalhes da operação:
+👤 Doador original: ${donoAnterior.nome}
+🏠 Pet retornou ao doador original
+📍 Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}
+📞 Contato: ${donoAnterior.telefone}
+📅 Data: ${new Date().toLocaleDateString()}
+
+${termoRemovidoComSucesso ? '🗑️ Termo de compromisso foi removido.' : ''}
+✅ O pet agora está disponível para adoção novamente!`;
+
+                Alert.alert('Operação Concluída', mensagemSucesso, [
+                  {
+                    text: 'Ver Contato do Doador',
+                    onPress: () => {
+                      Alert.alert(
+                        'Contato do Doador Original',
+                        `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
+                        [{ text: 'OK' }]
+                      );
+                    },
+                  },
+                  { text: 'OK', style: 'default' },
+                ]);
+              } else {
+                const mensagemSucesso = `🗑️ ${pet.nome} foi removido com sucesso!
+
+📋 Informações do responsável:
 📍 ${donoAnterior.nome}
 🏙️ ${donoAnterior.cidade}, ${donoAnterior.estado}
 📞 ${donoAnterior.telefone}
 
-${temTermo ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
+${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
 
-            Alert.alert('Pet Removido', mensagemSucesso, [
-              { 
-                text: 'Ver Contato', 
-                onPress: () => {
-                  Alert.alert(
-                    'Contato do Dono Anterior', 
-                    `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`, 
-                    [{ text: 'OK' }]
-                  );
-                }
-              },
-              { text: 'OK', style: 'default' }
-            ]);
+                Alert.alert('Pet Removido', mensagemSucesso, [
+                  {
+                    text: 'Ver Contato',
+                    onPress: () => {
+                      Alert.alert(
+                        'Contato do Responsável',
+                        `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
+                        [{ text: 'OK' }]
+                      );
+                    },
+                  },
+                  { text: 'OK', style: 'default' },
+                ]);
+              }
+            } else {
+              throw new Error('Operação não foi confirmada como bem-sucedida');
+            }
 
           } catch (error: any) {
+            console.error('❌ Erro geral na operação:', error);
+
+            // 🚨 NÃO ATUALIZAR INTERFACE - MANTER PET NA LISTA
+            let errorMessage = 'Erro desconhecido na operação';
+
+            // Tratar erros específicos
+            if (error.response?.status === 404) {
+              errorMessage = 'Pet ou associação não encontrada no servidor.';
+            } else if (error.response?.status === 403) {
+              errorMessage = 'Você não tem permissão para esta operação.';
+            } else if (error.response?.status === 400) {
+              errorMessage = error.response?.data?.message || 'Dados inválidos para a operação.';
+            } else if (error.message?.includes('não é o responsável atual')) {
+              errorMessage = 'Você não é o responsável atual deste pet.';
+            } else if (error.message?.includes('conexão') || error.code === 'NETWORK_ERROR') {
+              errorMessage = 'Erro de conexão. Verifique sua internet.';
+            } else {
+              errorMessage = error.message || 'Erro na operação do pet';
+            }
+
+            const operacaoNome = acaoType === 'devolver' ? 'Devolução' : 'Remoção';
+
             Alert.alert(
-              'Erro',
-              `Não foi possível remover o pet ${pet.nome}. Tente novamente.\n\nDetalhes: ${
-                error.message || 'Erro desconhecido'
-              }`
+              `Erro na ${operacaoNome}`,
+              `❌ Não foi possível ${acaoType === 'devolver' ? 'devolver' : 'remover'} ${pet.nome} no servidor.\n\n${errorMessage}\n\n⚠️ O pet permanece na sua lista.\n\nTente novamente ou entre em contato com o suporte.`,
+              [{ text: 'OK' }]
             );
+          } finally {
+            setLoading(false);
           }
         },
       },
     ]);
   } catch (error: any) {
+    console.error('❌ Erro na verificação inicial:', error);
+
     Alert.alert(
       'Erro na Verificação',
-      `Não foi possível verificar informações do pet.\n\n📍 Dono: ${pet.usuario_nome || 'Não identificado'}\n\nDeseja continuar com a remoção?`,
-      [
-        { text: 'Cancelar', style: 'cancel' },
-        {
-          text: 'Continuar',
-          onPress: async () => {
-            try {
-              await deleteMyPet(pet.id, usuarioId);
-
-              setAllMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-              setFilteredMyPets((prevPets) => prevPets.filter((p) => p.id !== pet.id));
-
-              if (hasActiveSearch) {
-                setSearchResults((prevResults) => prevResults.filter((p) => p.id !== pet.id));
-              }
-
-              Alert.alert(
-                'Pet Removido', 
-                `${pet.nome} foi removido dos seus pets!\n\n📍 Pet doado por: ${pet.usuario_nome || 'Dono anterior'}`, 
-                [{ text: 'OK' }]
-              );
-            } catch (removeError) {
-              Alert.alert('Erro', 'Não foi possível remover o pet. Tente novamente.');
-            }
-          },
-        },
-      ]
+      `Não foi possível verificar informações do pet.\n\n📍 Responsável: ${
+        pet.usuario_nome || 'Não identificado'
+      }\n\nTente novamente mais tarde.`,
+      [{ text: 'OK' }]
     );
   }
 };
-
   // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
@@ -1232,6 +1444,8 @@ ${temTermo ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
                 foto: selectedPet.foto,
                 isInitialState: modalState === 'whatsapp-initial',
                 hasExistingTermo: hasExistingTermo,
+                // ✅ NOVO: Indicar se é o dono do pet
+                isOwner: selectedPet.usuario_id === usuarioId,
               } as any
             }
           />
@@ -1253,6 +1467,8 @@ ${temTermo ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
             onEmailSent={handleEmailSent}
             isNameUpdateMode={isNameUpdateMode}
             nameNeedsUpdate={nameNeedsUpdate}
+            // ✅ NOVO: Indicar se é o dono do pet
+            isOwner={selectedPet.usuario_id === usuarioId}
           />
         )}
       </ImageBackground>

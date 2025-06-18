@@ -7,6 +7,8 @@ interface PetPayload {
   idade: number;
   faixa_etaria_id: number;
   usuario_id: number;
+  doador_id?: number; // ID do doador, opcional
+  adotante_id?: null; // ID do adotante, opcional
   sexo_id: number;
   rg_Pet: string | null; // RG do pet, pode ser nulo
   motivoDoacao: string;
@@ -25,6 +27,8 @@ export const postPet = async (petData: PetPayload) => {
     formData.append('idade', String(petData.idade));
     formData.append('faixa_etaria_id', String(petData.faixa_etaria_id));
     formData.append('usuario_id', String(petData.usuario_id));
+    formData.append('doador_id', String(petData.usuario_id)); // Doador é o usuário que está criando o pet
+    formData.append('adotante_id', String(null)); // Adotante é nulo inicialmente
     formData.append('sexo_id', String(petData.sexo_id));
     formData.append('rg_Pet', petData.rg_Pet || ''); // Envia string vazia se rg_Pet for nulo
     formData.append('motivoDoacao', petData.motivoDoacao);

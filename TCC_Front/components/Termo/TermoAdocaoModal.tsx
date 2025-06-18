@@ -79,6 +79,7 @@ interface TermoModalProps {
   // PROPS para modo de atualização de nome
   isNameUpdateMode?: boolean;
   nameNeedsUpdate?: boolean;
+  isOwner?: boolean;
 }
 
 const TermoAdocaoModal: React.FC<TermoModalProps> = ({
@@ -91,6 +92,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   onEmailSent,
   isNameUpdateMode = false,
   nameNeedsUpdate = false,
+  isOwner = false, // 🆕 Indica se o usuário é o dono do pet
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
@@ -376,7 +378,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       ]);
     } catch (error: any) {
       setSendingEmail(false);
-      
+
       if (error.message.includes('Sessão expirada')) {
         Alert.alert('Erro de Autenticação', 'Sessão expirada. Faça login novamente.', [
           { text: 'OK', onPress: handleClose },
@@ -401,7 +403,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   // 🆕 Função para fechar modal de patrocinadores e continuar fluxo
   const handleSponsorModalClose = () => {
     setSponsorModalVisible(false);
-    
+
     // Após fechar modal de patrocinadores, continuar com o fluxo normal
     if (onEmailSent) {
       onEmailSent();
@@ -438,12 +440,29 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     });
   };
 
-  // Textos dinâmicos baseados no modo
-  const headerTitle = isNameUpdateMode ? 'Atualização de Termo' : 'Termo de Compromisso';
+  const headerTitle = isOwner
+    ? isNameUpdateMode
+      ? 'Atualização de Termo'
+      : 'Termo de Responsabilidade'
+    : isNameUpdateMode
+    ? 'Atualização de Termo'
+    : 'Termo de Compromisso';
 
-  const formTitle = isNameUpdateMode ? 'Atualizar Termo de Adoção' : 'Criar Termo de Adoção';
+  const formTitle = isOwner
+    ? isNameUpdateMode
+      ? 'Atualizar Termo de Responsabilidade'
+      : 'Criar Termo de Responsabilidade'
+    : isNameUpdateMode
+    ? 'Atualizar Termo de Adoção'
+    : 'Criar Termo de Adoção';
 
-  const buttonText = isNameUpdateMode ? 'Atualizar Termo' : 'Criar Termo';
+  const buttonText = isOwner
+    ? isNameUpdateMode
+      ? 'Atualizar Termo'
+      : 'Criar Termo'
+    : isNameUpdateMode
+    ? 'Atualizar Termo'
+    : 'Criar Termo';
 
   const loadingText = isNameUpdateMode
     ? 'Carregando dados para atualização...'
@@ -533,7 +552,11 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                 </View>
 
                 <TouchableOpacity
-                  style={[styles.createButton, loading && styles.disabledButton, isNameUpdateMode && styles.updateButton]}
+                  style={[
+                    styles.createButton,
+                    loading && styles.disabledButton,
+                    isNameUpdateMode && styles.updateButton,
+                  ]}
                   onPress={handleCreateTermo}
                   disabled={loading}
                 >
@@ -656,10 +679,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       </Modal>
 
       {/* 🆕 Modal de Anúncios dos Patrocinadores */}
-      <SponsorModal
-        visible={sponsorModalVisible}
-        onClose={handleSponsorModalClose}
-      />
+      <SponsorModal visible={sponsorModalVisible} onClose={handleSponsorModalClose} />
     </>
   );
 };

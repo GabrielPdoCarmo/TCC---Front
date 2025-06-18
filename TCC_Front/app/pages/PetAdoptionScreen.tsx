@@ -376,52 +376,258 @@ export default function PetAdoptionScreen() {
 
   // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção de um pet - agora mostra o modal primeiro
   const handleAdopt = async (petId: number) => {
-    if (!usuarioId) {
-      Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
+  if (!usuarioId) {
+    Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
+    return;
+  }
+
+  const pet = filteredPets.find((p: Pet) => p.id === petId);
+  if (!pet) {
+    Alert.alert('Erro', 'Pet não encontrado.');
+    return;
+  }
+
+  // ✅ VERIFICAR: Se é o dono atual do pet (não pode adotar próprio pet)
+  if (pet.usuario_id === usuarioId) {
+    Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
+    return;
+  }
+
+  // ✅ NOVA LÓGICA: Sempre tentar a adoção com tratamento de erro melhorado
+  // (permitindo readoção de ex-adotantes)
+  
+  try {
+    console.log(`🔄 Tentando adicionar pet ${petId} aos meus pets...`);
+    
+    // ✅ TENTAR: Criar MyPet diretamente (pode ser ex-adotante)
+    await createMyPet(petId, usuarioId);
+    
+    // ✅ SUCESSO: Pet adicionado
+    Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
+      {
+        text: 'OK',
+        onPress: () => {
+          refreshData();
+        },
+      },
+    ]);
+    
+  } catch (error: any) {
+    console.error('❌ Erro na adoção:', error);
+    
+    // 🔍 VERIFICAR: Se é erro de "já está nos meus pets" (readoção bem-sucedida)
+    if (error.message && (
+      error.message.includes('já está nos seus pets') ||
+      error.message.includes('already exists') ||
+      error.message.includes('duplicate') ||
+      error.message.includes('já adotado')
+    )) {
+      console.log('✅ Pet já estava nos meus pets, atualizando lista...');
+      Alert.alert(
+        'Pet já adicionado', 
+        'Este pet já está na sua lista. Atualizando...',
+        [
+          {
+            text: 'OK',
+            onPress: () => refreshData(),
+          },
+        ]
+      );
       return;
     }
-
-    const pet = filteredPets.find((p: Pet) => p.id === petId);
-    if (!pet) {
-      Alert.alert('Erro', 'Pet não encontrado.');
+    
+    // 🔍 VERIFICAR: Se pet foi criado mas API retornou erro estranho
+    if (error.message && (
+      error.message.includes('Pet adicionado') ||
+      error.message.includes('sucesso') ||
+      error.response?.status === 201 ||
+      error.response?.status === 200
+    )) {
+      console.log('✅ Pet adicionado apesar do erro da API');
+      Alert.alert('Sucesso!', 'Pet adicionado aos seus pets!', [
+        {
+          text: 'OK',
+          onPress: () => refreshData(),
+        },
+      ]);
       return;
     }
-
-    if (pet.usuario_id === usuarioId) {
-      Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
+    
+    // 🔍 VERIFICAR: Se é erro de ex-adotante tentando readotar
+    if (error.message && (
+      error.message.includes('usuário já teve este pet') ||
+      error.message.includes('readoção') ||
+      error.message.includes('ex-adotante') ||
+      error.message.includes('histórico')
+    )) {
+      console.log('🔄 Ex-adotante tentando readotar, solicitando confirmação...');
+      
+      Alert.alert(
+        'Readoção Detectada', 
+        `Você já teve ${pet.nome} antes. Deseja readotá-lo?\n\nIsso criará um novo registro de adoção.`,
+        [
+          { text: 'Cancelar', style: 'cancel' },
+          {
+            text: 'Sim, readotar',
+            onPress: async () => {
+              // ✅ TENTAR: Forçar readoção
+              try {
+                // Primeiro mostrar modal do sponsor
+                setPendingAdoption({ petId, usuarioId });
+                setShowSponsorModal(true);
+              } catch (forceError) {
+                Alert.alert('Erro', 'Não foi possível processar a readoção. Tente novamente.');
+              }
+            },
+          },
+        ]
+      );
       return;
     }
-
-    // ✅ NOVO: Armazenar os dados da adoção e mostrar o modal do sponsor
-    setPendingAdoption({ petId, usuarioId });
-    setShowSponsorModal(true);
-  };
+    
+    // 🔍 VERIFICAR: Se é erro de conexão ou servidor
+    if (error.message && (
+      error.message.includes('conexão') ||
+      error.message.includes('network') ||
+      error.message.includes('timeout') ||
+      error.response?.status >= 500
+    )) {
+      Alert.alert(
+        'Erro de Conexão', 
+        'Problema de conexão. Verifique sua internet e tente novamente.',
+        [{ text: 'OK' }]
+      );
+      return;
+    }
+    
+    // ❌ ERRO GENÉRICO: Mostrar modal do sponsor mesmo assim (pode ser falso erro)
+    console.log('⚠️ Erro não reconhecido, prosseguindo com modal do sponsor...');
+    
+    Alert.alert(
+      'Erro na Adoção', 
+      `Houve um problema: ${error.message || 'Erro desconhecido'}\n\nDeseja tentar mesmo assim?`,
+      [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: 'Tentar mesmo assim',
+          onPress: () => {
+            setPendingAdoption({ petId, usuarioId });
+            setShowSponsorModal(true);
+          },
+        },
+      ]
+    );
+  }
+};
 
   // ✅ NOVA: Função para processar a adoção após o modal fechar
   const processPendingAdoption = async () => {
-    if (!pendingAdoption) return;
+  if (!pendingAdoption) return;
 
-    try {
-      await createMyPet(pendingAdoption.petId, pendingAdoption.usuarioId);
+  try {
+    console.log(`🔄 Processando adoção pendente do pet ${pendingAdoption.petId}...`);
+    
+    await createMyPet(pendingAdoption.petId, pendingAdoption.usuarioId);
 
-      // Limpar os dados pendentes
-      setPendingAdoption(null);
+    // Limpar os dados pendentes
+    setPendingAdoption(null);
 
-      Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
+    Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
+      {
+        text: 'OK',
+        onPress: () => {
+          refreshData();
+        },
+      },
+    ]);
+    
+  } catch (error: any) {
+    console.error('❌ Erro na adoção pendente:', error);
+    
+    // Limpar os dados pendentes
+    setPendingAdoption(null);
+    
+    // 🔍 VERIFICAR: Se erro é porque pet já foi adicionado
+    if (error.message && (
+      error.message.includes('já está nos seus pets') ||
+      error.message.includes('already exists') ||
+      error.message.includes('duplicate') ||
+      error.message.includes('já adotado')
+    )) {
+      console.log('✅ Pet já estava nos meus pets após modal');
+      Alert.alert(
+        'Pet já adicionado', 
+        'Este pet já está na sua lista de pets. Atualizando...',
+        [
+          {
+            text: 'OK',
+            onPress: () => refreshData(),
+          },
+        ]
+      );
+      return;
+    }
+    
+    // 🔍 VERIFICAR: Se pet foi criado mas API retornou erro
+    if (error.message && (
+      error.message.includes('Pet adicionado') ||
+      error.message.includes('sucesso') ||
+      error.response?.status === 201 ||
+      error.response?.status === 200
+    )) {
+      console.log('✅ Pet adicionado apesar do erro da API (após modal)');
+      Alert.alert('Sucesso!', 'Pet adicionado aos seus pets!', [
         {
           text: 'OK',
-          onPress: () => {
-            refreshData();
-          },
+          onPress: () => refreshData(),
         },
       ]);
-    } catch (error) {
-      // Limpar os dados pendentes em caso de erro
-      setPendingAdoption(null);
-      Alert.alert('Erro', 'Não foi possível adicionar o pet. Tente novamente.');
+      return;
     }
-  };
-
+    
+    // 🔍 VERIFICAR: Se é readoção de ex-adotante (após modal do sponsor)
+    if (error.message && (
+      error.message.includes('usuário já teve este pet') ||
+      error.message.includes('readoção') ||
+      error.message.includes('ex-adotante') ||
+      error.message.includes('histórico')
+    )) {
+      console.log('⚠️ Readoção bloqueada pela API mesmo após sponsor modal');
+      
+      Alert.alert(
+        'Readoção Bloqueada', 
+        'O sistema detectou que você já teve este pet antes. Entre em contato com o suporte se desejar readotá-lo.',
+        [
+          { 
+            text: 'Entendi',
+            onPress: () => refreshData() // Atualizar para remover da lista se necessário
+          },
+        ]
+      );
+      return;
+    }
+    
+    // ❌ OUTROS ERROS: Tentar forçar mesmo assim já que modal foi exibido
+    console.log('⚠️ Erro não tratado após modal, mas pet pode ter sido adicionado mesmo assim');
+    
+    Alert.alert(
+      'Erro na Adoção', 
+      `Erro: ${error.message || 'Erro desconhecido'}\n\nO pet pode ter sido adicionado mesmo assim. Verificando...`,
+      [
+        {
+          text: 'Verificar Lista',
+          onPress: () => {
+            // Dar um tempo para API processar e depois atualizar
+            setTimeout(() => {
+              refreshData();
+            }, 1000);
+          },
+        },
+        { text: 'OK' },
+      ]
+    );
+  }
+};
   // ✅ NOVA: Função para lidar com o fechamento do modal do sponsor
   const handleSponsorModalClose = () => {
     setShowSponsorModal(false);

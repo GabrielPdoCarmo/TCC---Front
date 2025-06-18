@@ -1,6 +1,7 @@
 import api from '../api';
 
 export interface DeleteTermoResponse {
+  success: string;
   message: string;
   data: {
     termoId: string | number;
