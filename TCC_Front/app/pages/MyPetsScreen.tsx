@@ -538,7 +538,7 @@ export default function MyPetsScreen() {
           }
         } catch (error) {
           // Em caso de erro na verificação, permitir acesso básico para o dono
-          console.log('Erro ao verificar termo para dono:', error);
+
           setHasExistingTermo(false);
           setNameNeedsUpdate(false);
           setIsNameUpdateMode(false);
@@ -571,7 +571,7 @@ export default function MyPetsScreen() {
           }
         } catch (error) {
           // Em caso de erro na verificação, permitir acesso básico
-          console.log('Erro ao verificar status para adotante:', error);
+
           setHasExistingTermo(false);
           setNameNeedsUpdate(false);
           setIsNameUpdateMode(false);
@@ -579,7 +579,6 @@ export default function MyPetsScreen() {
         }
       }
     } catch (error: any) {
-      console.error('Erro geral na comunicação:', error);
       Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
     }
   };
@@ -773,14 +772,12 @@ Agradeço desde já! 🐾❤️`;
         if (canOpen) {
           try {
             // 🆕 SEQUÊNCIA CORRETA: Primeiro transferir, depois WhatsApp
-            console.log('🔄 Transferindo propriedade do pet...');
+
             const transferResult = await transferPet({
               id: selectedPet.id,
               usuario_id: selectedPet.usuario_id, // Doador original
               adotante_id: usuarioId!, // Novo proprietário
             });
-
-            console.log('✅ Pet transferido com sucesso:', transferResult);
 
             // Atualizar pet localmente
             const dadosTransferencia = transferResult.pet || selectedPet;
@@ -815,8 +812,6 @@ Agradeço desde já! 🐾❤️`;
               setSearchResults(updatedSearchResults);
             }
           } catch (transferError: any) {
-            console.error('❌ Erro na transferência:', transferError);
-
             let errorMessage = 'Erro desconhecido na transferência';
 
             if (transferError.message.includes('não está disponível para adoção')) {
@@ -895,197 +890,183 @@ Agradeço desde já! 🐾❤️`;
   // 🎯 VERSÃO SIMPLIFICADA: Usar informações já disponíveis do usuário
   // 🆕 CORRIGIDA: Função para remover pet COM remoção adequada do termo
   // Função corrigida para remover pet - SOMENTE remove da interface SE o backend confirmar sucesso
- // 🎯 FUNÇÃO AJUSTADA para trabalhar com sua API deleteMyPet específica
-// 🎯 FUNÇÃO CORRIGIDA: Sempre usar deleteMyPet (que corresponde ao backend corrigido)
-const handleRemovePet = async (pet: Pet) => {
-  if (!usuarioId) {
-    Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
-    return;
-  }
-
-  try {
-    // Buscar informações do dono anterior/doador original
-    let donoAnterior = {
-      nome: pet.usuario_nome || 'Dono não identificado',
-      telefone: pet.usuario_telefone || 'Não informado',
-      cidade: 'Carregando...',
-      estado: 'Carregando...',
-    };
+  // 🎯 FUNÇÃO AJUSTADA para trabalhar com sua API deleteMyPet específica
+  // 🎯 FUNÇÃO CORRIGIDA: Sempre usar deleteMyPet (que corresponde ao backend corrigido)
+  const handleRemovePet = async (pet: Pet) => {
+    if (!usuarioId) {
+      Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
+      return;
+    }
 
     try {
-      const usuarioDetalhes = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
-      if (usuarioDetalhes) {
-        donoAnterior.nome = usuarioDetalhes.nome || donoAnterior.nome;
-        donoAnterior.cidade = usuarioDetalhes.cidade?.nome || 'Cidade não identificada';
-        donoAnterior.estado = usuarioDetalhes.estado?.nome || 'Estado não identificado';
+      // Buscar informações do dono anterior/doador original
+      let donoAnterior = {
+        nome: pet.usuario_nome || 'Dono não identificado',
+        telefone: pet.usuario_telefone || 'Não informado',
+        cidade: 'Carregando...',
+        estado: 'Carregando...',
+      };
 
-        if (donoAnterior.telefone === 'Não informado') {
-          const usuarioCompleto = await getUsuarioById(pet.usuario_id);
-          donoAnterior.telefone = usuarioCompleto?.telefone || 'Não informado';
+      try {
+        const usuarioDetalhes = await getUsuarioByIdComCidadeEstado(pet.usuario_id);
+        if (usuarioDetalhes) {
+          donoAnterior.nome = usuarioDetalhes.nome || donoAnterior.nome;
+          donoAnterior.cidade = usuarioDetalhes.cidade?.nome || 'Cidade não identificada';
+          donoAnterior.estado = usuarioDetalhes.estado?.nome || 'Estado não identificado';
+
+          if (donoAnterior.telefone === 'Não informado') {
+            const usuarioCompleto = await getUsuarioById(pet.usuario_id);
+            donoAnterior.telefone = usuarioCompleto?.telefone || 'Não informado';
+          }
+        } else {
+          donoAnterior.cidade = 'Cidade não identificada';
+          donoAnterior.estado = 'Estado não identificado';
         }
-      } else {
+      } catch (fetchError) {
         donoAnterior.cidade = 'Cidade não identificada';
         donoAnterior.estado = 'Estado não identificado';
       }
-    } catch (fetchError) {
-      console.log('Não foi possível buscar informações do usuário:', fetchError);
-      donoAnterior.cidade = 'Cidade não identificada';
-      donoAnterior.estado = 'Estado não identificado';
-    }
 
-    // Verificar se tem termo
-    const temTermo = await checkPetHasTermo(pet.id);
+      // Verificar se tem termo
+      const temTermo = await checkPetHasTermo(pet.id);
 
-    // ✅ NOVA LÓGICA: Determinar ação baseada no relacionamento do usuário com o pet
-    const isAdotanteAtual = pet.usuario_id === usuarioId && pet.status_id === 4;
-    const isDoadorOriginal = pet.doador_id === usuarioId;
-    const isResponsavelAtual = pet.usuario_id === usuarioId;
+      // ✅ NOVA LÓGICA: Determinar ação baseada no relacionamento do usuário com o pet
+      const isAdotanteAtual = pet.usuario_id === usuarioId && pet.status_id === 4;
+      const isDoadorOriginal = pet.doador_id === usuarioId;
+      const isResponsavelAtual = pet.usuario_id === usuarioId;
 
-    let alertTitle = '';
-    let alertMessage = '';
-    let acaoType: 'devolver' | 'remover' = 'remover';
+      let alertTitle = '';
+      let alertMessage = '';
+      let acaoType: 'devolver' | 'remover' = 'remover';
 
-    if (isAdotanteAtual) {
-      acaoType = 'devolver';
-      alertTitle = 'Confirmar Devolução';
-      alertMessage = `Deseja realmente devolver ${pet.nome} ao doador original?\n\n📍 Doador original: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}\n\n🔄 DEVOLUÇÃO: O pet voltará para o doador original e ficará disponível para adoção novamente.${
-        temTermo ? '\n\n⚠️ ATENÇÃO: O termo de compromisso será removido junto com a devolução.' : ''
-      }`;
-    } else {
-      acaoType = 'remover';
-      alertTitle = 'Confirmar Remoção';
-      alertMessage = `Deseja realmente remover ${pet.nome} dos seus pets?\n\n📍 Informações: ${donoAnterior.nome}\n🏙️ Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone}\n\n🗑️ REMOÇÃO: O pet será removido da sua lista de interesses.${
-        temTermo ? '\n\n⚠️ ATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.' : ''
-      }`;
-    }
+      if (isAdotanteAtual) {
+        acaoType = 'devolver';
+        alertTitle = 'Confirmar Devolução';
+        alertMessage = `Deseja realmente devolver ${pet.nome} ao doador original?\n\nDoador original: ${
+          donoAnterior.nome
+        }\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}\nContato: ${
+          donoAnterior.telefone
+        }\n\n🔄 DEVOLUÇÃO: O pet voltará para o doador original e ficará disponível para adoção novamente.${
+          temTermo ? '\n\nATENÇÃO: O termo de compromisso será removido junto com a devolução.' : ''
+        }`;
+      } else {
+        acaoType = 'remover';
+        alertTitle = 'Confirmar Remoção';
+        alertMessage = `Deseja realmente remover ${pet.nome} dos seus pets?\n\n📍 Informações: ${
+          donoAnterior.nome
+        }\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${
+          donoAnterior.telefone
+        }\n\nREMOÇÃO: O pet será removido da sua lista de interesses.${
+          temTermo
+            ? '\n\nATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.'
+            : ''
+        }`;
+      }
 
-    Alert.alert(alertTitle, alertMessage, [
-      { text: 'Cancelar', style: 'cancel' },
-      {
-        text: acaoType === 'devolver' ? 'Devolver' : 'Remover',
-        style: 'destructive',
-        onPress: async () => {
-          setLoading(true);
-          
-          try {
-            console.log(`🚀 Iniciando ${acaoType} do pet ID: ${pet.id} para usuário: ${usuarioId}`);
+      Alert.alert(alertTitle, alertMessage, [
+        { text: 'Cancelar', style: 'cancel' },
+        {
+          text: acaoType === 'devolver' ? 'Devolver' : 'Remover',
+          style: 'destructive',
+          onPress: async () => {
+            setLoading(true);
 
-            // Variáveis de controle
-            let termoRemovidoComSucesso = false;
-            let petOperacaoSucesso = false;
-
-            // ETAPA 1: Remover termo (se existir)
-            if (temTermo) {
-              try {
-                console.log('🗑️ Deletando termo do pet...');
-                const termoResult = await deleteTermoByPet(pet.id);
-                console.log('📥 Resposta deleteTermoByPet:', termoResult);
-                
-                termoRemovidoComSucesso = true;
-                console.log('✅ Termo deletado com sucesso');
-              } catch (termoError: any) {
-                console.error('❌ Erro ao deletar termo:', termoError);
-                
-                if (termoError.message?.includes('permissão') || termoError.message?.includes('autorizado')) {
-                  Alert.alert(
-                    'Erro de Permissão',
-                    'Você não tem permissão para deletar o termo de compromisso deste pet. Somente o criador do termo pode removê-lo.',
-                    [{ text: 'OK' }]
-                  );
-                  setLoading(false);
-                  return;
-                }
-
-                const continuarSemTermo = await new Promise<boolean>((resolve) => {
-                  Alert.alert(
-                    'Erro ao Deletar Termo',
-                    `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e ${acaoType === 'devolver' ? 'devolver' : 'remover'} apenas o pet?`,
-                    [
-                      { text: 'Cancelar', onPress: () => resolve(false) },
-                      { text: 'Continuar', onPress: () => resolve(true) },
-                    ]
-                  );
-                });
-
-                if (!continuarSemTermo) {
-                  setLoading(false);
-                  return;
-                }
-              }
-            } else {
-              termoRemovidoComSucesso = true; // Não havia termo
-            }
-
-            // ✅ ETAPA 2: SEMPRE usar deleteMyPet (backend corrigido decide a ação)
-            console.log('🗑️ Usando deleteMyPet para remoção/devolução...');
-            
             try {
-              const deleteResult = await deleteMyPet(pet.id, usuarioId);
-              
-              console.log('📥 Resposta deleteMyPet:', deleteResult);
-              console.log('🔍 Tipo da resposta:', typeof deleteResult);
-              console.log('🔍 Conteúdo da resposta:', JSON.stringify(deleteResult, null, 2));
-              
-              // ✅ VERIFICAÇÃO ROBUSTA para deleteMyPet
-              if (deleteResult !== null && deleteResult !== undefined) {
-                // Verificar se há indicação de erro na resposta
-                if (deleteResult.success === false) {
-                  throw new Error(deleteResult.message || 'API retornou success = false');
+              // Variáveis de controle
+              let termoRemovidoComSucesso = false;
+              let petOperacaoSucesso = false;
+
+              // ETAPA 1: Remover termo (se existir)
+              if (temTermo) {
+                try {
+                  const termoResult = await deleteTermoByPet(pet.id);
+
+                  termoRemovidoComSucesso = true;
+                } catch (termoError: any) {
+                  if (termoError.message?.includes('permissão') || termoError.message?.includes('autorizado')) {
+                    Alert.alert(
+                      'Erro de Permissão',
+                      'Você não tem permissão para deletar o termo de compromisso deste pet. Somente o criador do termo pode removê-lo.',
+                      [{ text: 'OK' }]
+                    );
+                    setLoading(false);
+                    return;
+                  }
+
+                  const continuarSemTermo = await new Promise<boolean>((resolve) => {
+                    Alert.alert(
+                      'Erro ao Deletar Termo',
+                      `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e ${
+                        acaoType === 'devolver' ? 'devolver' : 'remover'
+                      } apenas o pet?`,
+                      [
+                        { text: 'Cancelar', onPress: () => resolve(false) },
+                        { text: 'Continuar', onPress: () => resolve(true) },
+                      ]
+                    );
+                  });
+
+                  if (!continuarSemTermo) {
+                    setLoading(false);
+                    return;
+                  }
                 }
-                
-                if (deleteResult.error) {
-                  throw new Error(deleteResult.error);
-                }
-                
-                // Verificar se tem informação sobre a ação realizada
-                const acaoRealizada = deleteResult.acao || 'acao_desconhecida';
-                console.log('✅ Ação realizada pelo backend:', acaoRealizada);
-                
-                petOperacaoSucesso = true;
-                console.log('✅ Pet removido/devolvido com sucesso via deleteMyPet');
               } else {
-                throw new Error('API deleteMyPet retornou null/undefined');
+                termoRemovidoComSucesso = true; // Não havia termo
               }
-            } catch (deleteError: any) {
-              console.error('❌ Erro no deleteMyPet:', deleteError);
-              
-              // 🔍 LOG DETALHADO do erro
-              console.log('🔍 Tipo do erro:', typeof deleteError);
-              console.log('🔍 Erro completo:', deleteError);
-              console.log('🔍 Mensagem do erro:', deleteError.message);
-              console.log('🔍 Response do erro:', deleteError.response?.data);
-              console.log('🔍 Status do erro:', deleteError.response?.status);
-              
-              throw deleteError; // Propagar para tratamento específico
-            }
 
-            // ✅ SÓ ATUALIZAR INTERFACE SE OPERAÇÃO FOI BEM-SUCEDIDA
-            if (petOperacaoSucesso) {
-              console.log('🔄 Atualizando interface após sucesso confirmado...');
-              
-              setAllMyPets((prevPets) => {
-                const novosMyPets = prevPets.filter((p) => p.id !== pet.id);
-                console.log(`📊 AllMyPets: ${prevPets.length} -> ${novosMyPets.length}`);
-                return novosMyPets;
-              });
-              
-              setFilteredMyPets((prevPets) => {
-                const novosFilteredPets = prevPets.filter((p) => p.id !== pet.id);
-                console.log(`📊 FilteredMyPets: ${prevPets.length} -> ${novosFilteredPets.length}`);
-                return novosFilteredPets;
-              });
+              // ✅ ETAPA 2: SEMPRE usar deleteMyPet (backend corrigido decide a ação)
 
-              if (hasActiveSearch) {
-                setSearchResults((prevResults) => {
-                  const novosSearchResults = prevResults.filter((p) => p.id !== pet.id);
-                  console.log(`📊 SearchResults: ${prevResults.length} -> ${novosSearchResults.length}`);
-                  return novosSearchResults;
+              try {
+                const deleteResult = await deleteMyPet(pet.id, usuarioId);
+
+                // ✅ VERIFICAÇÃO ROBUSTA para deleteMyPet
+                if (deleteResult !== null && deleteResult !== undefined) {
+                  // Verificar se há indicação de erro na resposta
+                  if (deleteResult.success === false) {
+                    throw new Error(deleteResult.message || 'API retornou success = false');
+                  }
+
+                  if (deleteResult.error) {
+                    throw new Error(deleteResult.error);
+                  }
+
+                  // Verificar se tem informação sobre a ação realizada
+                  const acaoRealizada = deleteResult.acao || 'acao_desconhecida';
+
+                  petOperacaoSucesso = true;
+                } else {
+                  throw new Error('API deleteMyPet retornou null/undefined');
+                }
+              } catch (deleteError: any) {
+                throw deleteError; // Propagar para tratamento específico
+              }
+
+              // ✅ SÓ ATUALIZAR INTERFACE SE OPERAÇÃO FOI BEM-SUCEDIDA
+              if (petOperacaoSucesso) {
+                setAllMyPets((prevPets) => {
+                  const novosMyPets = prevPets.filter((p) => p.id !== pet.id);
+
+                  return novosMyPets;
                 });
-              }
 
-              // ✅ FEEDBACK DE SUCESSO BASEADO NO QUE FOI SOLICITADO
-              if (acaoType === 'devolver') {
-                const mensagemSucesso = `🔄 ${pet.nome} foi devolvido com sucesso!
+                setFilteredMyPets((prevPets) => {
+                  const novosFilteredPets = prevPets.filter((p) => p.id !== pet.id);
+
+                  return novosFilteredPets;
+                });
+
+                if (hasActiveSearch) {
+                  setSearchResults((prevResults) => {
+                    const novosSearchResults = prevResults.filter((p) => p.id !== pet.id);
+
+                    return novosSearchResults;
+                  });
+                }
+
+                // ✅ FEEDBACK DE SUCESSO BASEADO NO QUE FOI SOLICITADO
+                if (acaoType === 'devolver') {
+                  const mensagemSucesso = `🔄 ${pet.nome} foi devolvido com sucesso!
 
 📋 Detalhes da operação:
 👤 Doador original: ${donoAnterior.nome}
@@ -1094,24 +1075,24 @@ const handleRemovePet = async (pet: Pet) => {
 📞 Contato: ${donoAnterior.telefone}
 📅 Data: ${new Date().toLocaleDateString()}
 
-${termoRemovidoComSucesso ? '🗑️ Termo de compromisso foi removido.' : ''}
+${termoRemovidoComSucesso ? 'Termo de compromisso foi removido.' : ''}
 ✅ O pet agora está disponível para adoção novamente!`;
 
-                Alert.alert('Operação Concluída', mensagemSucesso, [
-                  {
-                    text: 'Ver Contato do Doador',
-                    onPress: () => {
-                      Alert.alert(
-                        'Contato do Doador Original',
-                        `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
-                        [{ text: 'OK' }]
-                      );
+                  Alert.alert('Operação Concluída', mensagemSucesso, [
+                    {
+                      text: 'Ver Contato do Doador',
+                      onPress: () => {
+                        Alert.alert(
+                          'Contato do Doador Original',
+                          `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
+                          [{ text: 'OK' }]
+                        );
+                      },
                     },
-                  },
-                  { text: 'OK', style: 'default' },
-                ]);
-              } else {
-                const mensagemSucesso = `🗑️ ${pet.nome} foi removido com sucesso!
+                    { text: 'OK', style: 'default' },
+                  ]);
+                } else {
+                  const mensagemSucesso = `🗑️ ${pet.nome} foi removido com sucesso!
 
 📋 Informações do responsável:
 📍 ${donoAnterior.nome}
@@ -1120,70 +1101,67 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso foi removido.' : ''}
 
 ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.' : ''}`;
 
-                Alert.alert('Pet Removido', mensagemSucesso, [
-                  {
-                    text: 'Ver Contato',
-                    onPress: () => {
-                      Alert.alert(
-                        'Contato do Responsável',
-                        `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
-                        [{ text: 'OK' }]
-                      );
+                  Alert.alert('Pet Removido', mensagemSucesso, [
+                    {
+                      text: 'Ver Contato',
+                      onPress: () => {
+                        Alert.alert(
+                          'Contato do Responsável',
+                          `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
+                          [{ text: 'OK' }]
+                        );
+                      },
                     },
-                  },
-                  { text: 'OK', style: 'default' },
-                ]);
+                    { text: 'OK', style: 'default' },
+                  ]);
+                }
+              } else {
+                throw new Error('Operação não foi confirmada como bem-sucedida');
               }
-            } else {
-              throw new Error('Operação não foi confirmada como bem-sucedida');
+            } catch (error: any) {
+              // 🚨 NÃO ATUALIZAR INTERFACE - MANTER PET NA LISTA
+              let errorMessage = 'Erro desconhecido na operação';
+
+              // Tratar erros específicos
+              if (error.response?.status === 404) {
+                errorMessage = 'Pet ou associação não encontrada no servidor.';
+              } else if (error.response?.status === 403) {
+                errorMessage = 'Você não tem permissão para esta operação.';
+              } else if (error.response?.status === 400) {
+                errorMessage = error.response?.data?.message || 'Dados inválidos para a operação.';
+              } else if (error.message?.includes('não é o responsável atual')) {
+                errorMessage = 'Você não é o responsável atual deste pet.';
+              } else if (error.message?.includes('conexão') || error.code === 'NETWORK_ERROR') {
+                errorMessage = 'Erro de conexão. Verifique sua internet.';
+              } else {
+                errorMessage = error.message || 'Erro na operação do pet';
+              }
+
+              const operacaoNome = acaoType === 'devolver' ? 'Devolução' : 'Remoção';
+
+              Alert.alert(
+                `Erro na ${operacaoNome}`,
+                `Não foi possível ${acaoType === 'devolver' ? 'devolver' : 'remover'} ${
+                  pet.nome
+                } no servidor.\n\n${errorMessage}\n\nO pet permanece na sua lista.\n\nTente novamente ou entre em contato com o suporte.`,
+                [{ text: 'OK' }]
+              );
+            } finally {
+              setLoading(false);
             }
-
-          } catch (error: any) {
-            console.error('❌ Erro geral na operação:', error);
-
-            // 🚨 NÃO ATUALIZAR INTERFACE - MANTER PET NA LISTA
-            let errorMessage = 'Erro desconhecido na operação';
-
-            // Tratar erros específicos
-            if (error.response?.status === 404) {
-              errorMessage = 'Pet ou associação não encontrada no servidor.';
-            } else if (error.response?.status === 403) {
-              errorMessage = 'Você não tem permissão para esta operação.';
-            } else if (error.response?.status === 400) {
-              errorMessage = error.response?.data?.message || 'Dados inválidos para a operação.';
-            } else if (error.message?.includes('não é o responsável atual')) {
-              errorMessage = 'Você não é o responsável atual deste pet.';
-            } else if (error.message?.includes('conexão') || error.code === 'NETWORK_ERROR') {
-              errorMessage = 'Erro de conexão. Verifique sua internet.';
-            } else {
-              errorMessage = error.message || 'Erro na operação do pet';
-            }
-
-            const operacaoNome = acaoType === 'devolver' ? 'Devolução' : 'Remoção';
-
-            Alert.alert(
-              `Erro na ${operacaoNome}`,
-              `❌ Não foi possível ${acaoType === 'devolver' ? 'devolver' : 'remover'} ${pet.nome} no servidor.\n\n${errorMessage}\n\n⚠️ O pet permanece na sua lista.\n\nTente novamente ou entre em contato com o suporte.`,
-              [{ text: 'OK' }]
-            );
-          } finally {
-            setLoading(false);
-          }
+          },
         },
-      },
-    ]);
-  } catch (error: any) {
-    console.error('❌ Erro na verificação inicial:', error);
-
-    Alert.alert(
-      'Erro na Verificação',
-      `Não foi possível verificar informações do pet.\n\n📍 Responsável: ${
-        pet.usuario_nome || 'Não identificado'
-      }\n\nTente novamente mais tarde.`,
-      [{ text: 'OK' }]
-    );
-  }
-};
+      ]);
+    } catch (error: any) {
+      Alert.alert(
+        'Erro na Verificação',
+        `Não foi possível verificar informações do pet.\n\n📍 Responsável: ${
+          pet.usuario_nome || 'Não identificado'
+        }\n\nTente novamente mais tarde.`,
+        [{ text: 'OK' }]
+      );
+    }
+  };
   // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
