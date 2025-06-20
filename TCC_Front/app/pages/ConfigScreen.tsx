@@ -16,9 +16,6 @@ import {
 import { StatusBar } from 'expo-status-bar';
 import AdocaoResponsavelModal from '@/components/Pets/AdocaoResponsavelModal';
 import { verificarPodeExcluirConta, deleteUsuarioComTermo } from '@/services/api/Usuario/deleteUsuarioComTermo';
-import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
-
-//  Importar o hook do AuthContext
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ConfigScreen() {

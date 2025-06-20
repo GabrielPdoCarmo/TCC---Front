@@ -15,7 +15,6 @@ import {
 import * as ImagePicker from 'expo-image-picker';
 import EstadoSelect from '../../components/estados/EstadoSelect';
 import CidadeSelect from '../../components/cidades/CidadeSelect';
-import { debounce } from 'lodash';
 import { useNavigation } from '@react-navigation/native';
 import getEstados from '../../services/api/Estados/getEstados';
 import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
@@ -23,7 +22,7 @@ import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import createUsuario from '@/services/api/Usuario/createUsuario';
 import checkDuplicateFields from '@/services/api/Usuario/checkDuplicateFields';
 import Feather from 'react-native-vector-icons/Feather';
-import { Redirect, router } from 'expo-router';
+import { router } from 'expo-router';
 import { cpf as cpfValidator } from 'cpf-cnpj-validator';
 import validator from 'validator';
 
