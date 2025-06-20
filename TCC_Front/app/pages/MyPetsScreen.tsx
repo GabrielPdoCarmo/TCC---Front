@@ -882,12 +882,6 @@ Agradeço desde já! 🐾❤️`;
     setIsNameUpdateMode(false);
   };
 
-  // Remover pet dos meus pets usando deleteMyPet
-  // 🎯 VERSÃO SIMPLIFICADA: Usar informações já disponíveis do usuário
-  // 🆕 CORRIGIDA: Função para remover pet COM remoção adequada do termo
-  // Função corrigida para remover pet - SOMENTE remove da interface SE o backend confirmar sucesso
-  // 🎯 FUNÇÃO AJUSTADA para trabalhar com sua API deleteMyPet específica
-  // 🎯 FUNÇÃO CORRIGIDA: Sempre usar deleteMyPet (que corresponde ao backend corrigido)
   const handleRemovePet = async (pet: Pet) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para remover pets.');
