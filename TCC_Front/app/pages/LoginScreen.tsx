@@ -1,5 +1,3 @@
-// pages/LoginScreen.tsx - Versão com validator.js para validação de email
-
 import React, { useState, useEffect } from 'react';
 import {
   StyleSheet,
@@ -27,7 +25,7 @@ interface ApiError {
   status?: number;
 }
 
-// 🆕 FUNÇÃO ATUALIZADA: Validação de email com validator.js
+//  Validação de email com validator.js
 const validarEmailCompleto = (email: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -36,12 +34,12 @@ const validarEmailCompleto = (email: string): { isValid: boolean; errors: string
     return { isValid: false, errors };
   }
 
-  // ✅ Usar validator.js para validação principal de email
+  // Usar validator.js para validação principal de email
   if (!validator.isEmail(email)) {
     errors.push('Formato de e-mail inválido');
   }
 
-  // ✅ Validações adicionais usando validator.js
+  // Validações adicionais usando validator.js
   if (!validator.isLength(email, { min: 3, max: 254 })) {
     if (email.length < 3) {
       errors.push('O e-mail é muito curto (mínimo 3 caracteres)');
@@ -50,12 +48,12 @@ const validarEmailCompleto = (email: string): { isValid: boolean; errors: string
     }
   }
 
-  // ✅ Verificar se não tem espaços em branco
+  // Verificar se não tem espaços em branco
   if (validator.contains(email, ' ')) {
     errors.push('E-mail não pode conter espaços');
   }
 
-  // ✅ Verificações adicionais para domínio usando validator.js
+  // Verificações adicionais para domínio usando validator.js
   if (email.includes('@')) {
     const [localPart, domain] = email.split('@');
 
@@ -64,10 +62,10 @@ const validarEmailCompleto = (email: string): { isValid: boolean; errors: string
       errors.push('Parte local do e-mail é muito longa (máximo 64 caracteres)');
     }
 
-    // ✅ Usar validator.js para validar FQDN (Fully Qualified Domain Name)
+    // Usar validator.js para validar FQDN (Fully Qualified Domain Name)
   }
 
-  // ✅ Verificação adicional: normalizar email
+  // Verificação adicional: normalizar email
   if (errors.length === 0) {
     try {
       const normalizedEmail = validator.normalizeEmail(email, {
@@ -111,14 +109,14 @@ export default function LoginScreen() {
   // Hook do contexto
   const { login: contextLogin, isAuthenticated, loading: authLoading } = useAuth();
 
-  // 🆕 CORREÇÃO: Sempre redirecionar para tela principal após login
+  // Sempre redirecionar para tela principal após login
   useEffect(() => {
     if (!authLoading && isAuthenticated && !welcomeModalVisible && !pendingLoginData) {
       router.replace('/pages/PetAdoptionScreen');
     }
   }, [isAuthenticated, authLoading, welcomeModalVisible]);
 
-  // ✅ ALTERADO: Apenas limpar erros quando campos mudam (sem validar em tempo real)
+  //  Apenas limpar erros quando campos mudam (sem validar em tempo real)
   useEffect(() => {
     if (email && emailErros.length > 0) {
       setEmailErros([]);
@@ -182,7 +180,7 @@ export default function LoginScreen() {
   // Estados para guardar dados do login pendente
   const [pendingLoginData, setPendingLoginData] = useState<any>(null);
 
-  // ✅ FUNÇÃO ATUALIZADA: Login com validação usando validator.js
+  //  Login com validação usando validator.js
   const handleLogin = async () => {
     setEmailErros([]);
     setSenhaErro('');
@@ -190,12 +188,12 @@ export default function LoginScreen() {
     // Validações
     let temErros = false;
 
-    // ✅ VALIDAÇÃO DE EMAIL: Usando validator.js
+    // Usando validator.js
     if (!email) {
       setEmailErros(['O e-mail é obrigatório']);
       temErros = true;
     } else {
-      // 🆕 Sanitizar email antes da validação
+      // Sanitizar email antes da validação
       const emailSanitizado = validator.trim(email.toLowerCase());
 
       const validacaoEmail = validarEmailCompleto(emailSanitizado);
@@ -203,22 +201,22 @@ export default function LoginScreen() {
         setEmailErros(validacaoEmail.errors);
         temErros = true;
       } else {
-        // ✅ Atualizar o email com a versão sanitizada se passou na validação
+        // Atualizar o email com a versão sanitizada se passou na validação
         setEmail(emailSanitizado);
       }
     }
 
-    // ✅ VALIDAÇÃO DE SENHA: Usando validator.js
+    //  Usando validator.js
     if (!senha) {
       setSenhaErro('A senha é obrigatória');
       temErros = true;
     } else {
-      // 🆕 Validações adicionais de senha usando validator.js
+      //  Validações adicionais de senha usando validator.js
       if (!validator.isLength(senha, { min: 8 })) {
         setSenhaErro('A senha deve ter pelo menos 8 caracteres');
         temErros = true;
       }
-      // ✅ Verificar se a senha não é apenas espaços em branco
+      // Verificar se a senha não é apenas espaços em branco
       else if (validator.isEmpty(validator.trim(senha))) {
         setSenhaErro('A senha não pode ser apenas espaços em branco');
         temErros = true;
@@ -300,7 +298,7 @@ export default function LoginScreen() {
         // Fechar modal primeiro
         setWelcomeModalVisible(false);
 
-        // 🆕 CORREÇÃO: SEMPRE redirecionar para tela principal
+        // SEMPRE redirecionar para tela principal
         router.replace('/pages/PetAdoptionScreen');
       } catch (contextError) {
         Alert.alert('Erro', 'Houve um problema ao finalizar o login. Tente novamente.');

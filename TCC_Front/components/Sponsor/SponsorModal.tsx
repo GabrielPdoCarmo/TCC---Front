@@ -1,5 +1,3 @@
-// SponsorModal.tsx - Modal de Anúncios dos Patrocinadores
-
 import React, { useState, useEffect } from 'react';
 import { View, Text, Modal, StyleSheet, TouchableOpacity, Image, Dimensions, Alert, Linking } from 'react-native';
 

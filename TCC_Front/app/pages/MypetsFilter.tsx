@@ -1,4 +1,3 @@
-// MypetsFilter.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - STATUS_ID = 3 e 4
 import { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -73,9 +72,9 @@ interface Cidade {
 }
 
 // Interface para Pet (para busca por nome)
-// 🆕 IMPORTS ADICIONAIS necessários para carregar detalhes dos pets
+// IMPORTS ADICIONAIS necessários para carregar detalhes dos pets
 
-// 🔧 INTERFACE ATUALIZADA: Pet com campos adicionais para dados completos
+// INTERFACE ATUALIZADA: Pet com campos adicionais para dados completos
 interface Pet {
   id: number;
   nome: string;
@@ -108,10 +107,8 @@ interface FilterParams {
   cidadeIds?: number[];
   onlyFavorites?: boolean;
   favoritePetIds?: number[];
-  // Parâmetros para busca por nome
   searchQuery?: string;
   searchResults?: Pet[];
-  // NOVO: Adicionar status_id
   statusIds?: number[];
 }
 
@@ -195,10 +192,10 @@ export default function MypetsFilter() {
     try {
       setSearchLoading(true);
 
-      // 🆕 USAR A NOVA API SIMPLIFICADA
+      // USAR A NOVA API SIMPLIFICADA
       const response = await getMyPetsByName(name);
 
-      // 🔧 CORREÇÃO: Garantir que pets seja sempre um array válido
+      //  Garantir que pets seja sempre um array válido
       const pets: Pet[] = Array.isArray(response) ? response : [];
 
       if (pets.length > 0) {
@@ -218,7 +215,7 @@ export default function MypetsFilter() {
     }
   };
 
-  // 🆕 NOVA FUNÇÃO: Carregar detalhes dos pets para busca (adaptada do MyPetsScreen)
+  // Carregar detalhes dos pets para busca (adaptada do MyPetsScreen)
   const loadPetsWithDetailsForSearch = async (pets: Pet[]): Promise<Pet[]> => {
     if (!Array.isArray(pets) || pets.length === 0) {
       return [];
@@ -327,7 +324,7 @@ export default function MypetsFilter() {
     }
   };
 
-  // 🆕 FUNÇÃO DE NORMALIZAÇÃO MELHORADA com debug detalhado
+  // FUNÇÃO DE NORMALIZAÇÃO MELHORADA com debug detalhado
   const normalizeApiResponseWithDebug = (response: any): Pet[] => {
     if (!response) {
       return [];

@@ -1,5 +1,3 @@
-// TermoAdocaoModal.tsx - Atualizado com modal de anúncios dos patrocinadores
-
 import React, { useState, useEffect } from 'react';
 import {
   View,

@@ -1,4 +1,3 @@
-// FilterScreen.tsx - COM BUSCA SIMPLIFICADA E BOTÃO X MELHORADO - STATUS_ID = 2
 import { useEffect, useState, useRef } from 'react';
 import {
   View,
@@ -28,11 +27,9 @@ import getEspecies from '@/services/api/Especies/getEspecies';
 import getFaixaEtaria from '@/services/api/Faixa-etaria/getFaixaEtaria';
 import getRacasPorEspecie from '@/services/api/Raca/getRacasPorEspecie';
 import getEstados from '@/services/api/Estados/getEstados';
-import getEstadoID from '@/services/api/Estados/getEstadoID';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
 import getFaixaEtariaByEspecieId from '@/services/api/Faixa-etaria/getByEspecieId';
 import getFavoritosPorUsuario from '@/services/api/Favoritos/getFavoritosPorUsuario';
-import getCidadesPorEstado from '@/services/api/Cidades/getCidadesPorEstado';
 import getPetByName from '@/services/api/Pets/getPetByName'; // Esta API já filtra por status_id = 2
 
 // Interfaces para os tipos
@@ -79,23 +76,23 @@ interface Pet {
   id: number;
   nome: string;
   raca_id: number;
-  raca_nome?: string; // 🆕 Campo adicional
+  raca_nome?: string;
   idade: string;
   usuario_id: number;
-  usuario_nome?: string; // 🆕 Campo adicional
-  usuario_foto?: string | null; // 🆕 Campo adicional
-  usuario_telefone?: string; // 🆕 Campo adicional
-  usuario_email?: string; // 🆕 Campo adicional
-  usuario_cidade_id?: number; // 🆕 Campo adicional
-  usuario_estado_id?: number; // 🆕 Campo adicional
+  usuario_nome?: string;
+  usuario_foto?: string | null;
+  usuario_telefone?: string;
+  usuario_email?: string;
+  usuario_cidade_id?: number;
+  usuario_estado_id?: number;
   foto?: string;
   faixa_etaria_id: number;
-  faixa_etaria_unidade?: string; // 🆕 Campo adicional
+  faixa_etaria_unidade?: string;
   status_id: number;
-  status_nome?: string; // 🆕 Campo adicional
+  status_nome?: string; 
   sexo_id?: number;
   especie_id?: number;
-  favorito?: boolean; // 🆕 Campo adicional
+  favorito?: boolean; 
 }
 
 interface FilterParams {
@@ -176,7 +173,7 @@ export default function FilterScreen() {
       return await Promise.all(
         pets.map(async (pet: Pet, index: number) => {
           try {
-            // 🔄 Carregar informações da raça
+            // Carregar informações da raça
             let racaInfo = null;
             if (pet.raca_id) {
               try {
@@ -184,7 +181,7 @@ export default function FilterScreen() {
               } catch (error) {}
             }
 
-            // 🔄 Carregar informações do status
+            // Carregar informações do status
             let statusInfo = null;
             if (pet.status_id) {
               try {
@@ -192,7 +189,7 @@ export default function FilterScreen() {
               } catch (error) {}
             }
 
-            // 🔄 Carregar informações da faixa etária
+            // Carregar informações da faixa etária
             let faixaEtariaInfo = null;
             if (pet.faixa_etaria_id) {
               try {
@@ -200,7 +197,7 @@ export default function FilterScreen() {
               } catch (error) {}
             }
 
-            // 🔄 Carregar informações do usuário responsável
+            // Carregar informações do usuário responsável
             let usuarioInfo = null;
             let usuarioFotoInfo = null;
 
@@ -216,7 +213,7 @@ export default function FilterScreen() {
               } catch (error) {}
             }
 
-            // 🔄 Verificar se é favorito
+            // Verificar se é favorito
             let isFavorito = false;
             if (usuarioId) {
               try {
@@ -224,7 +221,7 @@ export default function FilterScreen() {
               } catch (error) {}
             }
 
-            // 🔄 Montar objeto final com dados completos
+            // Montar objeto final com dados completos
             const petCompleto = {
               ...pet,
               raca_nome: racaInfo?.nome || 'Raça não informada',
@@ -324,7 +321,7 @@ export default function FilterScreen() {
       const petsParaAdocao = petsArray.filter((pet) => pet.status_id === 2);
 
       if (petsParaAdocao.length > 0) {
-        // 🆕 NOVA PARTE: Carregar detalhes completos
+        //  Carregar detalhes completos
         const petsWithDetails = await loadPetsWithDetailsForAdoption(petsParaAdocao);
 
         setSearchResults(petsWithDetails);

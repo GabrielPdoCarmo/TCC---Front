@@ -1,4 +1,3 @@
-// PetAdoptionScreen.tsx - Otimizado com ordenação por ID e SponsorModal
 import { router, useLocalSearchParams, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback } from 'react';
 import {
@@ -17,7 +16,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
 import PetsCard from '@/components/Pets/PetsCard';
-import SponsorModal from '@/components/Sponsor/SponsorModal'; // ✅ IMPORTAR o SponsorModal
+import SponsorModal from '@/components/Sponsor/SponsorModal';
 import getPetsByStatus from '@/services/api/Pets/getPetsByStatus';
 import getUsuarioByIdComCidadeEstado from '@/services/api/Usuario/getUsuarioByIdComCidadeEstado';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
@@ -69,7 +68,7 @@ interface FilterParams {
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
-// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+// Função para ordenar pets por ID (mais recente primeiro)
 const sortPetsByCreation = (pets: Pet[]): Pet[] => {
   return [...pets].sort((a, b) => b.id - a.id);
 };
@@ -85,7 +84,7 @@ export default function PetAdoptionScreen() {
   const [error, setError] = useState<string | null>(null);
   const [activeFilters, setActiveFilters] = useState<FilterParams | null>(null);
 
-  // ✅ NOVO: Estados para controlar o modal do sponsor
+  //  Estados para controlar o modal do sponsor
   const [showSponsorModal, setShowSponsorModal] = useState<boolean>(false);
   const [pendingAdoption, setPendingAdoption] = useState<{ petId: number; usuarioId: number } | null>(null);
 
@@ -199,7 +198,7 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // 🆕 ATUALIZADA: Função para aplicar filtros aos pets COM ordenação por ID
+  // Função para aplicar filtros aos pets COM ordenação por ID
   const applyFiltersToData = async (pets: Pet[], filters: FilterParams): Promise<Pet[]> => {
     try {
       let filteredData = pets;
@@ -213,7 +212,7 @@ export default function PetAdoptionScreen() {
         }
 
         const favoritePetsWithDetails = await loadPetsWithDetails(favoritePets);
-        // 🆕 APLICAR ORDENAÇÃO POR ID para favoritos
+        // APLICAR ORDENAÇÃO POR ID para favoritos
         return sortPetsByCreation(favoritePetsWithDetails);
       }
 
@@ -252,15 +251,15 @@ export default function PetAdoptionScreen() {
         );
       }
 
-      // 🆕 APLICAR ORDENAÇÃO POR ID uma vez no final dos filtros
+      // APLICAR ORDENAÇÃO POR ID uma vez no final dos filtros
       return sortPetsByCreation(filteredData);
     } catch (error) {
-      // 🆕 Em caso de erro, ainda aplicar ordenação por ID
+      // Em caso de erro, ainda aplicar ordenação por ID
       return sortPetsByCreation(pets);
     }
   };
 
-  // 🆕 ATUALIZADA: Aplicar filtros considerando busca ativa COM ordenação por ID
+  // Aplicar filtros considerando busca ativa COM ordenação por ID
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -279,7 +278,7 @@ export default function PetAdoptionScreen() {
         const filtered = await applyFiltersToData(baseData, filtersWithoutSearch);
         setFilteredPets(filtered);
       } else {
-        // 🆕 APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        // APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
         if (baseData === allPets) {
           // allPets já deve estar ordenado do refreshData
           setFilteredPets(baseData);
@@ -291,7 +290,7 @@ export default function PetAdoptionScreen() {
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        // 🆕 Ordenar searchResults por ID se necessário
+        // Ordenar searchResults por ID se necessário
         const sortedSearchResults = sortPetsByCreation(searchResults);
         setFilteredPets(sortedSearchResults);
       } else {
@@ -301,7 +300,7 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // 🆕 ATUALIZADA: Função para recarregar os dados COM ordenação por ID
+  // Função para recarregar os dados COM ordenação por ID
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
@@ -318,7 +317,7 @@ export default function PetAdoptionScreen() {
 
       const petsWithDetails = await loadPetsWithDetails(response);
 
-      // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
+      // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
       const sortedPetsWithDetails = sortPetsByCreation(petsWithDetails);
       setAllPets(sortedPetsWithDetails);
 
@@ -374,7 +373,7 @@ export default function PetAdoptionScreen() {
     }
   }, [activeFilters, hasActiveSearch, searchResults, allPets, loading]);
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção de um pet - agora mostra o modal primeiro
+  // FUNÇÃO ATUALIZADA para lidar com a adoção de um pet - agora mostra o modal primeiro
   const handleAdopt = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
@@ -387,20 +386,19 @@ export default function PetAdoptionScreen() {
       return;
     }
 
-    // ✅ VERIFICAR: Se é o dono atual do pet (não pode adotar próprio pet)
+    //  Se é o dono atual do pet (não pode adotar próprio pet)
     if (pet.usuario_id === usuarioId) {
       Alert.alert('Operação não permitida', 'Você não pode adicionar seu próprio pet aos seus pets.');
       return;
     }
 
-    // ✅ NOVA LÓGICA: Sempre tentar a adoção com tratamento de erro melhorado
-    // (permitindo readoção de ex-adotantes)
+    //  Sempre tentar a adoção com tratamento de erro melhorado
 
     try {
-      // ✅ TENTAR: Criar MyPet diretamente (pode ser ex-adotante)
+      // Criar MyPet diretamente (pode ser ex-adotante)
       await createMyPet(petId, usuarioId);
 
-      // ✅ SUCESSO: Pet adicionado
+      // Pet adicionado
       Alert.alert('Sucesso!', 'Pet adicionado aos seus pets com sucesso!', [
         {
           text: 'OK',
@@ -460,7 +458,7 @@ export default function PetAdoptionScreen() {
             {
               text: 'Sim, readotar',
               onPress: async () => {
-                // ✅ TENTAR: Forçar readoção
+                // Forçar readoção
                 try {
                   // Primeiro mostrar modal do sponsor
                   setPendingAdoption({ petId, usuarioId });
@@ -508,7 +506,7 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // ✅ NOVA: Função para processar a adoção após o modal fechar
+  // Função para processar a adoção após o modal fechar
   const processPendingAdoption = async () => {
     if (!pendingAdoption) return;
 
@@ -605,7 +603,7 @@ export default function PetAdoptionScreen() {
       );
     }
   };
-  // ✅ NOVA: Função para lidar com o fechamento do modal do sponsor
+  // Função para lidar com o fechamento do modal do sponsor
   const handleSponsorModalClose = () => {
     setShowSponsorModal(false);
     // Processar a adoção após fechar o modal
@@ -642,7 +640,7 @@ export default function PetAdoptionScreen() {
     });
   };
 
-  // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
+  // Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
@@ -661,12 +659,12 @@ export default function PetAdoptionScreen() {
         await getFavorito(usuarioId, petId);
       }
 
-      // 🆕 ATUALIZADA: Atualização simples sem re-ordenação (allPets já está ordenado por ID)
+      //  Atualização simples sem re-ordenação (allPets já está ordenado por ID)
       const updatedAllPets = allPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
       setAllPets(updatedAllPets); // Mantém ordem existente
 
       if (hasActiveSearch) {
-        // 🆕 ATUALIZADA: Atualização simples para searchResults também
+        // Atualização simples para searchResults também
         const updatedSearchResults = searchResults.map((p: Pet) =>
           p.id === petId ? { ...p, favorito: !p.favorito } : p
         );
@@ -904,8 +902,6 @@ export default function PetAdoptionScreen() {
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
         </View>
-
-        {/* ✅ NOVO: Modal do Sponsor */}
         <SponsorModal visible={showSponsorModal} onClose={handleSponsorModalClose} />
       </ImageBackground>
     </SafeAreaView>

@@ -18,7 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/Pets/PetsDetalhesCard';
-import SponsorModal from '@/components/Sponsor/SponsorModal'; // ✅ IMPORTAR o SponsorModal
+import SponsorModal from '@/components/Sponsor/SponsorModal'; 
 import { getPetById } from '@/services/api/Pets/getPetById';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';

@@ -17,7 +17,7 @@ import checkCode from '../../services/api/Codigo/checkCode';
 import sendRecoveryCode from '../../services/api/Codigo/sendRecoveryCode';
 import validator from 'validator';
 
-// NOVA FUNÇÃO: Validação granular de senha
+// Validação granular de senha
 const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 

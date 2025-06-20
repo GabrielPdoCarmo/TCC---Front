@@ -1,4 +1,3 @@
-// ConfigScreen.tsx - Versão corrigida com AuthContext
 import { router } from 'expo-router';
 import React, { useState, useEffect } from 'react';
 import {
@@ -19,14 +18,14 @@ import AdocaoResponsavelModal from '@/components/Pets/AdocaoResponsavelModal';
 import { verificarPodeExcluirConta, deleteUsuarioComTermo } from '@/services/api/Usuario/deleteUsuarioComTermo';
 import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 
-// ✅ Importar o hook do AuthContext
+//  Importar o hook do AuthContext
 import { useAuth } from '@/contexts/AuthContext';
 
 export default function ConfigScreen() {
   // Estado para controlar a visibilidade do modal
   const [modalVisible, setModalVisible] = useState(false);
 
-  // ✅ Usar o AuthContext
+  //  Usar o AuthContext
   const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
 
   useEffect(() => {
@@ -35,14 +34,14 @@ export default function ConfigScreen() {
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
 
-  // ✅ Verificar autenticação
+  //  Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
 
-  // ✅ Função de logout usando o contexto
+  // Função de logout usando o contexto
   const handleLogout = async () => {
     Alert.alert(
       'Deslogar',
@@ -56,7 +55,7 @@ export default function ConfigScreen() {
           text: 'Deslogar',
           onPress: async () => {
             try {
-              // ✅ Usar a função logout do contexto
+              //  Usar a função logout do contexto
               await logout();
 
               // Navegar para a tela de login
@@ -71,7 +70,7 @@ export default function ConfigScreen() {
     );
   };
 
-  // ✅ Função para excluir conta usando o contexto
+  // Função para excluir conta usando o contexto
   const handleDeleteAccount = async () => {
     if (!user?.id) {
       Alert.alert('Erro', 'Não foi possível identificar o usuário.');
@@ -84,7 +83,7 @@ export default function ConfigScreen() {
 
       const { podeExcluir, petCount, temTermo, termoInfo, motivoImpedimento } = verificacao.data;
 
-      // ❌ Se não pode excluir devido a pets cadastrados
+      //  Se não pode excluir devido a pets cadastrados
       if (!podeExcluir && motivoImpedimento === 'pets_cadastrados') {
         Alert.alert(
           'Não é possível excluir a conta',
@@ -96,14 +95,14 @@ export default function ConfigScreen() {
         return;
       }
 
-      // ✅ Pode excluir - montar mensagem do alerta
+      //  Pode excluir - montar mensagem do alerta
       let alertMessage = 'Tem certeza que deseja excluir sua conta? Esta ação não pode ser desfeita.';
 
       if (temTermo && termoInfo) {
         alertMessage += `\n\n⚠️ ATENÇÃO: Seu termo de responsabilidade de doação também será excluído permanentemente.`;
       }
 
-      // 🚨 Alerta de confirmação
+      // Alerta de confirmação
       Alert.alert(
         'Excluir Conta',
         alertMessage,
@@ -117,10 +116,10 @@ export default function ConfigScreen() {
             style: 'destructive',
             onPress: async () => {
               try {
-                // 🗑️ ETAPA 2: Excluir conta (inclui termo automaticamente)
+                //  Excluir conta (inclui termo automaticamente)
                 const resultado = await deleteUsuarioComTermo(user.id);
 
-                // ✅ Verificar se foi bem-sucedido
+                // Verificar se foi bem-sucedido
                 if (resultado.success) {
                   // Preparar mensagem de sucesso
                   let successMessage = 'Sua conta foi excluída com sucesso.';
@@ -129,7 +128,7 @@ export default function ConfigScreen() {
                     successMessage += '\n\nSeu termo de responsabilidade de doação também foi removido.';
                   }
 
-                  // ✅ Limpar dados usando a função logout do contexto
+                  //  Limpar dados usando a função logout do contexto
                   await logout();
 
                   Alert.alert('Sucesso', successMessage, [
@@ -142,7 +141,7 @@ export default function ConfigScreen() {
                     },
                   ]);
                 } else {
-                  // ❌ Erro retornado pelo backend
+                  // Erro retornado pelo backend
                   Alert.alert(
                     resultado.title || 'Erro ao Excluir Conta',
                     resultado.message || 'Não foi possível excluir a conta.',
@@ -194,7 +193,7 @@ export default function ConfigScreen() {
     setModalVisible(true);
   };
 
-  // ✅ Loading de verificação de autenticação
+  // Loading de verificação de autenticação
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -204,7 +203,7 @@ export default function ConfigScreen() {
     );
   }
 
-  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  // Se não estiver autenticado, não renderizar nada (será redirecionado)
   if (!isAuthenticated) {
     return null;
   }
@@ -220,7 +219,7 @@ export default function ConfigScreen() {
       <SafeAreaView style={styles.safeArea}>
         <Text style={styles.title}>Configurações</Text>
 
-        {/* ✅ Adicionar informações do usuário */}
+        {/*  Adicionar informações do usuário */}
 
         <ScrollView
           style={styles.scrollView}
@@ -267,7 +266,7 @@ export default function ConfigScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem}>
-            {/* ✅ Indicar que esta é a tela ativa */}
+            {/* Indicar que esta é a tela ativa */}
             <View style={styles.activeCircle}>
               <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             </View>

@@ -1,4 +1,3 @@
-// components/Welcome/WelcomeModal.tsx - Versão simplificada sem delay
 import React from 'react';
 import { StyleSheet, Text, View, TouchableOpacity, Image, Modal, ActivityIndicator } from 'react-native';
 import Icon from 'react-native-vector-icons/Ionicons';
@@ -9,7 +8,7 @@ interface WelcomeModalProps {
   onClose: () => void;
   userName: string;
   photoUrl: string | null;
-  loading?: boolean; // ✅ Nova prop para loading
+  loading?: boolean; //  Nova prop para loading
 }
 
 const WelcomeModal: React.FC<WelcomeModalProps> = ({
@@ -17,7 +16,7 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
   onClose,
   userName,
   photoUrl,
-  loading = false, // ✅ Valor padrão false
+  loading = false, //  Valor padrão false
 }) => {
   return (
     <Modal
@@ -46,16 +45,16 @@ const WelcomeModal: React.FC<WelcomeModalProps> = ({
           <TouchableOpacity
             style={[styles.modalButton, loading && styles.buttonDisabled]}
             onPress={onClose}
-            disabled={loading} // ✅ Desabilitar durante loading
+            disabled={loading} //  Desabilitar durante loading
           >
             {loading ? (
-              // ✅ Mostrar loading
+              //  Mostrar loading
               <View style={styles.loadingContainer}>
                 <ActivityIndicator color="white" size="small" />
                 <Text style={[styles.modalButtonText, { marginLeft: 8 }]}>Carregando...</Text>
               </View>
             ) : (
-              // ✅ Texto normal
+              //  Texto normal
               <Text style={styles.modalButtonText}>Continuar</Text>
             )}
           </TouchableOpacity>
@@ -111,7 +110,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   buttonDisabled: {
-    opacity: 0.7, // ✅ Estilo para botão desabilitado
+    opacity: 0.7, //  Estilo para botão desabilitado
   },
   modalButtonText: {
     color: 'white',
@@ -122,7 +121,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-  }, // ✅ Container para loading
+  }, //  Container para loading
   photoContainer: {
     width: 120,
     height: 120,

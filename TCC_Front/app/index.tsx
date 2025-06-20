@@ -1,10 +1,9 @@
-// app/index.tsx - Solução com redirecionamento inteligente e tipagem correta
 import React, { useEffect } from 'react';
 import { View, ActivityIndicator, StyleSheet, Image } from 'react-native';
 import { router } from 'expo-router';
 import { useAuth } from '../contexts/AuthContext';
 
-// ✅ Definir rotas válidas do app
+//  Definir rotas válidas do app
 type ValidRoutes =
   | '/pages/LoginScreen'
   | '/pages/PetAdoptionScreen'
@@ -13,7 +12,7 @@ type ValidRoutes =
   | '/pages/ProfileScreen'
   | '/pages/PetDonation';
 
-// ✅ Função helper para validar e redirecionar
+// Função helper para validar e redirecionar
 const safeRedirect = (route: string) => {
   // Mapear rotas conhecidas para tipos válidos
   const routeMap: { [key: string]: ValidRoutes } = {
@@ -36,10 +35,10 @@ export default function IndexScreen() {
 
   useEffect(() => {
     if (!loading) {
-      // ✅ Usar a nova função para obter a rota correta
+      //  Usar a nova função para obter a rota correta
       const redirectRoute = getRedirectRoute();
 
-      // ✅ Pequeno delay para evitar problemas de navegação
+      // Pequeno delay para evitar problemas de navegação
       setTimeout(() => {
         safeRedirect(redirectRoute);
       }, 100);

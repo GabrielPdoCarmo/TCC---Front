@@ -1,5 +1,3 @@
-// TermoDoacaoModalAuto.tsx - Com suporte a visualização voluntária
-
 import React, { useState, useEffect } from 'react';
 import {
   View,

@@ -1,4 +1,3 @@
-// ProfileScreen.tsx with updated granular password validation
 import { router } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -175,7 +174,7 @@ const validarCep = (cep: string) => {
   return regex.test(stripNonNumeric(cep));
 };
 
-// NOVA FUNÇÃO: Validação granular de senha
+// Validação granular de senha
 const validarSenhaCompleta = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -306,7 +305,6 @@ export default function ProfileScreen() {
   // Cache para armazenar cidades por estado
   const cidadesCache = useRef<{ [key: string]: Cidade[] }>({});
 
-
   // Buscar dados iniciais quando o componente montar
   useEffect(() => {
     initializeData();
@@ -318,7 +316,7 @@ export default function ProfileScreen() {
     }
   }, [authLoading, isAuthenticated, setLastRoute]);
 
-  // ✅ Verificar autenticação
+  // Verificar autenticação
   useEffect(() => {
     if (!authLoading && !isAuthenticated) {
       router.replace('/pages/LoginScreen');
@@ -450,7 +448,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // NOVA FUNÇÃO: Verificar se deve limpar o CEP
+  // Verificar se deve limpar o CEP
   const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
     // Se não há CEP preenchido, não fazer nada
     if (!cep.trim()) {
@@ -490,7 +488,7 @@ export default function ProfileScreen() {
     });
 
     // Subopção 2B: NÃO limpar CEP se foi digitado manualmente
-    // console.log('❌ CEP foi digitado manualmente - não limpar');
+    // console.log(' CEP foi digitado manualmente - não limpar');
     // return;
   };
 
@@ -596,7 +594,7 @@ export default function ProfileScreen() {
     }
   }
 
-  // FUNÇÃO ATUALIZADA: Buscar endereço pelo CEP e armazenar dados
+  //  Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     try {
       setLoadingCep(true);
@@ -719,7 +717,7 @@ export default function ProfileScreen() {
       hasError = true;
     }
 
-    // NOVA VALIDAÇÃO GRANULAR: Validar senha apenas se foi preenchida
+    //  Validar senha apenas se foi preenchida
     if (senha || confirmarSenha) {
       if (senha !== confirmarSenha) {
         setConfirmarSenhaErro('As senhas não conferem.');
@@ -746,7 +744,7 @@ export default function ProfileScreen() {
         return;
       }
 
-      // NOVA VALIDAÇÃO: Verificar campos duplicados antes de tentar salvar
+      // Verificar campos duplicados antes de tentar salvar
 
       const validationResponse = await checkDuplicateFieldsProfile({
         userId: usuario.id,
@@ -797,7 +795,7 @@ export default function ProfileScreen() {
         foto: null, // Inicializa como null
       };
 
-      // IMPORTANTE: Adiciona senha apenas se for preenchida
+      //  Adiciona senha apenas se for preenchida
       if (senha && senha.length >= 8) {
         dadosUsuario.senha = senha;
       }
@@ -899,7 +897,7 @@ export default function ProfileScreen() {
     }
   };
 
-  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP
+  //  Manipular seleção de estado com validação de CEP
   const handleEstadoSelect = async (selectedEstado: { id: number; nome: string }) => {
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(selectedEstado.id, null);
@@ -911,7 +909,7 @@ export default function ProfileScreen() {
     setEstadoErro('');
   };
 
-  // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
+  //  Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: { id: number; nome: string }) => {
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estadoSelecionado, selectedCidade.id);
@@ -958,7 +956,7 @@ export default function ProfileScreen() {
     );
   }
 
-  // ✅ Se não estiver autenticado, não renderizar nada (será redirecionado)
+  // Se não estiver autenticado, não renderizar nada (será redirecionado)
   if (!isAuthenticated) {
     return null;
   }
@@ -1219,10 +1217,6 @@ export default function ProfileScreen() {
   );
 }
 
-// ============================================================================
-// CORREÇÃO DO ESPAÇAMENTO - Substitua apenas a seção de estilos no final do arquivo
-// ============================================================================
-
 const styles = StyleSheet.create({
   container: {
     flex: 1,
@@ -1290,32 +1284,32 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#333',
   },
-  // CORRIGIDO: Estilo para erro único (usado na maioria dos campos)
+  
   errorText: {
     color: '#FF0000',
     fontSize: 12,
-    marginTop: 5, // MUDANÇA: era -10, agora 5 para melhor espaçamento
+    marginTop: 5, 
     marginLeft: 10,
-    lineHeight: 16, // ADICIONADO: altura da linha para melhor legibilidade
+    lineHeight: 16, 
   },
-  // CORRIGIDO: Container para múltiplos erros de senha
+
   errorContainers: {
-    marginTop: 8, // MUDANÇA: era 5, agora 8 para mais espaço
+    marginTop: 8, 
     marginLeft: 10,
-    paddingVertical: 5, // MUDANÇA: era padding: 4, agora vertical específico
+    paddingVertical: 5, 
     paddingHorizontal: 0,
-    backgroundColor: 'rgba(255, 0, 0, 0.05)', // ADICIONADO: fundo sutil para destacar
-    borderRadius: 5, // ADICIONADO: bordas arredondadas
-    borderLeftWidth: 3, // ADICIONADO: borda esquerda para destaque
+    backgroundColor: 'rgba(255, 0, 0, 0.05)', 
+    borderRadius: 5, 
+    borderLeftWidth: 3, 
     borderLeftColor: '#FF0000',
   },
-  // NOVO: Estilo específico para erros dentro do container (senha)
+  
   passwordErrorText: {
     color: '#FF0000',
     fontSize: 12,
-    marginBottom: 4, // ADICIONADO: espaço entre as linhas de erro
-    lineHeight: 16, // ADICIONADO: altura da linha
-    paddingLeft: 8, // ADICIONADO: indentação para o bullet point
+    marginBottom: 4, 
+    lineHeight: 16,
+    paddingLeft: 8, 
   },
   loadingIcon: {
     marginLeft: 10,

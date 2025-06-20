@@ -99,7 +99,7 @@ type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-e
 
 const { width } = Dimensions.get('window');
 
-// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+//Função para ordenar pets por ID (mais recente primeiro)
 const sortPetsByCreation = (pets: Pet[]): Pet[] => {
   return [...pets].sort((a, b) => b.id - a.id);
 };
@@ -312,7 +312,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 ATUALIZADA: Aplicar filtros considerando busca ativa COM ordenação por ID
+  //  Aplicar filtros considerando busca ativa COM ordenação por ID
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -370,11 +370,11 @@ export default function MyPetsScreen() {
           });
         }
 
-        // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no final dos filtros
+        // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no final dos filtros
         const sortedFilteredData = sortPetsByCreation(filteredData);
         setFilteredMyPets(sortedFilteredData);
       } else {
-        // 🆕 APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        // APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
         if (baseData === allMyPets) {
           // allMyPets já deve estar ordenado do carregamento inicial
           setFilteredMyPets(baseData);
@@ -386,7 +386,7 @@ export default function MyPetsScreen() {
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        // 🆕 Ordenar searchResults por ID apenas se necessário
+        // Ordenar searchResults por ID apenas se necessário
         const sortedSearchResults = sortPetsByCreation(searchResults);
         setFilteredMyPets(sortedSearchResults);
       } else {
@@ -396,7 +396,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // 🆕 ATUALIZADA: Carregar os meus pets usando getByUsuarioId COM ordenação por ID
+  // Carregar os meus pets usando getByUsuarioId COM ordenação por ID
   useEffect(() => {
     const fetchMyPets = async () => {
       if (!usuarioId) {
@@ -431,7 +431,7 @@ export default function MyPetsScreen() {
         const petsWithDetails = await loadPetsWithDetails(pets);
         const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-        // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
+        // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
         const sortedValidPets = sortPetsByCreation(validPets);
         setAllMyPets(sortedValidPets);
 
@@ -456,7 +456,7 @@ export default function MyPetsScreen() {
     }
   }, [activeFilters, hasActiveSearch, searchResults, allMyPets, loading]);
 
-  // 🆕 ATUALIZADA: Recarregar os dados COM ordenação por ID
+  // Recarregar os dados COM ordenação por ID
   const refreshData = async () => {
     if (!usuarioId) {
       return;
@@ -489,7 +489,7 @@ export default function MyPetsScreen() {
       const petsWithDetails = await loadPetsWithDetails(pets);
       const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-      // 🆕 APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no refresh
+      // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no refresh
       const sortedValidPets = sortPetsByCreation(validPets);
       setAllMyPets(sortedValidPets);
       setLoading(false);
@@ -500,8 +500,6 @@ export default function MyPetsScreen() {
   };
 
   // Função principal para comunicação
-  // 🆕 ATUALIZADA: Função principal para comunicação (permite dono acessar termo e WhatsApp)
-  // 🆕 ATUALIZADA: Função principal para comunicação (corrigida para donos)
   const handleCommunicate = async (pet: Pet) => {
     try {
       if (!usuarioId || !usuario) {
@@ -517,7 +515,7 @@ export default function MyPetsScreen() {
 
       // 🎯 LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
       if (isOwner) {
-        // ✅ PARA DONOS: Verificar apenas se tem termo, sem usar checkCanAdopt
+        // Verificar apenas se tem termo, sem usar checkCanAdopt
         try {
           const temTermo = await checkPetHasTermo(pet.id);
           setHasExistingTermo(temTermo);
@@ -541,7 +539,7 @@ export default function MyPetsScreen() {
           setModalState('whatsapp-initial');
         }
       } else {
-        // ✅ PARA ADOTANTES: Usar a lógica original com checkCanAdopt
+        //  Usar a lógica original com checkCanAdopt
         try {
           const verificacao = await checkCanAdopt(pet.id);
           const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
@@ -637,19 +635,15 @@ export default function MyPetsScreen() {
     setModalState('whatsapp-enabled');
   };
 
-  // 🆕 ATUALIZADA: Iniciar WhatsApp SEM re-ordenação desnecessária
-  // 🆕 ATUALIZADA: Iniciar WhatsApp COM transferência automática do pet (mantendo contato do doador original)
-  // 🆕 ATUALIZADA: Iniciar WhatsApp COM transferência automática do pet (ordem correta)
-  // 🆕 ATUALIZADA: Iniciar WhatsApp COM suporte para dono do pet
   const handleStartWhatsApp = async () => {
     if (!selectedPet || !usuario) return;
 
     try {
       const isOwner = selectedPet.usuario_id === usuarioId;
 
-      // 🎯 LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
+      // LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
       if (isOwner) {
-        // ✅ DONO DO PET: Lógica para compartilhar informações ou se comunicar com interessados
+        // Lógica para compartilhar informações ou se comunicar com interessados
         setModalState('closed');
         setSelectedPet(null);
 
@@ -714,7 +708,7 @@ Entre em contato comigo para mais informações sobre a adoção! ❤️`;
           { text: 'Cancelar', style: 'cancel' },
         ]);
       } else {
-        // ✅ ADOTANTE: Lógica original de adoção
+        // Lógica original de adoção
         const doadorOriginal = {
           nome: selectedPet.usuario_nome || 'responsável',
           telefone: selectedPet.usuario_telefone,
@@ -767,7 +761,7 @@ Agradeço desde já! 🐾❤️`;
 
         if (canOpen) {
           try {
-            // 🆕 SEQUÊNCIA CORRETA: Primeiro transferir, depois WhatsApp
+            // SEQUÊNCIA CORRETA: Primeiro transferir, depois WhatsApp
 
             const transferResult = await transferPet({
               id: selectedPet.id,
@@ -920,7 +914,7 @@ Agradeço desde já! 🐾❤️`;
       // Verificar se tem termo
       const temTermo = await checkPetHasTermo(pet.id);
 
-      // ✅ NOVA LÓGICA: Determinar ação baseada no relacionamento do usuário com o pet
+      //  Determinar ação baseada no relacionamento do usuário com o pet
       const isAdotanteAtual = pet.usuario_id === usuarioId && pet.status_id === 4;
       const isDoadorOriginal = pet.doador_id === usuarioId;
       const isResponsavelAtual = pet.usuario_id === usuarioId;
@@ -1005,12 +999,12 @@ Agradeço desde já! 🐾❤️`;
                 termoRemovidoComSucesso = true; // Não havia termo
               }
 
-              // ✅ ETAPA 2: SEMPRE usar deleteMyPet (backend corrigido decide a ação)
+              // SEMPRE usar deleteMyPet (backend corrigido decide a ação)
 
               try {
                 const deleteResult = await deleteMyPet(pet.id, usuarioId);
 
-                // ✅ VERIFICAÇÃO ROBUSTA para deleteMyPet
+                // VERIFICAÇÃO ROBUSTA para deleteMyPet
                 if (deleteResult !== null && deleteResult !== undefined) {
                   // Verificar se há indicação de erro na resposta
                   if (deleteResult.success === false) {
@@ -1032,7 +1026,7 @@ Agradeço desde já! 🐾❤️`;
                 throw deleteError; // Propagar para tratamento específico
               }
 
-              // ✅ SÓ ATUALIZAR INTERFACE SE OPERAÇÃO FOI BEM-SUCEDIDA
+              //  SÓ ATUALIZAR INTERFACE SE OPERAÇÃO FOI BEM-SUCEDIDA
               if (petOperacaoSucesso) {
                 setAllMyPets((prevPets) => {
                   const novosMyPets = prevPets.filter((p) => p.id !== pet.id);
@@ -1054,7 +1048,7 @@ Agradeço desde já! 🐾❤️`;
                   });
                 }
 
-                // ✅ FEEDBACK DE SUCESSO BASEADO NO QUE FOI SOLICITADO
+                // FEEDBACK DE SUCESSO BASEADO NO QUE FOI SOLICITADO
                 if (acaoType === 'devolver') {
                   const mensagemSucesso = `🔄 ${pet.nome} foi devolvido com sucesso!
 
@@ -1152,7 +1146,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
       );
     }
   };
-  // 🆕 ATUALIZADA: Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
+  //  Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
@@ -1171,12 +1165,12 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
         await getFavorito(usuarioId, petId);
       }
 
-      // 🆕 ATUALIZADA: Atualização simples sem re-ordenação por ID (allMyPets já está ordenado)
+      // Atualização simples sem re-ordenação por ID (allMyPets já está ordenado)
       const updatedAllPets = allMyPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
       setAllMyPets(updatedAllPets); // Mantém ordem existente
 
       if (hasActiveSearch) {
-        // 🆕 ATUALIZADA: Atualização simples para searchResults também
+        // Atualização simples para searchResults também
         const updatedSearchResults = searchResults.map((p: Pet) =>
           p.id === petId ? { ...p, favorito: !p.favorito } : p
         );
@@ -1412,7 +1406,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
                 foto: selectedPet.foto,
                 isInitialState: modalState === 'whatsapp-initial',
                 hasExistingTermo: hasExistingTermo,
-                // ✅ NOVO: Indicar se é o dono do pet
+                // Indicar se é o dono do pet
                 isOwner: selectedPet.usuario_id === usuarioId,
               } as any
             }
@@ -1435,7 +1429,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
             onEmailSent={handleEmailSent}
             isNameUpdateMode={isNameUpdateMode}
             nameNeedsUpdate={nameNeedsUpdate}
-            // ✅ NOVO: Indicar se é o dono do pet
+            //  Indicar se é o dono do pet
             isOwner={selectedPet.usuario_id === usuarioId}
           />
         )}

@@ -98,7 +98,7 @@ const stripNonNumeric = (text: string): string => {
   return text.replace(/\D/g, '');
 };
 
-// FUNÇÃO ATUALIZADA: Validação granular de email usando validator
+// Validação granular de email usando validator
 const validarEmail = (email: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -159,7 +159,7 @@ const validarEmail = (email: string): { isValid: boolean; errors: string[] } => 
   };
 };
 
-// FUNÇÃO EXISTENTE: Validação granular de senha
+// Validação granular de senha
 const validarSenha = (senha: string): { isValid: boolean; errors: string[] } => {
   const errors: string[] = [];
 
@@ -231,7 +231,7 @@ export default function CadastroUsuario() {
   const [cidadeErro, setCidadeErro] = useState('');
   const [sexoErro, setSexoErro] = useState('');
 
-  // ✅ ESTADO PARA CONTROLAR BUSCA AUTOMÁTICA
+  // ESTADO PARA CONTROLAR BUSCA AUTOMÁTICA
   const [buscandoAutomaticamente, setBuscandoAutomaticamente] = useState<boolean>(false);
 
   // NOVOS ESTADOS: Para erros granulares de senha
@@ -262,9 +262,9 @@ export default function CadastroUsuario() {
   const cidadesCache = useRef<{ [key: string]: CidadeType[] }>({});
   const navigation = useNavigation<any>();
 
-  // ✅ FUNÇÃO CORRIGIDA: Verificar se deve limpar o CEP com lógica inteligente
+  //  Verificar se deve limpar o CEP com lógica inteligente
   const verificarELimparCep = (novoEstadoId: number | null, novaCidadeId: number | null) => {
-    // ✅ NOVA CONDIÇÃO: Se está buscando automaticamente, NÃO limpar
+    //  Se está buscando automaticamente, NÃO limpar
     if (buscandoAutomaticamente) {
       return;
     }
@@ -292,7 +292,7 @@ export default function CadastroUsuario() {
     }
   };
 
-  // 🆕 FUNÇÃO ATUALIZADA: Voltar ao login com verificação de loading
+  // Voltar ao login com verificação de loading
   const handleVoltarLogin = () => {
     if (loadingCadastro) {
       Alert.alert('Aguarde', 'O cadastro está sendo processado. Aguarde a conclusão.');
@@ -301,7 +301,7 @@ export default function CadastroUsuario() {
     router.push('/pages/LoginScreen');
   };
 
-  // 🆕 FUNÇÃO ATUALIZADA: Selecionar imagem com verificação de loading
+  // Selecionar imagem com verificação de loading
   const pickImage = async () => {
     if (loadingCadastro) {
       return; // Não permite seleção durante loading
@@ -373,9 +373,9 @@ export default function CadastroUsuario() {
     }
   };
 
-  // FUNÇÃO ATUALIZADA: Manipular seleção de estado com validação de CEP - CORRIGIDA
+  // Manipular seleção de estado com validação de CEP - CORRIGIDA
   const handleEstadoChange = async (selectedEstado: { id: number; nome: string }): Promise<CidadeType[]> => {
-    if (loadingCadastro) return []; // 🆕 Bloquear durante loading
+    if (loadingCadastro) return []; // Bloquear durante loading
 
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(selectedEstado.id, cidade.id || null);
@@ -401,9 +401,9 @@ export default function CadastroUsuario() {
     }
   };
 
-  // FUNÇÃO ATUALIZADA: Manipular seleção de cidade com validação de CEP
+  // Manipular seleção de cidade com validação de CEP
   const handleCidadeSelect = (selectedCidade: CidadeType) => {
-    if (loadingCadastro) return; // 🆕 Bloquear durante loading
+    if (loadingCadastro) return; // Bloquear durante loading
 
     // Verificar se deve limpar o CEP antes de alterar
     verificarELimparCep(estado?.id || null, selectedCidade.id);
@@ -415,7 +415,7 @@ export default function CadastroUsuario() {
   };
 
   const toggleCidades = async () => {
-    if (loadingCadastro) return; // 🆕 Bloquear durante loading
+    if (loadingCadastro) return; // Bloquear durante loading
     if (!estado) return;
 
     // Se ainda não temos cidades, carregamos elas
@@ -509,7 +509,7 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      // ✅ VALIDAÇÃO DE EMAIL APENAS NO CLIQUE
+      // VALIDAÇÃO DE EMAIL APENAS NO CLIQUE
       if (!email) {
         setEmailErros(['O e-mail é obrigatório']);
         hasError = true;
@@ -536,7 +536,7 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      // ✅ VALIDAÇÃO DE SENHA APENAS NO CLIQUE
+      // VALIDAÇÃO DE SENHA APENAS NO CLIQUE
       if (!senha) {
         setSenhaErros(['A senha é obrigatória']);
         hasError = true;
@@ -600,7 +600,7 @@ export default function CadastroUsuario() {
         // Continuar mesmo se a verificação de duplicados falhar
       }
 
-      // ✅ PREPARAR DADOS PARA CADASTRO
+      // PREPARAR DADOS PARA CADASTRO
 
       // Preparar a foto para upload
       let fotoFile = null;
@@ -630,7 +630,7 @@ export default function CadastroUsuario() {
         foto: fotoFile,
       };
 
-      // ✅ CHAMAR API DE CRIAÇÃO
+      // CHAMAR API DE CRIAÇÃO
 
       const response = await createUsuario(usuarioData);
 
@@ -704,7 +704,7 @@ export default function CadastroUsuario() {
     }
   };
 
-  // 🆕 FUNÇÕES ATUALIZADAS: Handlers com verificação de loading
+  // FUNÇÕES ATUALIZADAS: Handlers com verificação de loading
   const handleCpfChange = (text: string) => {
     if (loadingCadastro) return; // Bloquear durante loading
 
@@ -733,25 +733,25 @@ export default function CadastroUsuario() {
     if (text) setTelefoneErro('');
   };
 
-  // FUNÇÃO ATUALIZADA: Handler para email com validação usando validator
+  // Handler para email com validação usando validator
   const handleEmailChange = (text: string) => {
     if (loadingCadastro) return; // Bloquear durante loading
 
     setEmail(text);
 
-    // ✅ APENAS limpar erros quando usuário digita, SEM validar
+    // APENAS limpar erros quando usuário digita, SEM validar
     if (text && emailErros.length > 0) {
       setEmailErros([]);
     }
   };
 
-  // FUNÇÃO: Handler para senha com validação granular
+  // Handler para senha com validação granular
   const handleSenhaChange = (text: string) => {
     if (loadingCadastro) return; // Bloquear durante loading
 
     setSenha(text);
 
-    // ✅ APENAS limpar erros quando usuário digita, SEM validar
+    // APENAS limpar erros quando usuário digita, SEM validar
     if (text && senhaErros.length > 0) {
       setSenhaErros([]);
     }
@@ -888,13 +888,13 @@ export default function CadastroUsuario() {
     }
   }
 
-  // ✅ FUNÇÃO CORRIGIDA: Buscar endereço pelo CEP e armazenar dados
+  //Buscar endereço pelo CEP e armazenar dados
   async function handleBuscarCep(numericCep?: string) {
     if (loadingCadastro) return; // Bloquear durante loading
 
     try {
       setLoadingCep(true);
-      setBuscandoAutomaticamente(true); // ✅ MARCAR COMO BUSCA AUTOMÁTICA
+      setBuscandoAutomaticamente(true); // MARCAR COMO BUSCA AUTOMÁTICA
       setCepErro(''); // Limpar erro anterior
 
       const endereco = await lookupCepAddress(numericCep ?? cep);
@@ -923,7 +923,7 @@ export default function CadastroUsuario() {
         const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
 
         if (estadoEncontrado) {
-          // ✅ BUSCA AUTOMÁTICA: handleEstadoChange não vai limpar o CEP
+          // BUSCA AUTOMÁTICA: handleEstadoChange não vai limpar o CEP
           cidadesDoEstado = await handleEstadoChange(estadoEncontrado);
           setEstadoSearch(estadoEncontrado);
         } else {
@@ -938,10 +938,10 @@ export default function CadastroUsuario() {
         );
 
         if (cidadeEncontrada) {
-          // ✅ BUSCA AUTOMÁTICA: handleCidadeSelect não vai limpar o CEP
+          // BUSCA AUTOMÁTICA: handleCidadeSelect não vai limpar o CEP
           handleCidadeSelect(cidadeEncontrada);
 
-          // ✅ SALVAR dados do CEP APÓS selecionar estado/cidade
+          // SALVAR dados do CEP APÓS selecionar estado/cidade
           const estadoEncontrado = estadosDisponiveis.find((e) => e.nome === endereco.estado);
           if (estadoEncontrado) {
             const novosDadosCep = {
@@ -967,7 +967,7 @@ export default function CadastroUsuario() {
       setCepErro('CEP inválido ou não encontrado.');
     } finally {
       setLoadingCep(false);
-      setBuscandoAutomaticamente(false); // ✅ FINALIZAR BUSCA AUTOMÁTICA
+      setBuscandoAutomaticamente(false); // FINALIZAR BUSCA AUTOMÁTICA
     }
   }
 
@@ -984,7 +984,7 @@ export default function CadastroUsuario() {
     fetchData();
   }, []);
 
-  // 🆕 FUNÇÕES ATUALIZADAS: Toggle password visibility com verificação de loading
+  // FUNÇÕES ATUALIZADAS: Toggle password visibility com verificação de loading
   const toggleSenhaVisibility = () => {
     if (loadingCadastro) return; // Bloquear durante loading
     setShowSenha(!showSenha);
@@ -1000,7 +1000,7 @@ export default function CadastroUsuario() {
       <SafeAreaView style={styles.container}>
         <ScrollView contentContainerStyle={{ paddingBottom: 40 }}>
           <View style={styles.mainContent}>
-            {/* 🆕 BOTÃO VOLTAR ATUALIZADO: Com verificação de loading */}
+            {/* BOTÃO VOLTAR ATUALIZADO: Com verificação de loading */}
             <View style={styles.backButtonContainer}>
               <TouchableOpacity
                 style={[styles.backButton, loadingCadastro && styles.disabledButton]}
@@ -1014,7 +1014,7 @@ export default function CadastroUsuario() {
 
             <View style={styles.titleContainer}>
               <Text style={styles.pageTitle}>Dados Pessoais</Text>
-              {/* 🆕 INDICADOR DE LOADING */}
+              {/* INDICADOR DE LOADING */}
               {loadingCadastro && (
                 <View style={styles.loadingIndicator}>
                   <ActivityIndicator size="small" color="#4CAF50" />
@@ -1025,7 +1025,7 @@ export default function CadastroUsuario() {
           </View>
 
           <View style={styles.formContainer}>
-            {/* 🆕 FOTO ATUALIZADA: Com verificação de loading */}
+            {/* FOTO ATUALIZADA: Com verificação de loading */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Foto <Text style={styles.required}>*</Text>
@@ -1053,7 +1053,7 @@ export default function CadastroUsuario() {
               {fotoErro ? <Text style={styles.errorText}>{fotoErro}</Text> : null}
             </View>
 
-            {/* 🆕 NOME ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* NOME ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Nome <Text style={styles.required}>*</Text>
@@ -1070,7 +1070,7 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                 onChangeText={(text) => {
                   if (loadingCadastro) return;
                   setNome(text);
@@ -1080,7 +1080,7 @@ export default function CadastroUsuario() {
               {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
             </View>
 
-            {/* 🆕 SEXO ATUALIZADO: Com disabled={loadingCadastro} */}
+            {/* SEXO ATUALIZADO: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Sexo <Text style={styles.required}>*</Text>
@@ -1095,7 +1095,7 @@ export default function CadastroUsuario() {
                       setSexo(item);
                       setSexoErro('');
                     }}
-                    disabled={loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                    disabled={loadingCadastro} // PRINCIPAL MUDANÇA
                   >
                     <View style={[styles.checkboxCustom, loadingCadastro && styles.disabledCheckbox]}>
                       {sexo === item && <View style={styles.checkboxInner} />}
@@ -1107,7 +1107,7 @@ export default function CadastroUsuario() {
               {sexoErro ? <Text style={styles.errorText}>{sexoErro}</Text> : null}
             </View>
 
-            {/* 🆕 EMAIL ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* EMAIL ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 E-mail <Text style={styles.required}>*</Text>
@@ -1125,7 +1125,7 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                 onChangeText={handleEmailChange}
               />
               {emailErros.length > 0 &&
@@ -1136,7 +1136,7 @@ export default function CadastroUsuario() {
                 ))}
             </View>
 
-            {/* 🆕 TELEFONE ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* TELEFONE ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Telefone <Text style={styles.required}>*</Text>
@@ -1154,14 +1154,14 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                 onChangeText={handleTelefoneChange}
                 maxLength={15}
               />
               {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
             </View>
 
-            {/* 🆕 CPF ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* CPF ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 CPF <Text style={styles.required}>*</Text>
@@ -1179,14 +1179,14 @@ export default function CadastroUsuario() {
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
-                editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                 onChangeText={handleCpfChange}
                 maxLength={14}
               />
               {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
             </View>
 
-            {/* 🆕 CEP ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* CEP ATUALIZADO: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>CEP</Text>
               <View
@@ -1205,7 +1205,7 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
-                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                  editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                   onChangeText={handleCepChange}
                   maxLength={9}
                 />
@@ -1220,7 +1220,7 @@ export default function CadastroUsuario() {
               {cepErro ? <Text style={styles.errorText}>{cepErro}</Text> : null}
             </View>
 
-            {/* 🆕 ESTADO ATUALIZADO: Com disabled={loadingCadastro} */}
+            {/* ESTADO ATUALIZADO: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Estado <Text style={styles.required}>*</Text>
@@ -1238,13 +1238,13 @@ export default function CadastroUsuario() {
                 setShowEstados={setShowEstados}
                 estadoSearch={estadoSearch}
                 setEstadoSearch={setEstadoSearch}
-                disabled={loadingCadastro} // 🆕 NOVA PROP
+                disabled={loadingCadastro} // NOVA PROP
               />
 
               {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
             </View>
 
-            {/* 🆕 CIDADE ATUALIZADA: Com disabled={loadingCadastro} */}
+            {/* CIDADE ATUALIZADA: Com disabled={loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Cidade <Text style={styles.required}>*</Text>
@@ -1263,13 +1263,13 @@ export default function CadastroUsuario() {
                     setCidadeErro('');
                   }}
                   toggleCidades={toggleCidades}
-                  disabled={!estado || loadingCadastro} // 🆕 MUDANÇA
+                  disabled={!estado || loadingCadastro} // MUDANÇA
                 />
               </View>
               {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
             </View>
 
-            {/* 🆕 SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
+            {/* SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Senha <Text style={styles.required}>*</Text>
@@ -1290,13 +1290,13 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
-                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                  editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                   onChangeText={handleSenhaChange}
                 />
                 <TouchableOpacity
                   onPress={toggleSenhaVisibility}
                   style={styles.inputIcon}
-                  disabled={loadingCadastro} // 🆕 MUDANÇA
+                  disabled={loadingCadastro} // MUDANÇA
                 >
                   {showSenha ? (
                     <Feather name="eye-off" size={20} color={loadingCadastro ? '#999' : '#333'} />
@@ -1313,7 +1313,7 @@ export default function CadastroUsuario() {
                 ))}
             </View>
 
-            {/* 🆕 CONFIRMAR SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
+            {/* CONFIRMAR SENHA ATUALIZADA: Com editable={!loadingCadastro} */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
                 Confirmar Senha <Text style={styles.required}>*</Text>
@@ -1334,7 +1334,7 @@ export default function CadastroUsuario() {
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
-                  editable={!loadingCadastro} // 🆕 PRINCIPAL MUDANÇA
+                  editable={!loadingCadastro} // PRINCIPAL MUDANÇA
                   onChangeText={(text) => {
                     if (loadingCadastro) return;
                     setConfirmarSenha(text);
@@ -1344,7 +1344,7 @@ export default function CadastroUsuario() {
                 <TouchableOpacity
                   onPress={toggleConfirmarSenhaVisibility}
                   style={styles.inputIcon}
-                  disabled={loadingCadastro} // 🆕 MUDANÇA
+                  disabled={loadingCadastro} // MUDANÇA
                 >
                   {showConfirmarSenha ? (
                     <Feather name="eye-off" size={20} color={loadingCadastro ? '#999' : '#333'} />
@@ -1604,7 +1604,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#eee',
     borderColor: '#aaa',
   },
-  // 🆕 NOVOS ESTILOS: Para elementos desabilitados durante loading
+  // NOVOS ESTILOS: Para elementos desabilitados durante loading
   disabledButton: {
     opacity: 0.6,
     backgroundColor: 'rgba(255, 255, 255, 0.5)',

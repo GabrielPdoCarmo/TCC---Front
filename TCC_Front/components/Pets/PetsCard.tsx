@@ -22,7 +22,7 @@ interface PetCardProps {
   onAdopt?: () => void;
   OnDetalhes?: () => void;
   onFavorite?: (id: number) => void;
-  usuarioLogadoId?: number | null; // ✅ ADICIONADO: ID do usuário logado
+  usuarioLogadoId?: number | null; // ID do usuário logado
 }
 
 const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: PetCardProps) => {
@@ -40,7 +40,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
   // Verifica se o pet está disponível para adoção (status_id === 2)
   const isAvailableForAdoption = pet.status_id === 2;
 
-  // ✅ ADICIONADO: Verificar se o usuário logado é o dono do pet
+  // Verificar se o usuário logado é o dono do pet
   const isOwnPet = usuarioLogadoId !== null && pet.usuario_id === usuarioLogadoId;
 
   // Função para alternar o estado do favorito
@@ -54,7 +54,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
+  //  FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
   const handleAdoptPress = () => {
     if (!usuarioLogadoId) {
       Alert.alert('Erro', 'Você precisa estar logado para adicionar pets aos seus favoritos.');
@@ -154,7 +154,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
-            {/* ✅ BOTÃO ATUALIZADO com validação */}
+            {/*  BOTÃO ATUALIZADO com validação */}
             <TouchableOpacity 
               style={[
                 styles.editButton, 
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
-  // ✅ ESTILOS ATUALIZADOS para dispositivos desabilitados
+  //  ESTILOS ATUALIZADOS para dispositivos desabilitados
   disabledButton: {
     backgroundColor: '#E0E0E0',
     opacity: 0.6,

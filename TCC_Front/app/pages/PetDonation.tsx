@@ -1,5 +1,3 @@
-// PetDonationScreen.tsx - Com botão para visualizar termo
-
 import { router, useFocusEffect } from 'expo-router';
 import React, { useState, useEffect, useCallback, useRef } from 'react';
 import {
@@ -16,7 +14,6 @@ import {
 } from 'react-native';
 import PetDonationModal from '@/components/Pets/PetDonationModal';
 import TermoDoacaoModal from '@/components/Termo/TermoDoacaoModal';
-
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import PetCard from '@/components/Pets/PetCard';
 import deletePet from '@/services/api/Pets/deletePet';
@@ -27,7 +24,7 @@ import getRacaById from '@/services/api/Raca/getRacaById';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
 import getstatusById from '@/services/api/Status/getstatusById';
 import updateStatus from '@/services/api/Status/updateStatus';
-import { checkCanCreatePets, checkNeedsDataUpdate } from '@/services/api/TermoDoacao/checkCanCreatePets';
+import { checkCanCreatePets } from '@/services/api/TermoDoacao/checkCanCreatePets';
 import { useAuth } from '@/contexts/AuthContext';
 
 // Define a interface Pet com informações aprimoradas
@@ -63,7 +60,7 @@ interface Usuario {
   };
 }
 
-// 🆕 ATUALIZADA: Função para ordenar pets por ID (mais recente primeiro)
+// Função para ordenar pets por ID (mais recente primeiro)
 const sortPetsByCreation = (pets: Pet[]): Pet[] => {
   return [...pets].sort((a, b) => b.id - a.id);
 };
@@ -73,20 +70,20 @@ export default function PetDonationScreen() {
   const [petModalVisible, setPetModalVisible] = useState(false);
   // Estado para controlar a visibilidade do modal de termo
   const [termoModalVisible, setTermoModalVisible] = useState(false);
-  // 🆕 Estado para controlar se o modal de termo foi aberto voluntariamente
+  // Estado para controlar se o modal de termo foi aberto voluntariamente
   const [isVoluntaryTermoView, setIsVoluntaryTermoView] = useState(false);
   // Estado para armazenar a lista de pets
   const [pets, setPets] = useState<Pet[]>([]);
-  // 🆕 MELHORADO: Loading com estados mais específicos
+  // Loading com estados mais específicos
   const [loading, setLoading] = useState(false);
   const [initialLoading, setInitialLoading] = useState(true);
   // Estado para carregamento do termo
   const [termoLoading, setTermoLoading] = useState(true);
   // Estado para loading do botão add
   const [addButtonLoading, setAddButtonLoading] = useState(false);
-  // 🆕 Estado para controlar se o botão add está habilitado
+  // Estado para controlar se o botão add está habilitado
   const [addButtonEnabled, setAddButtonEnabled] = useState(false);
-  // 🆕 Estado para controlar se o botão de visualizar termo está habilitado
+  // Estado para controlar se o botão de visualizar termo está habilitado
   const [viewTermoButtonEnabled, setViewTermoButtonEnabled] = useState(false);
   // Estado para armazenar o usuário atual
   const [currentUser, setCurrentUser] = useState<Usuario | null>(null);
@@ -164,10 +161,10 @@ export default function PetDonationScreen() {
           setDataOutdated(dadosDesatualizados);
           setInitialCheckDone(true);
 
-          // 🆕 Habilitar botão de visualizar termo se usuário já tem termo
+          // Habilitar botão de visualizar termo se usuário já tem termo
           setViewTermoButtonEnabled(temTermo);
 
-          // 🆕 CORREÇÃO PRINCIPAL: Lógica melhorada para decidir quando mostrar modal
+          // Lógica melhorada para decidir quando mostrar modal
           if (dadosDesatualizados && temTermo) {
             // Caso 1: Usuário tem termo mas dados estão desatualizados
             setIsDataUpdateMode(true);
@@ -246,13 +243,13 @@ export default function PetDonationScreen() {
     }
   };
 
-  // 🆕 MELHORADA: Função para buscar pets com loading mais específico
+  //  Função para buscar pets com loading mais específico
   const fetchUserPets = async (showLoading = true) => {
     // Só buscar pets se o usuário tem permissão
     if (!canCreatePets) {
       setInitialLoading(false);
       setLoading(false);
-      setAddButtonEnabled(false); // 🆕 Desabilitar botão se não pode criar pets
+      setAddButtonEnabled(false); // Desabilitar botão se não pode criar pets
       return;
     }
 
@@ -269,7 +266,7 @@ export default function PetDonationScreen() {
         setError('Usuário não encontrado. Por favor, faça login novamente.');
         setInitialLoading(false);
         setLoading(false);
-        setAddButtonEnabled(false); // 🆕 Desabilitar botão em caso de erro
+        setAddButtonEnabled(false); // Desabilitar botão em caso de erro
         return;
       }
 
@@ -322,11 +319,11 @@ export default function PetDonationScreen() {
       const sortedPets = sortPetsByCreation(enrichedPets);
       setPets(sortedPets);
 
-      // 🆕 Habilitar botão após carregar os pets com sucesso (mesmo se lista vazia)
+      // Habilitar botão após carregar os pets com sucesso (mesmo se lista vazia)
       setAddButtonEnabled(true);
     } catch (error) {
       setError('Ocorreu um erro ao carregar seus pets. Por favor, tente novamente.');
-      setAddButtonEnabled(false); // 🆕 Desabilitar botão em caso de erro
+      setAddButtonEnabled(false); //  Desabilitar botão em caso de erro
     } finally {
       setInitialLoading(false);
       setLoading(false);
@@ -344,7 +341,7 @@ export default function PetDonationScreen() {
 
       try {
         await loadUserData();
-        // 🆕 SEMPRE fazer a verificação na primeira vez, mas de forma inteligente
+        //  SEMPRE fazer a verificação na primeira vez, mas de forma inteligente
         await checkUserPermissions(true);
       } catch (error) {
         setCanCreatePets(false);
@@ -369,14 +366,14 @@ export default function PetDonationScreen() {
     } else if (initialCheckDone && (!canCreatePets || dataOutdated)) {
       setInitialLoading(false);
       setLoading(false);
-      setAddButtonEnabled(false); // 🆕 Desabilitar botão se não pode criar pets
+      setAddButtonEnabled(false); // Desabilitar botão se não pode criar pets
     }
   }, [canCreatePets, initialCheckDone, dataOutdated]);
 
   // Focus effect CONTROLADO (SEM LOOPS)
   useFocusEffect(
     useCallback(() => {
-      // 🆕 Só verificar novamente se:
+      // Só verificar novamente se:
       // 1. Já passou pela inicialização
       // 2. Não está carregando
       // 3. Modal não está visível (evita conflitos)
@@ -392,7 +389,7 @@ export default function PetDonationScreen() {
     }, [initialCheckDone, termoLoading, isCheckingPermissions, initialLoading, termoModalVisible, checkUserPermissions])
   );
 
-  // 🆕 Função para abrir o termo voluntariamente
+  // Função para abrir o termo voluntariamente
   const handleViewTermo = () => {
     if (!viewTermoButtonEnabled) {
       Alert.alert('Termo não disponível', 'Você ainda não possui um termo de responsabilidade.', [{ text: 'OK' }]);
@@ -414,17 +411,17 @@ export default function PetDonationScreen() {
     setIsDataUpdateMode(false);
     setIsVoluntaryTermoView(false);
 
-    // 🆕 Habilitar botão de visualizar termo após completar
+    //  Habilitar botão de visualizar termo após completar
     setViewTermoButtonEnabled(true);
 
     // Reset contador para permitir nova verificação se necessário
     checkCountRef.current = 0;
 
-    // 🆕 EVITAR verificação imediata após completar termo
+    // EVITAR verificação imediata após completar termo
     // O usuário já assinou/atualizou, não precisa verificar novamente
   }, [isDataUpdateMode]);
 
-  // 🆕 Callback quando termo é fechado voluntariamente
+  // Callback quando termo é fechado voluntariamente
   const handleTermoVoluntaryClosed = useCallback(() => {
     setTermoModalVisible(false);
     setIsVoluntaryTermoView(false);
@@ -433,7 +430,7 @@ export default function PetDonationScreen() {
 
   // Função para abrir o modal no modo de adição COM loading
   const handleOpenModal = async () => {
-    // 🆕 Verificar se o botão está habilitado
+    //  Verificar se o botão está habilitado
     if (!addButtonEnabled) {
       return;
     }
@@ -638,24 +635,18 @@ export default function PetDonationScreen() {
             <View style={{ width: 60 }} />
             <Text style={styles.headerTitle}>Doação</Text>
             <View style={styles.headerIcons}>
-              {/* 🆕 Botão para visualizar termo */}
+              {/*  Botão para visualizar termo */}
               <TouchableOpacity
-                style={[
-                  styles.headerButton,
-                  !viewTermoButtonEnabled && styles.headerButtonDisabled
-                ]}
+                style={[styles.headerButton, !viewTermoButtonEnabled && styles.headerButtonDisabled]}
                 onPress={handleViewTermo}
                 disabled={!viewTermoButtonEnabled}
               >
-                <Image 
-                  source={require('../../assets/images/Icone/document-icon.png')} 
-                  style={[
-                    styles.headerIcon,
-                    !viewTermoButtonEnabled && styles.headerIconDisabled
-                  ]} 
+                <Image
+                  source={require('../../assets/images/Icone/document-icon.png')}
+                  style={[styles.headerIcon, !viewTermoButtonEnabled && styles.headerIconDisabled]}
                 />
               </TouchableOpacity>
-              
+
               {/* Botão de configurações */}
               <TouchableOpacity style={styles.headerButton} onPress={() => router.push('/pages/ConfigScreen')}>
                 <Image source={require('../../assets/images/Icone/settings-icon.png')} style={styles.headerIcon} />
@@ -801,7 +792,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: 10,
   },
-  // 🆕 Estilos para os botões do header
+
   headerButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
@@ -821,7 +812,7 @@ const styles = StyleSheet.create({
   headerIconDisabled: {
     opacity: 0.5,
   },
-  // Manter estilos antigos para compatibilidade
+
   settingsButton: {
     backgroundColor: 'rgba(255, 255, 255, 0.9)',
     borderRadius: 25,
@@ -857,24 +848,24 @@ const styles = StyleSheet.create({
     borderWidth: 2,
     borderColor: '#000000',
   },
-  // Estilo para botão com loading
+
   addButtonLoading: {
-    backgroundColor: '#6BA3D6', // Tom mais claro quando carregando
+    backgroundColor: '#6BA3D6',
   },
-  // 🆕 Estilo para botão desabilitado
+
   addButtonDisabled: {
-    backgroundColor: '#CCCCCC', // Cinza quando desabilitado
+    backgroundColor: '#CCCCCC',
     borderColor: '#999999',
-    elevation: 2, // Menos elevação quando desabilitado
+    elevation: 2,
   },
   addIcon: {
     width: 24,
     height: 24,
     tintColor: '#FFFFFF',
   },
-  // 🆕 Estilo para ícone desabilitado
+
   addIconDisabled: {
-    tintColor: '#999999', // Ícone mais escuro quando desabilitado
+    tintColor: '#999999',
   },
   bottomNavigation: {
     flexDirection: 'row',

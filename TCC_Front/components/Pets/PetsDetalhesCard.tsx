@@ -1,4 +1,3 @@
-// petsdetalhes.tsx
 import React, { useState, useEffect } from 'react';
 import { View, Text, Image, TouchableOpacity, StyleSheet, Dimensions, Modal } from 'react-native';
 
@@ -8,7 +7,7 @@ interface Pet {
   nome: string;
   raca_nome?: string;
   idade: string;
-  usuario_id: number; // ✅ ADICIONADO: Garantir que usuario_id está presente
+  usuario_id: number; // ADICIONADO: Garantir que usuario_id está presente
   usuario_nome?: string;
   usuario_foto?: string | null;
   cidade_id?: number;
@@ -32,7 +31,7 @@ interface PetCardProps {
   onAdoptPress: (petId: number) => void;
   onBackPress: () => void;
   loading?: boolean;
-  usuarioLogadoId?: number | null; // ✅ ADICIONADO: ID do usuário logado
+  usuarioLogadoId?: number | null; 
 }
 
 // Obter dimensões da tela
@@ -44,7 +43,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   onAdoptPress,
   onBackPress,
   loading = false,
-  usuarioLogadoId, // ✅ ADICIONADO: Receber ID do usuário logado
+  usuarioLogadoId, // ADICIONADO: Receber ID do usuário logado
 }) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
@@ -52,7 +51,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
   // Estado para controlar a exibição da foto ampliada
   const [showExpandedPhoto, setShowExpandedPhoto] = useState(false);
 
-  // ✅ ADICIONADO: Verificar se o usuário logado é o dono do pet
+  // ADICIONADO: Verificar se o usuário logado é o dono do pet
   const isOwnPet = usuarioLogadoId !== null && pet.usuario_id === usuarioLogadoId;
 
   // Atualizar o estado local quando o prop pet.favorito mudar
@@ -78,7 +77,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
+  // FUNÇÃO ATUALIZADA para lidar com o botão "Adicionar aos meus Pets"
   const handleAdoptPress = () => {
     if (onAdoptPress) {
       onAdoptPress(pet.id);
@@ -243,7 +242,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.buttonText}>Voltar</Text>
           </TouchableOpacity>
 
-          {/* ✅ BOTÃO ATUALIZADO com validação */}
+          {/* BOTÃO ATUALIZADO com validação */}
           <TouchableOpacity
             style={[
               styles.adoptButton,
@@ -415,7 +414,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     textAlign: 'center',
   },
-  // ✅ ADICIONADO: Estilos para botão desabilitado
+  // ADICIONADO: Estilos para botão desabilitado
   disabledButton: {
     backgroundColor: '#E0E0E0',
     opacity: 0.6,

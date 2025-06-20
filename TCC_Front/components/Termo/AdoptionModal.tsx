@@ -1,4 +1,3 @@
-// AdoptionModal.tsx - Atualizado para sequência iOS
 import React from 'react';
 import { Modal, View, Text, TouchableOpacity, Image, StyleSheet } from 'react-native';
 
@@ -11,7 +10,7 @@ interface AdoptionModalProps {
     nome: string;
     usuario_nome?: string;
     foto?: string;
-    // 🆕 Props para controlar o comportamento do modal
+    
     isInitialState?: boolean;
     hasExistingTermo?: boolean;
   } | null;
