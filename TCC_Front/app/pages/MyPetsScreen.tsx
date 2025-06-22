@@ -240,7 +240,7 @@ export default function MyPetsScreen() {
       setUsuario(userData);
 
       await AsyncStorage.setItem('@App:userData', JSON.stringify(userData));
-    } catch (err) {}
+    } catch (err) { }
   };
 
   // Função para carregar pets com detalhes completos incluindo foto do usuário
@@ -725,10 +725,9 @@ Entre em contato comigo para mais informações sobre a adoção! ❤️`;
 
           Alert.alert(
             'Contato não disponível',
-            `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${
-              doadorOriginal.email
-                ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
-                : 'Tente entrar em contato através do app posteriormente.'
+            `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${doadorOriginal.email
+              ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
+              : 'Tente entrar em contato através do app posteriormente.'
             }`,
             [{ text: 'OK' }]
           );
@@ -926,25 +925,17 @@ Agradeço desde já! 🐾❤️`;
       if (isAdotanteAtual) {
         acaoType = 'devolver';
         alertTitle = 'Confirmar Devolução';
-        alertMessage = `Deseja realmente devolver ${pet.nome} ao doador original?\n\nDoador original: ${
-          donoAnterior.nome
-        }\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}\nContato: ${
-          donoAnterior.telefone
-        }\n\n🔄 DEVOLUÇÃO: O pet voltará para o doador original e ficará disponível para adoção novamente.${
-          temTermo ? '\n\nATENÇÃO: O termo de compromisso será removido junto com a devolução.' : ''
-        }`;
+        alertMessage = `Deseja realmente devolver ${pet.nome} ao doador original?\n\n🔄 DEVOLUÇÃO: O pet voltará para o doador original e ficará disponível para adoção novamente.${temTermo ? '\n\nATENÇÃO: O termo de compromisso será removido junto com a devolução.' : ''
+          }`;
       } else {
         acaoType = 'remover';
         alertTitle = 'Confirmar Remoção';
-        alertMessage = `Deseja realmente remover ${pet.nome} dos seus pets?\n\n📍 Informações: ${
-          donoAnterior.nome
-        }\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${
-          donoAnterior.telefone
-        }\n\nREMOÇÃO: O pet será removido da sua lista de interesses.${
-          temTermo
+        alertMessage = `Deseja realmente remover ${pet.nome} dos seus pets?\n\n📍 Informações: ${donoAnterior.nome
+          }\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}\n📞 Contato: ${donoAnterior.telefone
+          }\n\nREMOÇÃO: O pet será removido da sua lista de interesses.${temTermo
             ? '\n\nATENÇÃO: Este pet possui um termo de compromisso que também será deletado permanentemente.'
             : ''
-        }`;
+          }`;
       }
 
       Alert.alert(alertTitle, alertMessage, [
@@ -980,8 +971,7 @@ Agradeço desde já! 🐾❤️`;
                   const continuarSemTermo = await new Promise<boolean>((resolve) => {
                     Alert.alert(
                       'Erro ao Deletar Termo',
-                      `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e ${
-                        acaoType === 'devolver' ? 'devolver' : 'remover'
+                      `Houve um erro ao deletar o termo de compromisso: ${termoError.message}\n\nDeseja continuar e ${acaoType === 'devolver' ? 'devolver' : 'remover'
                       } apenas o pet?`,
                       [
                         { text: 'Cancelar', onPress: () => resolve(false) },
@@ -1053,28 +1043,11 @@ Agradeço desde já! 🐾❤️`;
                   const mensagemSucesso = `🔄 ${pet.nome} foi devolvido com sucesso!
 
 📋 Detalhes da operação:
-👤 Doador original: ${donoAnterior.nome}
 🏠 Pet retornou ao doador original
-📍 Localização: ${donoAnterior.cidade}, ${donoAnterior.estado}
-📞 Contato: ${donoAnterior.telefone}
 📅 Data: ${new Date().toLocaleDateString()}
 
 ${termoRemovidoComSucesso ? 'Termo de compromisso foi removido.' : ''}
 ✅ O pet agora está disponível para adoção novamente!`;
-
-                  Alert.alert('Operação Concluída', mensagemSucesso, [
-                    {
-                      text: 'Ver Contato do Doador',
-                      onPress: () => {
-                        Alert.alert(
-                          'Contato do Doador Original',
-                          `Nome: ${donoAnterior.nome}\nTelefone: ${donoAnterior.telefone}\nLocalização: ${donoAnterior.cidade}, ${donoAnterior.estado}`,
-                          [{ text: 'OK' }]
-                        );
-                      },
-                    },
-                    { text: 'OK', style: 'default' },
-                  ]);
                 } else {
                   const mensagemSucesso = `🗑️ ${pet.nome} foi removido com sucesso!
 
@@ -1125,8 +1098,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
 
               Alert.alert(
                 `Erro na ${operacaoNome}`,
-                `Não foi possível ${acaoType === 'devolver' ? 'devolver' : 'remover'} ${
-                  pet.nome
+                `Não foi possível ${acaoType === 'devolver' ? 'devolver' : 'remover'} ${pet.nome
                 } no servidor.\n\n${errorMessage}\n\nO pet permanece na sua lista.\n\nTente novamente ou entre em contato com o suporte.`,
                 [{ text: 'OK' }]
               );
@@ -1139,8 +1111,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
     } catch (error: any) {
       Alert.alert(
         'Erro na Verificação',
-        `Não foi possível verificar informações do pet.\n\n📍 Responsável: ${
-          pet.usuario_nome || 'Não identificado'
+        `Não foi possível verificar informações do pet.\n\n📍 Responsável: ${pet.usuario_nome || 'Não identificado'
         }\n\nTente novamente mais tarde.`,
         [{ text: 'OK' }]
       );
@@ -1361,12 +1332,11 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
             <View style={styles.emptyContainer}>
               <Text style={styles.emptyText}>
                 {hasActiveSearch && searchQuery.trim() !== ''
-                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${
-                      activeFilters ? ' e filtros aplicados' : ''
-                    }`
+                  ? `Nenhum pet encontrado com o nome "${searchQuery.trim()}"${activeFilters ? ' e filtros aplicados' : ''
+                  }`
                   : activeFilters
-                  ? 'Nenhum pet encontrado com os filtros selecionados'
-                  : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
+                    ? 'Nenhum pet encontrado com os filtros selecionados'
+                    : 'Você ainda não possui pets ainda nessa tela. Visite a seção de pets disponíveis para adicionar alguns aos seus pets!'}
               </Text>
               {activeFilters && (
                 <TouchableOpacity style={styles.clearFiltersButton} onPress={clearFilters}>

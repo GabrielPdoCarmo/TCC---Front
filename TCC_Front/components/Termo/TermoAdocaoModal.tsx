@@ -352,16 +352,12 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
       // 🆕 Mensagem atualizada informando sobre envio para ambos
       const mensagemSucesso = isNameUpdateMode
-        ? `✅ O termo foi atualizado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${
-            response.data.destinatarios?.adotante || termoData.adotante_email
-          }\n• Doador: ${
-            response.data.destinatarios?.doador || termoData.doador_email
-          }\n\n📱 Verifique a caixa de entrada e spam.`
-        : `✅ O termo foi criado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${
-            response.data.destinatarios?.adotante || termoData.adotante_email
-          }\n• Doador: ${
-            response.data.destinatarios?.doador || termoData.doador_email
-          }\n\n📱 Verifique a caixa de entrada e spam.`;
+        ? `✅ O termo foi atualizado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${response.data.destinatarios?.adotante || termoData.adotante_email
+        }\n• Doador: ${response.data.destinatarios?.doador || termoData.doador_email
+        }\n\n📱 Verifique a caixa de entrada e spam.`
+        : `✅ O termo foi criado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${response.data.destinatarios?.adotante || termoData.adotante_email
+        }\n• Doador: ${response.data.destinatarios?.doador || termoData.doador_email
+        }\n\n📱 Verifique a caixa de entrada e spam.`;
 
       setSendingEmail(false);
 
@@ -443,30 +439,30 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
       ? 'Atualização de Termo'
       : 'Termo de Responsabilidade'
     : isNameUpdateMode
-    ? 'Atualização de Termo'
-    : 'Termo de Compromisso';
+      ? 'Atualização de Termo'
+      : 'Termo de Compromisso';
 
   const formTitle = isOwner
     ? isNameUpdateMode
       ? 'Atualizar Termo de Responsabilidade'
       : 'Criar Termo de Responsabilidade'
     : isNameUpdateMode
-    ? 'Atualizar Termo de Adoção'
-    : 'Criar Termo de Adoção';
+      ? 'Atualizar Termo de Adoção'
+      : 'Criar Termo de Adoção';
 
   const buttonText = isOwner
     ? isNameUpdateMode
       ? 'Atualizar Termo'
       : 'Criar Termo'
     : isNameUpdateMode
-    ? 'Atualizar Termo'
-    : 'Criar Termo';
+      ? 'Atualizar Termo'
+      : 'Criar Termo';
 
   const loadingText = isNameUpdateMode
     ? 'Carregando dados para atualização...'
     : hasExistingTermo
-    ? 'Carregando termo existente...'
-    : 'Preparando criação do termo...';
+      ? 'Carregando termo existente...'
+      : 'Preparando criação do termo...';
 
   return (
     <>
@@ -613,7 +609,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                     {termoData.localizacaoAdotante ||
                       formatLocalizacao(termoData.adotante_cidade_nome, termoData.adotante_estado_nome)}
                   </Text>
-                  {termoData.adotante_cpf && <Text style={styles.dataText}>CPF: {termoData.adotante_cpf}</Text>}
+
                 </View>
 
                 <View style={styles.section}>

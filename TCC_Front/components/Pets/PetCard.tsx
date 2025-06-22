@@ -233,6 +233,12 @@ const styles = StyleSheet.create({
   value: {
     fontWeight: 'bold',
   },
+  usuarioNome: {
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: '100%',  // Limita largura
+    fontWeight: 'bold'
+  },
   favoriteButton: {
     position: 'absolute',
     top: -10,
