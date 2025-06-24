@@ -60,7 +60,7 @@ export const removePet = async (payload: RemovePetPayload): Promise<RemovePetRes
       throw new Error('ID do usuário atual é obrigatório.');
     }
 
-    console.log('🔄 Processando devolução de pet:', { pet_id: id, usuario_id,  });
+    
 
     const response = await api.put(`/pets/${id}/remove`, { usuario_id,}, {
       headers: {
@@ -69,11 +69,11 @@ export const removePet = async (payload: RemovePetPayload): Promise<RemovePetRes
       timeout: 30000,
     });
 
-    console.log('✅ Pet devolvido com sucesso:', response.data);
+    
     return response.data;
 
   } catch (error: any) {
-    console.error('❌ Erro na devolução de pet:', error);
+    
 
     if (error.response) {
       const status = error.response.status;
