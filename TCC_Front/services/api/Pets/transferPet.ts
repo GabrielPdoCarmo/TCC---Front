@@ -17,8 +17,8 @@ interface TransferResponse {
 
 interface PetTransferPayload {
   id: number;
-  usuario_id: number;   // ✅ ID do doador (confirmação)
-  adotante_id: number;  // ✅ ID do adotante
+  usuario_id: number; // ✅ ID do doador (confirmação)
+  adotante_id: number; // ✅ ID do adotante
 }
 
 export const transferPet = async (transferData: PetTransferPayload): Promise<TransferResponse> => {
@@ -44,15 +44,9 @@ export const transferPet = async (transferData: PetTransferPayload): Promise<Tra
 
     // ✅ PAYLOAD COMPLETO
     const jsonPayload = {
-      usuario_id: usuario_id,     // Confirmação do doador
-      adotante_id: adotante_id    // Novo adotante
+      usuario_id: usuario_id, // Confirmação do doador
+      adotante_id: adotante_id, // Novo adotante
     };
-
-    console.log('🔄 Processando transferência/adoção:', {
-      pet_id: id,
-      doador: usuario_id,
-      adotante: adotante_id
-    });
 
     const response = await api.put(`/pets/${id}/transfer`, jsonPayload, {
       headers: {
@@ -61,16 +55,14 @@ export const transferPet = async (transferData: PetTransferPayload): Promise<Tra
       timeout: 30000,
     });
 
-    console.log('✅ Transferência realizada:', response.data);
     return response.data;
-    
   } catch (error: any) {
     console.error('❌ Erro na transferência:', error);
 
     if (error.response) {
       const status = error.response.status;
       const message = error.response.data?.error || 'Erro desconhecido';
-      
+
       switch (status) {
         case 400:
           if (message.includes('não é o doador deste pet')) {
@@ -102,4 +94,4 @@ export const transferPet = async (transferData: PetTransferPayload): Promise<Tra
     }
   }
 };
-export default transferPet
+export default transferPet;
