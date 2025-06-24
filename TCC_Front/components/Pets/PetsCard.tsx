@@ -140,7 +140,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
                 </Text>
               </View>
             )}
-            <Text style={styles.value}>{pet.usuario_nome}</Text>
+            <Text style={styles.usuarioNome} numberOfLines={1}>{pet.usuario_nome}</Text>
           </TouchableOpacity>
 
           <Text style={[styles.label, isAvailableForAdoption ? styles.statusAdoption : null]}>
@@ -155,16 +155,16 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
             {/*  BOTÃO ATUALIZADO com validação */}
-            <TouchableOpacity 
+            <TouchableOpacity
               style={[
-                styles.editButton, 
+                styles.editButton,
                 isOwnPet && styles.disabledButton // Aplicar estilo desabilitado se for próprio pet
-              ]} 
+              ]}
               onPress={handleAdoptPress}
               disabled={isOwnPet} // Desabilitar se for próprio pet
             >
-              <Text 
-                numberOfLines={1} 
+              <Text
+                numberOfLines={1}
                 style={[
                   styles.buttonText,
                   isOwnPet && styles.disabledText // Aplicar estilo de texto desabilitado
@@ -338,6 +338,13 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
+  usuarioNome: {
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: '100%',
+    fontWeight: 'bold'
+  },
+
   //  ESTILOS ATUALIZADOS para dispositivos desabilitados
   disabledButton: {
     backgroundColor: '#E0E0E0',

@@ -165,7 +165,7 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
                 </Text>
               </View>
             )}
-            <Text style={styles.value}>{pet.usuario_nome}</Text>
+            <Text style={styles.usuarioNome} numberOfLines={1}>{pet.usuario_nome}</Text>
           </TouchableOpacity>
 
           {/* 🆕 STATUS COM COR CONDICIONAL */}
@@ -376,6 +376,12 @@ const styles = StyleSheet.create({
     paddingHorizontal: 12,
     width: 140,
     alignItems: 'center',
+  },
+  usuarioNome: {
+    flexShrink: 1,
+    flexWrap: 'wrap',
+    maxWidth: '100%',  // Limita largura
+    fontWeight: 'bold'
   },
   buttonText: {
     color: '#FFFFFF',
