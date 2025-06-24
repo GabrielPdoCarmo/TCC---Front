@@ -10,6 +10,7 @@ interface PetUpdatePayload {
   sexo_id?: number;
   rg_Pet?: string | null;
   motivoDoacao?: string;
+  descricaoGeral: string; // descrição geral do pet
   status_id?: number;
   doencas?: string[]; // nomes das doenças ou ids
   foto?: any; // Pode ser string (URL) ou objeto (arquivo)
@@ -60,7 +61,9 @@ export const updatePet = async (petData: PetUpdatePayload) => {
       if (petInfo.motivoDoacao) {
         formData.append('motivoDoacao', petInfo.motivoDoacao);
       }
-
+      if (petInfo.descricaoGeral !== undefined) {
+        formData.append('descricaoGeral', petInfo.descricaoGeral);
+      }
       if (petInfo.status_id) {
         formData.append('status_id', String(petInfo.status_id));
       }

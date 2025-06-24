@@ -52,6 +52,7 @@ interface PetPayload {
   usuario_id: number;
   sexo_id: number;
   motivoDoacao: string;
+  descricaoGeral: string; // descrição geral do pet
   status_id: number;
   doencas: string[];
   foto: any;
@@ -67,6 +68,7 @@ interface FormData {
   estado: string;
   cidade: string;
   rgPet: string | null;
+  descricaoGeral: string;
   sexo: string;
   possuiDoenca: string;
   doencaDescricao: string;
@@ -133,6 +135,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
   const [possuiDoencaErro, setPossuiDoencaErro] = useState<string>('');
   const [doencaDescricaoErro, setDoencaDescricaoErro] = useState<string>('');
   const [motivoDoacaoErro, setMotivoDoacaoErro] = useState<string>('');
+  const [descricaoGeralErro, setDescricaoGeralErro] = useState<string>('');
   const [fotoErro, setFotoErro] = useState<string>('');
   const [fotoProcessando, setFotoProcessando] = useState<boolean>(false);
   const [tempoRestanteFoto, setTempoRestanteFoto] = useState<number>(0);
@@ -150,6 +153,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         estado: '',
         cidade: '',
         rgPet: pet.rg_Pet || '',
+        descricaoGeral: pet.descricaoGeral || '',
         sexo: '',
         possuiDoenca: '',
         doencaDescricao: '',
@@ -171,6 +175,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       sexo: '',
       possuiDoenca: '',
       doencaDescricao: '',
+      descricaoGeral: '',
       motivoDoacao: '',
       foto: null,
     };
@@ -198,6 +203,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     setPossuiDoencaErro('');
     setDoencaDescricaoErro('');
     setMotivoDoacaoErro('');
+    setDescricaoGeralErro('');
     setFotoErro('');
   };
 
@@ -215,6 +221,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       estado: userData?.estado?.nome || '',
       cidade: userData?.cidade?.nome || '',
       rgPet: '',
+      descricaoGeral: '',
       sexo: '',
       possuiDoenca: '',
       doencaDescricao: '',
@@ -385,6 +392,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             possuiDoenca: possuiDoenca,
             doencaDescricao: doencaDescricao,
             motivoDoacao: pet.motivoDoacao || '',
+            descricaoGeral: pet.descricaoGeral || '',
             foto: pet.foto || null,
           });
 
@@ -582,6 +590,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       }
     }
 
+    if (name === 'descricaoGeral') {
+      if (value.length > 300) {
+        value = value.slice(0, 300);
+      }
+    }
+
     if (name === 'doencaDescricao') {
       if (value.length > 300) {
         value = value.slice(0, 300);
@@ -628,6 +642,9 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
           break;
         case 'motivoDoacao':
           setMotivoDoacaoErro('');
+          break;
+        case 'descricaoGeral':
+          setDescricaoGeralErro('');
           break;
         default:
           break;
@@ -824,6 +841,11 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       setMotivoDoacaoErro('');
     }
 
+    if (!formData.descricaoGeral || formData.descricaoGeral.trim() === '' || formData.descricaoGeral === 'undefined') {
+      setDescricaoGeralErro('Por favor, preencha a descrição geral do pet.');
+      isValid = false;
+    }
+
     if (!isEditMode && !formData.foto) {
       setFotoErro('Selecione uma foto');
       isValid = false;
@@ -884,6 +906,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         rg_Pet: formData.rgPet || null,
         sexo_id: getSexoIdFromDescription(formData.sexo),
         motivoDoacao: formData.motivoDoacao,
+        descricaoGeral: formData.descricaoGeral,
         status_id: 1,
         doencas: formData.possuiDoenca === 'Sim' && formData.doencaDescricao ? [formData.doencaDescricao] : [],
         foto: fotoProcessada,
@@ -1420,7 +1443,22 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
               />
               {motivoDoacaoErro ? <Text style={styles.errorText}>{motivoDoacaoErro}</Text> : null}
             </View>
-
+            {/* Descrição Geral */}
+            <View style={styles.fieldContainer}>
+              <Text style={styles.label}>
+                Descrição Geral <Text style={styles.required}>*</Text>
+              </Text>
+              <TextInput
+                style={[styles.textArea, descricaoGeralErro ? styles.errorBorder : null]}
+                placeholder="Descrição Geral do pet"
+                multiline
+                numberOfLines={4}
+                maxLength={300}
+                value={formData.descricaoGeral}
+                onChangeText={(value) => handleChange('descricaoGeral', value)}
+              />
+              {descricaoGeralErro ? <Text style={styles.errorText}>{descricaoGeralErro}</Text> : null}
+            </View>
             {/* SEÇÃO DE FOTO MODIFICADA COM LOADING - CORRIGIDA */}
             <View style={styles.fieldContainer}>
               <Text style={styles.label}>

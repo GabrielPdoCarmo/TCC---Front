@@ -15,6 +15,7 @@ interface Pet {
   cidade_nome?: string;
   estado_nome?: string;
   rgPet?: string;
+  descricaoGeral?: string;
   foto?: string;
   faixa_etaria_unidade?: string;
   status_nome?: string;
@@ -31,7 +32,7 @@ interface PetCardProps {
   onAdoptPress: (petId: number) => void;
   onBackPress: () => void;
   loading?: boolean;
-  usuarioLogadoId?: number | null; 
+  usuarioLogadoId?: number | null;
 }
 
 // Obter dimensões da tela
@@ -235,6 +236,13 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
               <Text style={styles.description}>{motivoDoacao}</Text>
             </View>
           )}
+          {/* ✅ DESCRIÇÃO GERAL ALTERADA PARA FICAR EM LINHA SEPARADA */}
+          {pet.descricaoGeral && pet.descricaoGeral !== 'Não informado' && (
+            <View style={styles.descriptionSection}>
+              <Text style={styles.infoLabel}>Descrição Geral:</Text>
+              <Text style={styles.description}>{pet.descricaoGeral}</Text>
+            </View>
+          )}
         </View>
 
         <View style={styles.buttonsContainer}>
@@ -330,6 +338,9 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#000',
     marginRight: 5,
+  },
+  descriptionSection: {
+    marginTop: 8,
   },
   infoValue: {
     fontSize: 14,

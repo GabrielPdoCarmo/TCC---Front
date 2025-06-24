@@ -12,6 +12,7 @@ interface PetPayload {
   sexo_id: number;
   rg_Pet: string | null; // RG do pet, pode ser nulo
   motivoDoacao: string;
+  descricaoGeral: string; // descrição geral do pet
   status_id: number;
   doencas: string[]; // nomes das doenças
   foto?: File | null;
@@ -32,6 +33,11 @@ export const postPet = async (petData: PetPayload) => {
     formData.append('sexo_id', String(petData.sexo_id));
     formData.append('rg_Pet', petData.rg_Pet || ''); // Envia string vazia se rg_Pet for nulo
     formData.append('motivoDoacao', petData.motivoDoacao);
+    if (!petData.descricaoGeral || petData.descricaoGeral.trim() === '') {
+      throw new Error('Descrição geral é obrigatória');
+    }
+    formData.append('descricaoGeral', petData.descricaoGeral.trim());
+
     formData.append('status_id', String(petData.status_id));
 
     petData.doencas.forEach((nome, index) => {
