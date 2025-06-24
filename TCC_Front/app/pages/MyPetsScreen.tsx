@@ -13,6 +13,7 @@ import {
   Dimensions,
   Alert,
   Linking,
+  Modal,
 } from 'react-native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import getByUsuarioId from '@/services/api/MyPets/getByUsuarioId';
@@ -95,7 +96,7 @@ interface FilterParams {
   statusIds?: number[];
 }
 
-type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled' | 'name-update-needed';
+type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-enabled' | 'name-update-needed' | 'communication-choice';
 
 const { width } = Dimensions.get('window');
 
@@ -499,7 +500,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // Função principal para comunicação
+  // 🎯 FUNÇÃO PRINCIPAL MODIFICADA - Sempre mostra modal de escolha primeiro
   const handleCommunicate = async (pet: Pet) => {
     try {
       if (!usuarioId || !usuario) {
@@ -508,72 +509,170 @@ export default function MyPetsScreen() {
       }
 
       const isOwner = pet.usuario_id === usuarioId;
-
       setSelectedPet(pet);
-      setEmailWasSent(false);
-      setTermoModalOrigin('obter');
 
-      // 🎯 LÓGICA DIFERENCIADA PARA DONO VS ADOTANTE
       if (isOwner) {
-        // Verificar apenas se tem termo, sem usar checkCanAdopt
+        // Lógica existente para donos permanece igual
+        setEmailWasSent(false);
+        setTermoModalOrigin('obter');
+
         try {
           const temTermo = await checkPetHasTermo(pet.id);
           setHasExistingTermo(temTermo);
-          setNameNeedsUpdate(false); // Dono não precisa atualizar nome
+          setNameNeedsUpdate(false);
 
           if (temTermo) {
-            // Se tem termo, vai direto para o estado "whatsapp-enabled"
             setIsNameUpdateMode(false);
             setModalState('whatsapp-enabled');
           } else {
-            // Se não tem termo, pode criar um ou ir direto para WhatsApp
             setIsNameUpdateMode(false);
             setModalState('whatsapp-initial');
           }
         } catch (error) {
-          // Em caso de erro na verificação, permitir acesso básico para o dono
-
           setHasExistingTermo(false);
           setNameNeedsUpdate(false);
           setIsNameUpdateMode(false);
           setModalState('whatsapp-initial');
         }
       } else {
-        //  Usar a lógica original com checkCanAdopt
-        try {
-          const verificacao = await checkCanAdopt(pet.id);
-          const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
-
-          setHasExistingTermo(temTermo);
-          setNameNeedsUpdate(nomeDesatualizado);
-
-          if (nomeDesatualizado) {
-            setIsNameUpdateMode(true);
-            setTermoModalOrigin('update');
-            setModalState('termo-creation');
-          } else if (temTermo && podeAdotar) {
-            setIsNameUpdateMode(false);
-            setModalState('whatsapp-enabled');
-          } else if (temTermo && !podeAdotar) {
-            Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
-              { text: 'OK' },
-            ]);
-            return;
-          } else {
-            setIsNameUpdateMode(false);
-            setModalState('whatsapp-initial');
-          }
-        } catch (error) {
-          // Em caso de erro na verificação, permitir acesso básico
-
-          setHasExistingTermo(false);
-          setNameNeedsUpdate(false);
-          setIsNameUpdateMode(false);
-          setModalState('whatsapp-initial');
-        }
+        // 🆕 Para adotantes, sempre mostrar modal de escolha primeiro
+        setModalState('communication-choice');
       }
     } catch (error: any) {
-      Alert.alert('Erro', 'Erro ao verificar status do pet. Tente novamente.');
+      Alert.alert('Erro', 'Erro ao processar solicitação. Tente novamente.');
+    }
+  };
+
+  // 🆕 Nova função para apenas comunicar (sem transferência)
+  const handleJustCommunicate = async () => {
+    if (!selectedPet || !usuario) return;
+
+    try {
+      const doadorOriginal = {
+        nome: selectedPet.usuario_nome || 'responsável',
+        telefone: selectedPet.usuario_telefone,
+        email: selectedPet.usuario_email,
+      };
+
+      const nomePet = selectedPet.nome;
+      const nomeInteressado = usuario.nome;
+      const telefone = doadorOriginal.telefone;
+
+      if (!telefone) {
+        setModalState('closed');
+        setSelectedPet(null);
+
+        Alert.alert(
+          'Contato não disponível',
+          `O telefone do doador de ${nomePet} não está disponível no momento.\n\n${
+            doadorOriginal.email
+              ? `Você pode tentar entrar em contato pelo email: ${doadorOriginal.email}`
+              : 'Tente entrar em contato através do app posteriormente.'
+          }`,
+          [{ text: 'OK' }]
+        );
+        return;
+      }
+
+      // Mensagem mais neutra, sem mencionar adoção
+      const mensagem = `Olá ${doadorOriginal.nome}! 👋
+
+Meu nome é ${nomeInteressado} e vi o pet *${nomePet}* no app de adoção.
+
+Gostaria de conversar sobre:
+• Mais informações sobre o ${nomePet}
+• Como funciona o processo
+• Quando podemos nos conhecer
+
+Obrigado! 🐾`;
+
+      let numeroLimpo = telefone.replace(/\D/g, '');
+
+      if (numeroLimpo.length === 11 && numeroLimpo.startsWith('0')) {
+        numeroLimpo = numeroLimpo.substring(1);
+      }
+      if (numeroLimpo.length === 10 || numeroLimpo.length === 11) {
+        numeroLimpo = '55' + numeroLimpo;
+      }
+
+      const whatsappUrl = `whatsapp://send?phone=${numeroLimpo}&text=${encodeURIComponent(mensagem)}`;
+      const canOpen = await Linking.canOpenURL(whatsappUrl);
+
+      setModalState('closed');
+      setSelectedPet(null);
+
+      if (canOpen) {
+        await Linking.openURL(whatsappUrl);
+        
+        // Modal informativo após voltar do WhatsApp
+        setTimeout(() => {
+          Alert.alert(
+            'Comunicação Iniciada! 💬',
+            `Conversa iniciada com ${doadorOriginal.nome} sobre ${nomePet}.\n\nSe decidir adotar, você pode usar a opção "Adotar Pet" no app!`,
+            [
+              {
+                text: 'Entendi',
+                style: 'default'
+              }
+            ]
+          );
+        }, 1500);
+      } else {
+        Alert.alert('WhatsApp não disponível', `Entre em contato diretamente com ${doadorOriginal.nome}:`, [
+          {
+            text: 'Ver número',
+            onPress: () => {
+              Alert.alert('Telefone do Doador', telefone, [{ text: 'OK' }]);
+            },
+          },
+          { text: 'OK' },
+        ]);
+      }
+    } catch (error) {
+      setModalState('closed');
+      setSelectedPet(null);
+      Alert.alert('Erro na comunicação', 'Não foi possível abrir o WhatsApp. Tente novamente.', [
+        { text: 'OK' },
+      ]);
+    }
+  };
+
+  // 🆕 Nova função para iniciar processo de adoção
+  const handleStartAdoptionProcess = async () => {
+    if (!selectedPet || !usuario) return;
+
+    try {
+      // Verificar se pode adotar usando a lógica original
+      const verificacao = await checkCanAdopt(selectedPet.id);
+      const { podeAdotar, temTermo, nomeDesatualizado } = verificacao.data;
+
+      setHasExistingTermo(temTermo);
+      setNameNeedsUpdate(nomeDesatualizado);
+
+      if (nomeDesatualizado) {
+        setIsNameUpdateMode(true);
+        setTermoModalOrigin('update');
+        setModalState('termo-creation');
+      } else if (temTermo && podeAdotar) {
+        setIsNameUpdateMode(false);
+        setModalState('whatsapp-enabled');
+      } else if (temTermo && !podeAdotar) {
+        setModalState('closed');
+        setSelectedPet(null);
+        Alert.alert('Pet já em processo de adoção', 'Este pet já está em processo de adoção por outro usuário.', [
+          { text: 'OK' },
+        ]);
+        return;
+      } else {
+        setIsNameUpdateMode(false);
+        setModalState('whatsapp-initial');
+      }
+    } catch (error) {
+      // Em caso de erro na verificação, permitir acesso básico
+      setHasExistingTermo(false);
+      setNameNeedsUpdate(false);
+      setIsNameUpdateMode(false);
+      setModalState('whatsapp-initial');
     }
   };
 
@@ -708,7 +807,7 @@ Entre em contato comigo para mais informações sobre a adoção! ❤️`;
           { text: 'Cancelar', style: 'cancel' },
         ]);
       } else {
-        // Lógica original de adoção
+        // 🎯 LÓGICA DE ADOÇÃO COM TRANSFERÊNCIA - SÓ AQUI QUE TRANSFERE
         const doadorOriginal = {
           nome: selectedPet.usuario_nome || 'responsável',
           telefone: selectedPet.usuario_telefone,
@@ -1362,7 +1461,65 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
           )}
         </View>
 
-        {/* Modais */}
+        {/* 🆕 MODAL DE ESCOLHA DE COMUNICAÇÃO */}
+        {selectedPet && modalState === 'communication-choice' && (
+          <Modal visible={true} transparent animationType="slide">
+            <View style={styles.modalOverlay}>
+              <View style={styles.communicationModalContainer}>
+                <View style={styles.communicationModalHeader}>
+                  <Text style={styles.communicationModalTitle}>Como deseja interagir?</Text>
+                  <Text style={styles.communicationModalSubtitle}>
+                    Escolha uma opção para {selectedPet.nome}
+                  </Text>
+                </View>
+
+                <View style={styles.communicationModalContent}>
+                  <TouchableOpacity 
+                    style={styles.communicationOptionButton}
+                    onPress={handleJustCommunicate}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.communicationOptionIcon}>
+                      <Text style={styles.communicationOptionEmoji}>💬</Text>
+                    </View>
+                    <View style={styles.communicationOptionText}>
+                      <Text style={styles.communicationOptionTitle}>Apenas Conversar</Text>
+                      <Text style={styles.communicationOptionDescription}>
+                        Tirar dúvidas e conhecer mais sobre o pet
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+
+                  <TouchableOpacity 
+                    style={styles.communicationOptionButton}
+                    onPress={handleStartAdoptionProcess}
+                    activeOpacity={0.8}
+                  >
+                    <View style={styles.communicationOptionIcon}>
+                      <Text style={styles.communicationOptionEmoji}>🏠</Text>
+                    </View>
+                    <View style={styles.communicationOptionText}>
+                      <Text style={styles.communicationOptionTitle}>Adotar Pet</Text>
+                      <Text style={styles.communicationOptionDescription}>
+                        Iniciar processo oficial de adoção
+                      </Text>
+                    </View>
+                  </TouchableOpacity>
+                </View>
+
+                <TouchableOpacity 
+                  style={styles.communicationModalCancelButton}
+                  onPress={handleCloseAllModals}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.communicationModalCancelText}>Cancelar</Text>
+                </TouchableOpacity>
+              </View>
+            </View>
+          </Modal>
+        )}
+
+        {/* Modais existentes */}
         {selectedPet && (modalState === 'whatsapp-initial' || modalState === 'whatsapp-enabled') && (
           <AdoptionModal
             visible={true}
@@ -1625,5 +1782,97 @@ const styles = StyleSheet.create({
   goToPetsButtonText: {
     color: '#FFFFFF',
     fontWeight: 'bold',
+  },
+  // 🆕 Estilos para o modal de escolha de comunicação
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 20,
+  },
+  communicationModalContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 20,
+    width: '100%',
+    maxWidth: 400,
+    padding: 20,
+    elevation: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 5 },
+    shadowOpacity: 0.3,
+    shadowRadius: 10,
+  },
+  communicationModalHeader: {
+    alignItems: 'center',
+    marginBottom: 25,
+  },
+  communicationModalTitle: {
+    fontSize: 20,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 5,
+  },
+  communicationModalSubtitle: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+  },
+  communicationModalContent: {
+    marginBottom: 20,
+  },
+  communicationOptionButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F9FA',
+    borderRadius: 15,
+    padding: 15,
+    marginBottom: 12,
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  communicationOptionIcon: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+    backgroundColor: '#FFFFFF',
+    justifyContent: 'center',
+    alignItems: 'center',
+    marginRight: 15,
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+  },
+  communicationOptionEmoji: {
+    fontSize: 24,
+  },
+  communicationOptionText: {
+    flex: 1,
+  },
+  communicationOptionTitle: {
+    fontSize: 16,
+    fontWeight: 'bold',
+    color: '#333',
+    marginBottom: 2,
+  },
+  communicationOptionDescription: {
+    fontSize: 14,
+    color: '#666',
+    lineHeight: 18,
+  },
+  communicationModalCancelButton: {
+    backgroundColor: '#F8F9FA',
+    borderRadius: 12,
+    paddingVertical: 12,
+    alignItems: 'center',
+    borderWidth: 1,
+    borderColor: '#E9ECEF',
+  },
+  communicationModalCancelText: {
+    fontSize: 16,
+    color: '#666',
+    fontWeight: '500',
   },
 });
