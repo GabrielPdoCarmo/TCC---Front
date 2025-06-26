@@ -21,40 +21,30 @@ interface PetCardProps {
   onAdopt?: () => void;
   onEdit?: () => void;
   onDelete?: () => void;
-  onFavorite?: (id: number) => void;
+
   disableEdit?: boolean; // Esta propriedade agora será ignorada para permitir a edição sempre
 }
 
-const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: PetCardProps) => {
-  // Estado local para controlar a exibição do ícone de favorito
-  const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
-
+const PetCard = ({ pet, onAdopt, onEdit, onDelete, disableEdit }: PetCardProps) => {
   // Verifica se o pet está disponível para adoção (status_id === 2)
   const isAvailableForAdoption = pet.status_id === 2;
-  
+
   // Verifica se o pet tem status_id === 1
   const isStatusOne = pet.status_id === 1;
-  
+
   // Verifica se o pet tem status_id === 3
   const isStatusThree = pet.status_id === 3;
-  
+
   // Verifica se o pet tem status_id === 4
   const isStatusFour = pet.status_id === 4;
-  
+
   // Verifica se o botão "Enviar aos Pets" deve estar bloqueado (status_id 2, 3 ou 4)
   const isAdoptButtonDisabled = pet.status_id === 2 || pet.status_id === 3 || pet.status_id === 4;
-  
+
   // Verifica se os botões de editar e deletar devem estar ativos (apenas para status_id 1 e 2)
   const canEditOrDelete = pet.status_id === 1 || pet.status_id === 2;
 
   // Função para alternar o estado do favorito
-  const handleToggleFavorite = () => {
-    setIsFavorite(!isFavorite);
-    // Chamar a função passada via props, se existir
-    if (onFavorite) {
-      onFavorite(pet.id);
-    }
-  };
 
   // Função para exibir alerta quando tentar disponibilizar para adoção com status bloqueado
   const handleAdoptDisabled = () => {
@@ -64,27 +54,18 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
     } else if (pet.status_id === 3 || pet.status_id === 4) {
       message = 'Não é possível enviar este pet no status atual.';
     }
-    
-    Alert.alert(
-      'Operação não permitida',
-      message
-    );
+
+    Alert.alert('Operação não permitida', message);
   };
 
   // Função para exibir alerta quando tentar editar com status inválido
   const handleEditDisabled = () => {
-    Alert.alert(
-      'Operação não permitida',
-      'Não é possível editar este pet no status atual.'
-    );
+    Alert.alert('Operação não permitida', 'Não é possível editar este pet no status atual.');
   };
 
   // Função para exibir alerta quando tentar deletar com status inválido
   const handleDeleteDisabled = () => {
-    Alert.alert(
-      'Operação não permitida',
-      'Não é possível deletar este pet no status atual.'
-    );
+    Alert.alert('Operação não permitida', 'Não é possível deletar este pet no status atual.');
   };
 
   return (
@@ -111,71 +92,63 @@ const PetCard = ({ pet, onAdopt, onEdit, onDelete, onFavorite, disableEdit }: Pe
             Raça: <Text style={styles.value}>{pet.raca_nome}</Text>
           </Text>
           <Text style={styles.label}>
-            Idade: <Text style={styles.value}>
+            Idade:{' '}
+            <Text style={styles.value}>
               {pet.idade} {pet.faixa_etaria_unidade}
             </Text>
           </Text>
           <Text style={styles.label}>
             Responsável: <Text style={styles.value}>{pet.usuario_nome}</Text>
           </Text>
-          <Text style={[
-            styles.label, 
-            isAvailableForAdoption ? styles.statusAdoption : null,
-            isStatusOne ? styles.statusAdoption : null,
-            isStatusThree ? styles.statusAdoption : null,
-            isStatusFour ? styles.statusAdoption : null
-          ]}>
-            Status: <Text style={[
-              styles.value, 
-              isAvailableForAdoption ? styles.statusAdoptionText : null,
-              isStatusOne ? styles.statusOneText : null,
-              isStatusThree ? styles.statusThreeText : null,
-              isStatusFour ? styles.statusFourText : null
-            ]}>{pet.status_nome}</Text>
+          <Text
+            style={[
+              styles.label,
+              isAvailableForAdoption ? styles.statusAdoption : null,
+              isStatusOne ? styles.statusAdoption : null,
+              isStatusThree ? styles.statusAdoption : null,
+              isStatusFour ? styles.statusAdoption : null,
+            ]}
+          >
+            Status:{' '}
+            <Text
+              style={[
+                styles.value,
+                isAvailableForAdoption ? styles.statusAdoptionText : null,
+                isStatusOne ? styles.statusOneText : null,
+                isStatusThree ? styles.statusThreeText : null,
+                isStatusFour ? styles.statusFourText : null,
+              ]}
+            >
+              {pet.status_nome}
+            </Text>
           </Text>
         </View>
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
-          <TouchableOpacity 
-            style={[
-              styles.adoptButton,
-              isAdoptButtonDisabled ? styles.disabledButton : null
-            ]} 
+          <TouchableOpacity
+            style={[styles.adoptButton, isAdoptButtonDisabled ? styles.disabledButton : null]}
             onPress={isAdoptButtonDisabled ? handleAdoptDisabled : onAdopt}
             disabled={isAdoptButtonDisabled}
           >
-            <Text style={[
-              styles.adoptButtonText,
-              isAdoptButtonDisabled ? styles.disabledText : null
-            ]}>Enviar aos Pets</Text>
+            <Text style={[styles.adoptButtonText, isAdoptButtonDisabled ? styles.disabledText : null]}>
+              Enviar aos Pets
+            </Text>
           </TouchableOpacity>
 
           <View style={styles.editDeleteContainer}>
-            <TouchableOpacity 
-              style={[
-                styles.editButton,
-                !canEditOrDelete ? styles.disabledButton : null
-              ]}
+            <TouchableOpacity
+              style={[styles.editButton, !canEditOrDelete ? styles.disabledButton : null]}
               onPress={canEditOrDelete ? onEdit : handleEditDisabled}
               disabled={!canEditOrDelete}
             >
-              <Text style={[
-                styles.buttonText,
-                !canEditOrDelete ? styles.disabledText : null
-              ]}>Editar</Text>
+              <Text style={[styles.buttonText, !canEditOrDelete ? styles.disabledText : null]}>Editar</Text>
             </TouchableOpacity>
-            <TouchableOpacity 
-              style={[
-                styles.deleteButton,
-                !canEditOrDelete ? styles.disabledButton : null
-              ]} 
+            <TouchableOpacity
+              style={[styles.deleteButton, !canEditOrDelete ? styles.disabledButton : null]}
               onPress={canEditOrDelete ? onDelete : handleDeleteDisabled}
               disabled={!canEditOrDelete}
             >
-              <Text style={[
-                styles.buttonText,
-                !canEditOrDelete ? styles.disabledText : null
-              ]}>Deletar</Text>
+              <Text style={[styles.buttonText, !canEditOrDelete ? styles.disabledText : null]}>Deletar</Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -236,8 +209,8 @@ const styles = StyleSheet.create({
   usuarioNome: {
     flexShrink: 1,
     flexWrap: 'wrap',
-    maxWidth: '100%',  // Limita largura
-    fontWeight: 'bold'
+    maxWidth: '100%', // Limita largura
+    fontWeight: 'bold',
   },
   favoriteButton: {
     position: 'absolute',
@@ -317,7 +290,7 @@ const styles = StyleSheet.create({
   // Estilo para status_id === 4
   statusFourText: {
     color: '#28A745',
-  }
+  },
 });
 
 export default PetCard;

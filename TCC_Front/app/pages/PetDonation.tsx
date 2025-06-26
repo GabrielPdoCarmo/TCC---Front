@@ -609,7 +609,6 @@ export default function PetDonationScreen() {
       onAdopt={() => handleAdoptPet(item.id)}
       onEdit={() => handleEditPet(item.id)}
       onDelete={() => handleDeletePet(item.id)}
-      onFavorite={() => handleFavoritePet(item.id)}
     />
   );
 

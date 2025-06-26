@@ -1025,12 +1025,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     }
   };
 
-  const handleCloseAndNavigate = () => {
-    limparTodosOsErros();
-    resetarFormulario();
-    onClose();
-    router.push('/pages/PetDonation');
-  };
 
   const openRacasModal = () => {
     if (!formData.especie) {
