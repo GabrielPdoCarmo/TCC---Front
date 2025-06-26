@@ -264,10 +264,8 @@ export default function ConfigScreen() {
 
           <TouchableOpacity style={styles.navItem}>
             {/* Indicar que esta é a tela ativa */}
-            <View style={styles.activeCircle}>
-              <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
-            </View>
-            <Text style={styles.activeNavText}>Perfil</Text>
+            <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
+            <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>
         </View>
       </SafeAreaView>
