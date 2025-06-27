@@ -263,7 +263,6 @@ export default function ConfigScreen() {
           </TouchableOpacity>
 
           <TouchableOpacity style={styles.navItem}>
-            {/* Indicar que esta é a tela ativa */}
             <Image source={require('../../assets/images/Icone/profile-icon.png')} style={styles.navIcon} />
             <Text style={styles.navText}>Perfil</Text>
           </TouchableOpacity>

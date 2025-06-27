@@ -384,43 +384,78 @@ export default function FilterScreen() {
 
   // Função para buscar favoritos do usuário
   const loadUserFavorites = async () => {
-    try {
-      setLoadingFavorites(true);
+  try {
+    setLoadingFavorites(true);
 
-      let userId = null;
+    let userId = null;
 
-      const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
-      if (userIdFromStorage) {
-        userId = parseInt(userIdFromStorage);
-      } else {
-        const userData = await AsyncStorage.getItem('@App:userData');
-        if (userData) {
-          const user = JSON.parse(userData);
-          userId = user.id;
-        }
+    const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
+    if (userIdFromStorage) {
+      userId = parseInt(userIdFromStorage);
+    } else {
+      const userData = await AsyncStorage.getItem('@App:userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        userId = user.id;
       }
-
-      if (!userId) {
-        setLoadingFavorites(false);
-        return;
-      }
-
-      const favoritos = await getFavoritosPorUsuario(userId);
-
-      const petIds = favoritos
-        .map((favorito: any) => {
-          return favorito.pet_id || favorito.petId || favorito.pet?.id;
-        })
-        .filter(Boolean);
-
-      setFavoritePetIds(petIds);
-      setLoadingFavorites(false);
-    } catch (error) {
-      setLoadingFavorites(false);
-
-      Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
     }
-  };
+
+    if (!userId) {
+      setLoadingFavorites(false);
+      return;
+    }
+
+    const favoritos = await getFavoritosPorUsuario(userId);
+
+    // NOVO: Filtrar apenas favoritos com status_id = 2
+    const favoritosParaAdocao = [];
+    
+    for (const favorito of favoritos) {
+      try {
+        const petId = favorito.pet_id || favorito.petId || favorito.pet?.id;
+        
+        if (petId) {
+          // Verificar se o favorito já tem informações do pet com status
+          let petStatusId = null;
+          
+          // OPÇÃO 1: Se a API de favoritos já retorna dados do pet
+          if (favorito.pet && favorito.pet.status_id) {
+            petStatusId = favorito.pet.status_id;
+          }
+          // OPÇÃO 2: Se o status vem diretamente no favorito
+          else if (favorito.status_id) {
+            petStatusId = favorito.status_id;
+          }
+          // OPÇÃO 3: Se vem em outra propriedade
+          else if (favorito.pet_status_id) {
+            petStatusId = favorito.pet_status_id;
+          }
+          
+          // Se encontrou o status e é 2 (disponível para adoção)
+          if (petStatusId === 2) {
+            favoritosParaAdocao.push(petId);
+          }
+          // Se não tem informação de status, assumir que pode ser adoção
+          // (opcional - remova esta parte se quiser ser mais restritivo)
+          else if (petStatusId === null || petStatusId === undefined) {
+            // Adicionar por precaução - você pode remover isso se preferir
+            console.log(`Pet ${petId} não tem status definido, incluindo no filtro`);
+            favoritosParaAdocao.push(petId);
+          }
+        }
+      } catch (petError) {
+        // Se houver erro ao verificar um pet específico, continue com os outros
+        console.log(`Erro ao verificar pet favorito: ${petError}`);
+      }
+    }
+
+    setFavoritePetIds(favoritosParaAdocao);
+    setLoadingFavorites(false);
+  } catch (error) {
+    setLoadingFavorites(false);
+    Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
+  }
+};
 
   // Função para verificar se há espécies selecionadas
   const hasSelectedEspecies = () => {

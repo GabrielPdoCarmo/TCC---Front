@@ -599,8 +599,6 @@ export default function PetDonationScreen() {
     ]);
   };
 
-  // Função para favoritar um pet
-  const handleFavoritePet = (petId: number) => {};
 
   // Renderizar um item da lista de pets usando o componente PetCard
   const renderPetItem = ({ item }: { item: Pet }) => (

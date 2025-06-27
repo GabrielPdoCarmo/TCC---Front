@@ -236,7 +236,7 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
               <Text style={styles.description}>{motivoDoacao}</Text>
             </View>
           )}
-          {/* ✅ DESCRIÇÃO GERAL ALTERADA PARA FICAR EM LINHA SEPARADA */}
+          {/*DESCRIÇÃO GERAL ALTERADA PARA FICAR EM LINHA SEPARADA */}
           {pet.descricaoGeral && pet.descricaoGeral !== 'Não informado' && (
             <View style={styles.descriptionSection}>
               <Text style={styles.infoLabel}>Descrição Geral:</Text>

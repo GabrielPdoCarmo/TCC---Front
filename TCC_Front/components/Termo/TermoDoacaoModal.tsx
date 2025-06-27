@@ -48,7 +48,7 @@ interface TermoDoacaoModalAutoProps {
   };
   onTermoCompleted: () => void;
   isDataUpdateMode?: boolean;
-  isVoluntaryView?: boolean; // 🆕 Nova prop para identificar visualização voluntária
+  isVoluntaryView?: boolean; // Nova prop para identificar visualização voluntária
 }
 
 interface FormData {
@@ -69,7 +69,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
   usuarioLogado,
   onTermoCompleted,
   isDataUpdateMode = false,
-  isVoluntaryView = false, // 🆕 Nova prop
+  isVoluntaryView = false, // Nova prop
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo' | 'email-sent'>('loading');
   const [termoData, setTermoData] = useState<TermoDoacaoData | null>(null);
@@ -92,10 +92,10 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     compromesteContato: false,
   });
 
-  // 🚫 Bloquear botão de voltar do Android quando modal estiver aberto (EXCETO visualização voluntária)
+  // Bloquear botão de voltar do Android quando modal estiver aberto (EXCETO visualização voluntária)
   useEffect(() => {
     const backAction = () => {
-      // 🆕 Se for visualização voluntária, permitir voltar normalmente
+      // Se for visualização voluntária, permitir voltar normalmente
       if (isVoluntaryView) {
         handleGoBack();
         return true;
@@ -163,7 +163,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     const token = await getAuthToken();
     setAuthToken(token);
 
-    // 🆕 Lógica diferente baseada no modo
+    // Lógica diferente baseada no modo
     if (isVoluntaryView) {
       // Para visualização voluntária, sempre mostrar o termo existente
       await loadExistingTermoForView();
@@ -177,7 +177,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🆕 Função para carregar termo existente apenas para visualização
+  // Função para carregar termo existente apenas para visualização
   const loadExistingTermoForView = async () => {
     try {
       const response = await getTermoDoacao();
@@ -256,7 +256,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }
   };
 
-  // 🆕 Função para reenviar email voluntariamente
+  // Função para reenviar email voluntariamente
   const handleVoluntaryResendEmail = async () => {
     if (!termoData) {
       Alert.alert('Erro', 'Dados do termo não encontrados. Tente fechar e reabrir o termo.');
@@ -445,11 +445,11 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     }, 3000);
   };
 
-  // 🆕 CORREÇÃO PRINCIPAL: Função para voltar baseada no contexto
+  // CORREÇÃO PRINCIPAL: Função para voltar baseada no contexto
   const handleGoBack = async () => {
     try {
       if (isVoluntaryView) {
-        // 🆕 Se for visualização voluntária, simplesmente fechar o modal
+        // Se for visualização voluntária, simplesmente fechar o modal
         onTermoCompleted();
         return;
       }
@@ -487,7 +487,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
     });
   };
 
-  // 🆕 Textos dinâmicos baseados no modo
+  // Textos dinâmicos baseados no modo
   const getHeaderTexts = () => {
     if (isVoluntaryView) {
       return {
@@ -779,7 +779,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
               </View>
             ) : (
               <ScrollView contentContainerStyle={styles.termoContentContainer} showsVerticalScrollIndicator={false}>
-                {/* 🆕 Warning para visualização voluntária */}
+                {/* Warning para visualização voluntária */}
                 {isVoluntaryView && (
                   <View style={styles.voluntaryWarningContainer}>
                     <Text style={styles.warningIcon}>📋</Text>
@@ -823,7 +823,7 @@ const TermoDoacaoModal: React.FC<TermoDoacaoModalAutoProps> = ({
                   <Text style={styles.dataText}>Data: {formatDate(termoData.data_assinatura)}</Text>
                 </View>
 
-                {/* 🆕 Botões para visualização voluntária */}
+                {/* Botões para visualização voluntária */}
                 {isVoluntaryView && (
                   <View style={styles.voluntaryButtonContainer}>
                     <TouchableOpacity
@@ -927,7 +927,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E3F2FD',
     borderLeftColor: '#2196F3',
   },
-  // 🆕 Container de warning para visualização voluntária
+  // Container de warning para visualização voluntária
   voluntaryWarningContainer: {
     flexDirection: 'row',
     backgroundColor: '#E3F2FD',
@@ -948,7 +948,7 @@ const styles = StyleSheet.create({
     color: '#856404',
     lineHeight: 20,
   },
-  // 🆕 Texto de warning para visualização voluntária
+  // Texto de warning para visualização voluntária
   voluntaryWarningText: {
     flex: 1,
     fontSize: 14,
@@ -1083,7 +1083,7 @@ const styles = StyleSheet.create({
     color: '#333',
     lineHeight: 18,
   },
-  // 🆕 Container de botões para visualização voluntária
+  // Container de botões para visualização voluntária
   voluntaryButtonContainer: {
     marginTop: 30,
     paddingTop: 20,

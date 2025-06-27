@@ -182,7 +182,7 @@ export default function MypetsFilter() {
     return [];
   };
 
-  // 🔧 FUNÇÃO CORRIGIDA: searchPetsByName sem erros de TypeScript
+  // searchPetsByName sem erros de TypeScript
   const searchPetsByName = async (name: string) => {
     if (name.trim() === '') {
       clearSearch();
@@ -409,43 +409,82 @@ export default function MypetsFilter() {
 
   // Função para buscar favoritos do usuário
   const loadUserFavorites = async () => {
-    try {
-      setLoadingFavorites(true);
+  try {
+    setLoadingFavorites(true);
 
-      let userId = null;
+    let userId = null;
 
-      const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
-      if (userIdFromStorage) {
-        userId = parseInt(userIdFromStorage);
-      } else {
-        const userData = await AsyncStorage.getItem('@App:userData');
-        if (userData) {
-          const user = JSON.parse(userData);
-          userId = user.id;
-        }
+    const userIdFromStorage = await AsyncStorage.getItem('@App:userId');
+    if (userIdFromStorage) {
+      userId = parseInt(userIdFromStorage);
+    } else {
+      const userData = await AsyncStorage.getItem('@App:userData');
+      if (userData) {
+        const user = JSON.parse(userData);
+        userId = user.id;
       }
-
-      if (!userId) {
-        setLoadingFavorites(false);
-        return;
-      }
-
-      const favoritos = await getFavoritosPorUsuario(userId);
-
-      const petIds = favoritos
-        .map((favorito: any) => {
-          return favorito.pet_id || favorito.petId || favorito.pet?.id;
-        })
-        .filter(Boolean);
-
-      setFavoritePetIds(petIds);
-      setLoadingFavorites(false);
-    } catch (error) {
-      setLoadingFavorites(false);
-
-      Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
     }
-  };
+
+    if (!userId) {
+      setLoadingFavorites(false);
+      return;
+    }
+
+    const favoritos = await getFavoritosPorUsuario(userId);
+
+    // NOVO: Filtrar apenas favoritos com status_id = 3 ou 4 (meus pets)
+    const favoritosMyPets = [];
+    
+    for (const favorito of favoritos) {
+      try {
+        const petId = favorito.pet_id || favorito.petId || favorito.pet?.id;
+        
+        if (petId) {
+          // Verificar se o favorito já tem informações do pet com status
+          let petStatusId = null;
+          
+          // OPÇÃO 1: Se a API de favoritos já retorna dados do pet
+          if (favorito.pet && favorito.pet.status_id) {
+            petStatusId = favorito.pet.status_id;
+          }
+          // OPÇÃO 2: Se o status vem diretamente no favorito
+          else if (favorito.status_id) {
+            petStatusId = favorito.status_id;
+          }
+          // OPÇÃO 3: Se vem em outra propriedade
+          else if (favorito.pet_status_id) {
+            petStatusId = favorito.pet_status_id;
+          }
+          
+          // Se encontrou o status e é 3 ou 4 (meus pets)
+          if (petStatusId === 3 || petStatusId === 4) {
+            favoritosMyPets.push(petId);
+          }
+          // Se não tem informação de status, verificar se é do usuário logado
+          else if (petStatusId === null || petStatusId === undefined) {
+            // Verificar se o pet pertence ao usuário logado
+            const petUserId = favorito.pet?.usuario_id || favorito.usuario_id || favorito.pet_usuario_id;
+            
+            if (petUserId === userId) {
+              // Se é do usuário logado, provavelmente é um "meu pet"
+              console.log(`Pet ${petId} do usuário ${userId}, incluindo no filtro`);
+              favoritosMyPets.push(petId);
+            }
+          }
+        }
+      } catch (petError) {
+        // Se houver erro ao verificar um pet específico, continue com os outros
+        console.log(`Erro ao verificar pet favorito: ${petError}`);
+      }
+    }
+
+    setFavoritePetIds(favoritosMyPets);
+    setLoadingFavorites(false);
+  } catch (error) {
+    setLoadingFavorites(false);
+    Alert.alert('Erro', 'Não foi possível carregar seus favoritos. Tente novamente.', [{ text: 'OK' }]);
+  }
+};
 
   // Função para verificar se há espécies selecionadas
   const hasSelectedEspecies = () => {

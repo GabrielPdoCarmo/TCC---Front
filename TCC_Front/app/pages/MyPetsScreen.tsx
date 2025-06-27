@@ -100,9 +100,16 @@ type ModalState = 'closed' | 'whatsapp-initial' | 'termo-creation' | 'whatsapp-e
 
 const { width } = Dimensions.get('window');
 
-//Função para ordenar pets por ID (mais recente primeiro)
-const sortPetsByCreation = (pets: Pet[]): Pet[] => {
-  return [...pets].sort((a, b) => b.id - a.id);
+// Função para ordenar pets com favoritos primeiro, depois por ID (mais recente primeiro)
+const sortPetsWithFavoritesFirst = (pets: Pet[]): Pet[] => {
+  return [...pets].sort((a, b) => {
+    // Primeiro critério: pets favoritos vêm primeiro
+    if (a.favorito && !b.favorito) return -1;
+    if (!a.favorito && b.favorito) return 1;
+    
+    // Segundo critério: ordenar por ID (mais recente primeiro)
+    return b.id - a.id;
+  });
 };
 
 export default function MyPetsScreen() {
@@ -128,6 +135,10 @@ export default function MyPetsScreen() {
   // Estados para verificação de nome
   const [nameNeedsUpdate, setNameNeedsUpdate] = useState<boolean>(false);
   const [isNameUpdateMode, setIsNameUpdateMode] = useState<boolean>(false);
+  
+  // Estado para controlar loading do favorito
+  const [favoritingPetId, setFavoritingPetId] = useState<number | null>(null);
+
   const { user, logout, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
 
   useEffect(() => {
@@ -313,7 +324,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  //  Aplicar filtros considerando busca ativa COM ordenação por ID
+  //  Aplicar filtros considerando busca ativa COM ordenação com favoritos primeiro
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -371,24 +382,24 @@ export default function MyPetsScreen() {
           });
         }
 
-        // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no final dos filtros
-        const sortedFilteredData = sortPetsByCreation(filteredData);
+        // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO uma vez no final dos filtros
+        const sortedFilteredData = sortPetsWithFavoritesFirst(filteredData);
         setFilteredMyPets(sortedFilteredData);
       } else {
-        // APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO apenas se baseData não estiver ordenado
         if (baseData === allMyPets) {
           // allMyPets já deve estar ordenado do carregamento inicial
           setFilteredMyPets(baseData);
         } else {
           // searchResults podem não estar ordenados
-          const sortedBaseData = sortPetsByCreation(baseData);
+          const sortedBaseData = sortPetsWithFavoritesFirst(baseData);
           setFilteredMyPets(sortedBaseData);
         }
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        // Ordenar searchResults por ID apenas se necessário
-        const sortedSearchResults = sortPetsByCreation(searchResults);
+        // Ordenar searchResults com favoritos primeiro se necessário
+        const sortedSearchResults = sortPetsWithFavoritesFirst(searchResults);
         setFilteredMyPets(sortedSearchResults);
       } else {
         // allMyPets já deve estar ordenado
@@ -397,7 +408,7 @@ export default function MyPetsScreen() {
     }
   };
 
-  // Carregar os meus pets usando getByUsuarioId COM ordenação por ID
+  // Carregar os meus pets usando getByUsuarioId COM ordenação com favoritos primeiro
   useEffect(() => {
     const fetchMyPets = async () => {
       if (!usuarioId) {
@@ -408,6 +419,9 @@ export default function MyPetsScreen() {
       try {
         setLoading(true);
         setError(null);
+        
+        // Limpar loading de favorito ao carregar pets
+        setFavoritingPetId(null);
 
         const response = await getByUsuarioId(usuarioId);
 
@@ -432,8 +446,8 @@ export default function MyPetsScreen() {
         const petsWithDetails = await loadPetsWithDetails(pets);
         const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-        // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
-        const sortedValidPets = sortPetsByCreation(validPets);
+        // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO APENAS UMA VEZ no carregamento inicial
+        const sortedValidPets = sortPetsWithFavoritesFirst(validPets);
         setAllMyPets(sortedValidPets);
 
         if (!activeFilters && !hasActiveSearch) {
@@ -444,6 +458,8 @@ export default function MyPetsScreen() {
       } catch (err) {
         setError('Não foi possível carregar seus pets. Tente novamente mais tarde.');
         setLoading(false);
+        // Limpar loading de favorito em caso de erro
+        setFavoritingPetId(null);
       }
     };
 
@@ -453,11 +469,16 @@ export default function MyPetsScreen() {
   // Aplicar filtros sempre que eles mudarem
   useEffect(() => {
     if (!loading) {
-      applyCurrentFilters();
+      // Pequeno delay para suavizar a aplicação de filtros
+      const timeoutId = setTimeout(() => {
+        applyCurrentFilters();
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [activeFilters, hasActiveSearch, searchResults, allMyPets, loading]);
 
-  // Recarregar os dados COM ordenação por ID
+  // Recarregar os dados COM ordenação com favoritos primeiro
   const refreshData = async () => {
     if (!usuarioId) {
       return;
@@ -466,6 +487,9 @@ export default function MyPetsScreen() {
     try {
       setLoading(true);
       setError(null);
+      
+      // Limpar loading de favorito ao recarregar
+      setFavoritingPetId(null);
 
       const response = await getByUsuarioId(usuarioId);
 
@@ -490,13 +514,15 @@ export default function MyPetsScreen() {
       const petsWithDetails = await loadPetsWithDetails(pets);
       const validPets = petsWithDetails.filter((pet) => pet && pet.id);
 
-      // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no refresh
-      const sortedValidPets = sortPetsByCreation(validPets);
+      // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO APENAS UMA VEZ no refresh
+      const sortedValidPets = sortPetsWithFavoritesFirst(validPets);
       setAllMyPets(sortedValidPets);
       setLoading(false);
     } catch (err) {
       setError('Não foi possível carregar seus pets. Tente novamente mais tarde.');
       setLoading(false);
+      // Limpar loading de favorito em caso de erro
+      setFavoritingPetId(null);
     }
   };
 
@@ -888,16 +914,19 @@ Agradeço desde já! 🐾❤️`;
               usuario_email: doadorOriginal.email,
             };
 
-            // Atualizar listas locais
+            // Atualizar listas locais com ordenação com favoritos primeiro
             const updatedAllPets = allMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-            const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+            const sortedAllPets = sortPetsWithFavoritesFirst(updatedAllPets);
+            setAllMyPets(sortedAllPets);
 
-            setAllMyPets(updatedAllPets);
-            setFilteredMyPets(updatedFilteredPets);
+            const updatedFilteredPets = filteredMyPets.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
+            const sortedFilteredPets = sortPetsWithFavoritesFirst(updatedFilteredPets);
+            setFilteredMyPets(sortedFilteredPets);
 
             if (hasActiveSearch) {
               const updatedSearchResults = searchResults.map((pet) => (pet.id === selectedPet.id ? updatedPet : pet));
-              setSearchResults(updatedSearchResults);
+              const sortedSearchResults = sortPetsWithFavoritesFirst(updatedSearchResults);
+              setSearchResults(sortedSearchResults);
             }
           } catch (transferError: any) {
             let errorMessage = 'Erro desconhecido na transferência';
@@ -1119,21 +1148,18 @@ Agradeço desde já! 🐾❤️`;
               if (petOperacaoSucesso) {
                 setAllMyPets((prevPets) => {
                   const novosMyPets = prevPets.filter((p) => p.id !== pet.id);
-
-                  return novosMyPets;
+                  return sortPetsWithFavoritesFirst(novosMyPets); // Manter ordenação
                 });
 
                 setFilteredMyPets((prevPets) => {
                   const novosFilteredPets = prevPets.filter((p) => p.id !== pet.id);
-
-                  return novosFilteredPets;
+                  return sortPetsWithFavoritesFirst(novosFilteredPets); // Manter ordenação
                 });
 
                 if (hasActiveSearch) {
                   setSearchResults((prevResults) => {
                     const novosSearchResults = prevResults.filter((p) => p.id !== pet.id);
-
-                    return novosSearchResults;
+                    return sortPetsWithFavoritesFirst(novosSearchResults); // Manter ordenação
                   });
                 }
 
@@ -1216,16 +1242,25 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
       );
     }
   };
-  //  Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
+
+  //  Função para favoritar/desfavoritar um pet COM reordenação baseada em favoritos
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
       return;
     }
 
+    // Verificar se já está processando este pet
+    if (favoritingPetId === petId) {
+      return;
+    }
+
     try {
       const pet = filteredMyPets.find((p: Pet) => p.id === petId);
       if (!pet) return;
+
+      // Iniciar loading
+      setFavoritingPetId(petId);
 
       const wasFavorited = pet.favorito;
 
@@ -1235,18 +1270,29 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
         await getFavorito(usuarioId, petId);
       }
 
-      // Atualização simples sem re-ordenação por ID (allMyPets já está ordenado)
-      const updatedAllPets = allMyPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
-      setAllMyPets(updatedAllPets); // Mantém ordem existente
+      // Pequeno delay antes da reordenação para suavizar a transição
+      setTimeout(() => {
+        // Atualização com reordenação baseada em favoritos
+        const updatedAllPets = allMyPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+        const sortedAllPets = sortPetsWithFavoritesFirst(updatedAllPets);
+        setAllMyPets(sortedAllPets);
 
-      if (hasActiveSearch) {
-        // Atualização simples para searchResults também
-        const updatedSearchResults = searchResults.map((p: Pet) =>
-          p.id === petId ? { ...p, favorito: !p.favorito } : p
-        );
-        setSearchResults(updatedSearchResults); // Mantém ordem existente
-      }
+        if (hasActiveSearch) {
+          // Atualização com reordenação para searchResults também
+          const updatedSearchResults = searchResults.map((p: Pet) =>
+            p.id === petId ? { ...p, favorito: !p.favorito } : p
+          );
+          const sortedSearchResults = sortPetsWithFavoritesFirst(updatedSearchResults);
+          setSearchResults(sortedSearchResults);
+        }
+
+        // Finalizar loading
+        setFavoritingPetId(null);
+      }, 300); // Delay de 300ms para suavizar a reordenação
+
     } catch (error) {
+      // Finalizar loading em caso de erro
+      setFavoritingPetId(null);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
     }
   };
@@ -1276,6 +1322,7 @@ ${termoRemovidoComSucesso ? '🗑️ Termo de compromisso também foi deletado.'
           onCommunicate={() => handleCommunicate(item)}
           onRemove={() => handleRemovePet(item)}
           onFavorite={() => handleFavorite(item.id)}
+          isFavoriting={favoritingPetId === item.id}
         />
       </View>
     );

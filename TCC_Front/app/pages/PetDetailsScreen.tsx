@@ -18,7 +18,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 import PetsDetalhesCard from '@/components/Pets/PetsDetalhesCard';
-import SponsorModal from '@/components/Sponsor/SponsorModal'; 
+import SponsorModal from '@/components/Sponsor/SponsorModal';
 import { getPetById } from '@/services/api/Pets/getPetById';
 import { createMyPet } from '@/services/api/MyPets/createMypets';
 import getFaixaEtariaById from '@/services/api/Faixa-etaria/getFaixaEtariaById';
@@ -70,6 +70,7 @@ interface Pet {
   favorito?: boolean;
   motivo_doacao?: string;
   motivoDoacao?: string;
+  descricaoGeral?: string;
   sexo_nome?: string;
   cidade_nome?: string;
   estado_nome?: string;
@@ -106,10 +107,10 @@ export default function PetDetailsScreen() {
   const [loading, setLoading] = useState<boolean>(true);
   const [error, setError] = useState<string | null>(null);
   const [usuarioId, setUsuarioId] = useState<number | null>(null);
-  
-  // ✅ NOVO: Estado para controlar o modal do sponsor
+
+  //NOVO: Estado para controlar o modal do sponsor
   const [showSponsorModal, setShowSponsorModal] = useState<boolean>(false);
-  // ✅ NOVO: Estado para armazenar os dados da adoção pendente
+  //NOVO: Estado para armazenar os dados da adoção pendente
   const [pendingAdoption, setPendingAdoption] = useState<{ petId: number; usuarioId: number } | null>(null);
 
   // Carregar o ID do usuário logado do AsyncStorage na montagem do componente
@@ -339,6 +340,7 @@ export default function PetDetailsScreen() {
           doencas: doencas || [],
           motivo_doacao: motivoDoacao,
           motivoDoacao: motivoDoacao,
+          descricaoGeral: petData.descricaoGeral,
           favorito: isFavorite,
           faixa_etaria_unidade: faixaEtariaUnidade,
           cidade_nome: cidade_nome,
@@ -378,7 +380,7 @@ export default function PetDetailsScreen() {
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA para lidar com a adoção - agora mostra o modal primeiro
+  //FUNÇÃO ATUALIZADA para lidar com a adoção - agora mostra o modal primeiro
   const handleAdopt = async () => {
     if (!pet) return;
 
@@ -393,12 +395,12 @@ export default function PetDetailsScreen() {
       return;
     }
 
-    // ✅ NOVO: Armazenar os dados da adoção e mostrar o modal do sponsor
+    //NOVO: Armazenar os dados da adoção e mostrar o modal do sponsor
     setPendingAdoption({ petId: pet.id, usuarioId });
     setShowSponsorModal(true);
   };
 
-  // ✅ NOVA: Função para processar a adoção após o modal fechar
+  // Função para processar a adoção após o modal fechar
   const processPendingAdoption = async () => {
     if (!pendingAdoption) return;
 
@@ -426,7 +428,7 @@ export default function PetDetailsScreen() {
     }
   };
 
-  // ✅ NOVA: Função para lidar com o fechamento do modal do sponsor
+  // Função para lidar com o fechamento do modal do sponsor
   const handleSponsorModalClose = () => {
     setShowSponsorModal(false);
     // Processar a adoção após fechar o modal
@@ -493,11 +495,8 @@ export default function PetDetailsScreen() {
           </ScrollView>
         ) : null}
 
-        {/* ✅ NOVO: Modal do Sponsor */}
-        <SponsorModal
-          visible={showSponsorModal}
-          onClose={handleSponsorModalClose}
-        />
+        {/*NOVO: Modal do Sponsor */}
+        <SponsorModal visible={showSponsorModal} onClose={handleSponsorModalClose} />
       </ImageBackground>
     </SafeAreaView>
   );

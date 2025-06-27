@@ -13,7 +13,7 @@ import {
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import { createOrUpdateTermoCompromisso, getTermoByPetWithNameCheck } from '@/services/api/TermoAdocao/checkCanAdopt';
 import { sendTermoEmail } from '@/services/api/TermoAdocao/sendTermoEmail';
-import SponsorModal from '@/components/Sponsor/SponsorModal'; // 🆕 Import do modal de patrocinadores
+import SponsorModal from '@/components/Sponsor/SponsorModal'; 
 
 interface Pet {
   id: number;
@@ -28,7 +28,7 @@ interface Pet {
   pet_sexo_nome?: string;
 }
 
-// 🆕 Interface atualizada com dados de localização
+//Interface atualizada com dados de localização
 interface TermoData {
   id: number;
   pet_nome: string;
@@ -39,13 +39,13 @@ interface TermoData {
   doador_nome: string;
   doador_email: string;
   doador_telefone?: string;
-  // 🆕 Localização do doador
+  //Localização do doador
   doador_cidade_nome?: string;
   doador_estado_nome?: string;
   adotante_nome: string;
   adotante_email: string;
   adotante_telefone?: string;
-  // 🆕 Localização do adotante
+  //Localização do adotante
   adotante_cidade_nome?: string;
   adotante_estado_nome?: string;
   adotante_cpf?: string;
@@ -53,7 +53,7 @@ interface TermoData {
   data_assinatura: string;
   observacoes?: string;
   hash_documento: string;
-  // 🆕 Métodos de localização formatada
+  //Métodos de localização formatada
   localizacaoDoador?: string;
   localizacaoAdotante?: string;
 }
@@ -90,7 +90,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   onEmailSent,
   isNameUpdateMode = false,
   nameNeedsUpdate = false,
-  isOwner = false, // 🆕 Indica se o usuário é o dono do pet
+  isOwner = false, //Indica se o usuário é o dono do pet
 }) => {
   const [step, setStep] = useState<'loading' | 'form' | 'termo'>('loading');
   const [assinaturaDigital, setAssinaturaDigital] = useState(usuarioLogado.nome || '');
@@ -100,10 +100,10 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
   const [sendingEmail, setSendingEmail] = useState(false);
   const [authToken, setAuthToken] = useState<string | null>(null);
   const [initialLoadComplete, setInitialLoadComplete] = useState(false);
-  // 🆕 Estado para controlar o modal de patrocinadores
+  //Estado para controlar o modal de patrocinadores
   const [sponsorModalVisible, setSponsorModalVisible] = useState(false);
 
-  // 🆕 📱 Função para formatar telefone no padrão brasileiro
+  //📱 Função para formatar telefone no padrão brasileiro
   const formatTelefone = (telefone: string | undefined): string => {
     if (!telefone) return 'Não informado';
 
@@ -128,7 +128,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     return numbers.replace(/(\d{4})(?=\d)/g, '$1-');
   };
 
-  // 🆕 Função para formatar localização
+  //Função para formatar localização
   const formatLocalizacao = (cidade?: string, estado?: string): string => {
     if (cidade && estado) {
       return `${cidade} - ${estado}`;
@@ -339,7 +339,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🆕 📧 Função para enviar termo por email (com modal de patrocinadores)
+  // Função para enviar termo por email (com modal de patrocinadores)
   const handleSendEmail = async () => {
     if (!termoData) return;
 
@@ -350,7 +350,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
 
       const acaoTexto = isNameUpdateMode ? 'atualizado' : 'criado';
 
-      // 🆕 Mensagem atualizada informando sobre envio para ambos
+      //Mensagem atualizada informando sobre envio para ambos
       const mensagemSucesso = isNameUpdateMode
         ? `✅ O termo foi atualizado e enviado com sucesso!\n\n📧 Emails enviados para:\n• Você: ${response.data.destinatarios?.adotante || termoData.adotante_email
         }\n• Doador: ${response.data.destinatarios?.doador || termoData.doador_email
@@ -365,7 +365,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         {
           text: 'OK',
           onPress: () => {
-            // 🆕 Abrir modal de patrocinadores após sucesso
+            //Abrir modal de patrocinadores após sucesso
             setSponsorModalVisible(true);
           },
         },
@@ -394,7 +394,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     }
   };
 
-  // 🆕 Função para fechar modal de patrocinadores e continuar fluxo
+  //Função para fechar modal de patrocinadores e continuar fluxo
   const handleSponsorModalClose = () => {
     setSponsorModalVisible(false);
 
@@ -418,7 +418,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
     setSendingEmail(false);
     setAuthToken(null);
     setInitialLoadComplete(false);
-    // 🆕 Reset modal de patrocinadores
+    //Reset modal de patrocinadores
     setSponsorModalVisible(false);
 
     onClose();
@@ -585,7 +585,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   <Text style={styles.dataText}>Idade: {termoData.pet_idade} anos</Text>
                 </View>
 
-                {/* 🆕 Seção do doador COM localização */}
+                {/*Seção do doador COM localização */}
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>DADOS DO DOADOR</Text>
                   <Text style={styles.dataText}>Nome: {termoData.doador_nome}</Text>
@@ -598,7 +598,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   </Text>
                 </View>
 
-                {/* 🆕 Seção do adotante COM localização */}
+                {/*Seção do adotante COM localização */}
                 <View style={styles.section}>
                   <Text style={styles.sectionTitle}>DADOS DO ADOTANTE</Text>
                   <Text style={styles.dataText}>Nome: {termoData.adotante_nome}</Text>
@@ -639,7 +639,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   <Text style={styles.hashText}>Hash: {termoData.hash_documento}</Text>
                 </View>
 
-                {/* 🆕 Botão atualizado com texto indicando envio para ambos */}
+                {/*Botão atualizado com texto indicando envio para ambos */}
                 <TouchableOpacity
                   style={[styles.emailButton, sendingEmail && styles.disabledButton]}
                   onPress={handleSendEmail}
@@ -657,7 +657,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
                   )}
                 </TouchableOpacity>
 
-                {/* 🆕 Informação sobre os destinatários */}
+                {/*Informação sobre os destinatários */}
                 <View style={styles.emailInfoContainer}>
                   <Text style={styles.emailInfoText}>Este termo será enviado por email para:</Text>
                   <Text style={styles.emailInfoDetail}>• Você (Adotante): {termoData.adotante_email}</Text>
@@ -672,7 +672,7 @@ const TermoAdocaoModal: React.FC<TermoModalProps> = ({
         </View>
       </Modal>
 
-      {/* 🆕 Modal de Anúncios dos Patrocinadores */}
+      {/*Modal de Anúncios dos Patrocinadores */}
       <SponsorModal visible={sponsorModalVisible} onClose={handleSponsorModalClose} />
     </>
   );
@@ -908,7 +908,7 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: 'bold',
   },
-  // 🆕 Estilos para informações sobre emails
+  //Estilos para informações sobre emails
   emailInfoContainer: {
     backgroundColor: '#F0F8FF',
     padding: 15,

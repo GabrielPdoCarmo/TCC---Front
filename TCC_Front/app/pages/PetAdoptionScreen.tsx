@@ -68,9 +68,16 @@ interface FilterParams {
 // Obter dimensões da tela
 const { width } = Dimensions.get('window');
 
-// Função para ordenar pets por ID (mais recente primeiro)
-const sortPetsByCreation = (pets: Pet[]): Pet[] => {
-  return [...pets].sort((a, b) => b.id - a.id);
+// Função para ordenar pets com favoritos primeiro, depois por ID (mais recente primeiro)
+const sortPetsWithFavoritesFirst = (pets: Pet[]): Pet[] => {
+  return [...pets].sort((a, b) => {
+    // Primeiro critério: pets favoritos vêm primeiro
+    if (a.favorito && !b.favorito) return -1;
+    if (!a.favorito && b.favorito) return 1;
+    
+    // Segundo critério: ordenar por ID (mais recente primeiro)
+    return b.id - a.id;
+  });
 };
 
 export default function PetAdoptionScreen() {
@@ -87,6 +94,9 @@ export default function PetAdoptionScreen() {
   //  Estados para controlar o modal do sponsor
   const [showSponsorModal, setShowSponsorModal] = useState<boolean>(false);
   const [pendingAdoption, setPendingAdoption] = useState<{ petId: number; usuarioId: number } | null>(null);
+  
+  // Estado para controlar loading do favorito
+  const [favoritingPetId, setFavoritingPetId] = useState<number | null>(null);
 
   const { user, token, isAuthenticated, loading: authLoading, setLastRoute } = useAuth();
   const usuarioId = user?.id || null;
@@ -198,7 +208,7 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // Função para aplicar filtros aos pets COM ordenação por ID
+  // Função para aplicar filtros aos pets COM ordenação com favoritos primeiro
   const applyFiltersToData = async (pets: Pet[], filters: FilterParams): Promise<Pet[]> => {
     try {
       let filteredData = pets;
@@ -212,8 +222,8 @@ export default function PetAdoptionScreen() {
         }
 
         const favoritePetsWithDetails = await loadPetsWithDetails(favoritePets);
-        // APLICAR ORDENAÇÃO POR ID para favoritos
-        return sortPetsByCreation(favoritePetsWithDetails);
+        // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO para favoritos
+        return sortPetsWithFavoritesFirst(favoritePetsWithDetails);
       }
 
       if (filters.especieIds && filters.especieIds.length > 0) {
@@ -251,15 +261,15 @@ export default function PetAdoptionScreen() {
         );
       }
 
-      // APLICAR ORDENAÇÃO POR ID uma vez no final dos filtros
-      return sortPetsByCreation(filteredData);
+      // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO uma vez no final dos filtros
+      return sortPetsWithFavoritesFirst(filteredData);
     } catch (error) {
-      // Em caso de erro, ainda aplicar ordenação por ID
-      return sortPetsByCreation(pets);
+      // Em caso de erro, ainda aplicar ordenação com favoritos primeiro
+      return sortPetsWithFavoritesFirst(pets);
     }
   };
 
-  // Aplicar filtros considerando busca ativa COM ordenação por ID
+  // Aplicar filtros considerando busca ativa COM ordenação com favoritos primeiro
   const applyCurrentFilters = async () => {
     try {
       let baseData: Pet[];
@@ -278,20 +288,20 @@ export default function PetAdoptionScreen() {
         const filtered = await applyFiltersToData(baseData, filtersWithoutSearch);
         setFilteredPets(filtered);
       } else {
-        // APLICAR ORDENAÇÃO POR ID apenas se baseData não estiver ordenado
+        // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO apenas se baseData não estiver ordenado
         if (baseData === allPets) {
           // allPets já deve estar ordenado do refreshData
           setFilteredPets(baseData);
         } else {
           // searchResults podem não estar ordenados
-          const sortedBaseData = sortPetsByCreation(baseData);
+          const sortedBaseData = sortPetsWithFavoritesFirst(baseData);
           setFilteredPets(sortedBaseData);
         }
       }
     } catch (error) {
       if (hasActiveSearch && searchQuery.trim() !== '') {
-        // Ordenar searchResults por ID se necessário
-        const sortedSearchResults = sortPetsByCreation(searchResults);
+        // Ordenar searchResults com favoritos primeiro se necessário
+        const sortedSearchResults = sortPetsWithFavoritesFirst(searchResults);
         setFilteredPets(sortedSearchResults);
       } else {
         // allPets já deve estar ordenado
@@ -300,11 +310,14 @@ export default function PetAdoptionScreen() {
     }
   };
 
-  // Função para recarregar os dados COM ordenação por ID
+  // Função para recarregar os dados COM ordenação com favoritos primeiro
   const refreshData = useCallback(async () => {
     try {
       setLoading(true);
       setError(null);
+      
+      // Limpar loading de favorito ao recarregar dados
+      setFavoritingPetId(null);
 
       const response = await getPetsByStatus();
 
@@ -317,14 +330,16 @@ export default function PetAdoptionScreen() {
 
       const petsWithDetails = await loadPetsWithDetails(response);
 
-      // APLICAR ORDENAÇÃO POR ID APENAS UMA VEZ no carregamento inicial
-      const sortedPetsWithDetails = sortPetsByCreation(petsWithDetails);
+      // APLICAR ORDENAÇÃO COM FAVORITOS PRIMEIRO APENAS UMA VEZ no carregamento inicial
+      const sortedPetsWithDetails = sortPetsWithFavoritesFirst(petsWithDetails);
       setAllPets(sortedPetsWithDetails);
 
       setLoading(false);
     } catch (err) {
       setError('Não foi possível carregar os pets. Tente novamente mais tarde.');
       setLoading(false);
+      // Limpar loading de favorito em caso de erro
+      setFavoritingPetId(null);
     }
   }, [usuarioId]);
 
@@ -369,7 +384,12 @@ export default function PetAdoptionScreen() {
   // Aplicar filtros sempre que eles mudarem ou quando há mudança na busca
   useEffect(() => {
     if (!loading) {
-      applyCurrentFilters();
+      // Pequeno delay para suavizar a aplicação de filtros
+      const timeoutId = setTimeout(() => {
+        applyCurrentFilters();
+      }, 200);
+      
+      return () => clearTimeout(timeoutId);
     }
   }, [activeFilters, hasActiveSearch, searchResults, allPets, loading]);
 
@@ -408,7 +428,7 @@ export default function PetAdoptionScreen() {
         },
       ]);
     } catch (error: any) {
-      // 🔍 VERIFICAR: Se é erro de "já está nos meus pets" (readoção bem-sucedida)
+      // Se é erro de "já está nos meus pets" (readoção bem-sucedida)
       if (
         error.message &&
         (error.message.includes('já está nos seus pets') ||
@@ -425,7 +445,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // 🔍 VERIFICAR: Se pet foi criado mas API retornou erro estranho
+      // Se pet foi criado mas API retornou erro estranho
       if (
         error.message &&
         (error.message.includes('Pet adicionado') ||
@@ -442,7 +462,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // 🔍 VERIFICAR: Se é erro de ex-adotante tentando readotar
+      // Se é erro de ex-adotante tentando readotar
       if (
         error.message &&
         (error.message.includes('usuário já teve este pet') ||
@@ -460,9 +480,11 @@ export default function PetAdoptionScreen() {
               onPress: async () => {
                 // Forçar readoção
                 try {
-                  // Primeiro mostrar modal do sponsor
-                  setPendingAdoption({ petId, usuarioId });
-                  setShowSponsorModal(true);
+                  // Primeiro mostrar modal do sponsor com delay maior
+                  setTimeout(() => {
+                    setPendingAdoption({ petId, usuarioId });
+                    setShowSponsorModal(true);
+                  }, 500);
                 } catch (forceError) {
                   Alert.alert('Erro', 'Não foi possível processar a readoção. Tente novamente.');
                 }
@@ -473,7 +495,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // 🔍 VERIFICAR: Se é erro de conexão ou servidor
+      // Se é erro de conexão ou servidor
       if (
         error.message &&
         (error.message.includes('conexão') ||
@@ -487,7 +509,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // ❌ ERRO GENÉRICO: Mostrar modal do sponsor mesmo assim (pode ser falso erro)
+      //  Mostrar modal do sponsor mesmo assim (pode ser falso erro)
 
       Alert.alert(
         'Erro na Adoção',
@@ -497,8 +519,10 @@ export default function PetAdoptionScreen() {
           {
             text: 'Tentar mesmo assim',
             onPress: () => {
-              setPendingAdoption({ petId, usuarioId });
-              setShowSponsorModal(true);
+              setTimeout(() => {
+                setPendingAdoption({ petId, usuarioId });
+                setShowSponsorModal(true);
+              }, 500); // Delay para suavizar a transição
             },
           },
         ]
@@ -528,7 +552,7 @@ export default function PetAdoptionScreen() {
       // Limpar os dados pendentes
       setPendingAdoption(null);
 
-      // 🔍 VERIFICAR: Se erro é porque pet já foi adicionado
+      // Se erro é porque pet já foi adicionado
       if (
         error.message &&
         (error.message.includes('já está nos seus pets') ||
@@ -545,7 +569,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // 🔍 VERIFICAR: Se pet foi criado mas API retornou erro
+      // Se pet foi criado mas API retornou erro
       if (
         error.message &&
         (error.message.includes('Pet adicionado') ||
@@ -562,7 +586,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // 🔍 VERIFICAR: Se é readoção de ex-adotante (após modal do sponsor)
+      // Se é readoção de ex-adotante (após modal do sponsor)
       if (
         error.message &&
         (error.message.includes('usuário já teve este pet') ||
@@ -583,7 +607,7 @@ export default function PetAdoptionScreen() {
         return;
       }
 
-      // ❌ OUTROS ERROS: Tentar forçar mesmo assim já que modal foi exibido
+      // Tentar forçar mesmo assim já que modal foi exibido
 
       Alert.alert(
         'Erro na Adoção',
@@ -592,10 +616,10 @@ export default function PetAdoptionScreen() {
           {
             text: 'Verificar Lista',
             onPress: () => {
-              // Dar um tempo para API processar e depois atualizar
+              // Dar mais tempo para API processar e depois atualizar
               setTimeout(() => {
                 refreshData();
-              }, 1000);
+              }, 2000);
             },
           },
           { text: 'OK' },
@@ -610,7 +634,7 @@ export default function PetAdoptionScreen() {
     if (pendingAdoption) {
       setTimeout(() => {
         processPendingAdoption();
-      }, 500); // Pequeno delay para suavizar a transição
+      }, 1500); // Delay maior para suavizar a transição
     }
   };
 
@@ -640,16 +664,24 @@ export default function PetAdoptionScreen() {
     });
   };
 
-  // Função para favoritar/desfavoritar um pet SEM re-ordenação desnecessária
+  // Função para favoritar/desfavoritar um pet COM reordenação baseada em favoritos
   const handleFavorite = async (petId: number) => {
     if (!usuarioId) {
       Alert.alert('Erro', 'Você precisa estar logado para favoritar pets.');
       return;
     }
 
+    // Verificar se já está processando este pet
+    if (favoritingPetId === petId) {
+      return;
+    }
+
     try {
       const pet = filteredPets.find((p: Pet) => p.id === petId);
       if (!pet) return;
+
+      // Iniciar loading
+      setFavoritingPetId(petId);
 
       const wasfavorited = pet.favorito;
 
@@ -659,18 +691,29 @@ export default function PetAdoptionScreen() {
         await getFavorito(usuarioId, petId);
       }
 
-      //  Atualização simples sem re-ordenação (allPets já está ordenado por ID)
-      const updatedAllPets = allPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
-      setAllPets(updatedAllPets); // Mantém ordem existente
+      // Pequeno delay antes da reordenação para suavizar a transição
+      setTimeout(() => {
+        // Atualização com reordenação baseada em favoritos
+        const updatedAllPets = allPets.map((p: Pet) => (p.id === petId ? { ...p, favorito: !p.favorito } : p));
+        const sortedAllPets = sortPetsWithFavoritesFirst(updatedAllPets);
+        setAllPets(sortedAllPets);
 
-      if (hasActiveSearch) {
-        // Atualização simples para searchResults também
-        const updatedSearchResults = searchResults.map((p: Pet) =>
-          p.id === petId ? { ...p, favorito: !p.favorito } : p
-        );
-        setSearchResults(updatedSearchResults); // Mantém ordem existente
-      }
+        if (hasActiveSearch) {
+          // Atualização com reordenação para searchResults também
+          const updatedSearchResults = searchResults.map((p: Pet) =>
+            p.id === petId ? { ...p, favorito: !p.favorito } : p
+          );
+          const sortedSearchResults = sortPetsWithFavoritesFirst(updatedSearchResults);
+          setSearchResults(sortedSearchResults);
+        }
+
+        // Finalizar loading
+        setFavoritingPetId(null);
+      }, 300); // Delay de 300ms para suavizar a reordenação
+
     } catch (error) {
+      // Finalizar loading em caso de erro
+      setFavoritingPetId(null);
       Alert.alert('Erro', 'Não foi possível atualizar os favoritos. Tente novamente.');
     }
   };
@@ -696,6 +739,7 @@ export default function PetAdoptionScreen() {
         OnDetalhes={() => handleViewDetails(item.id)}
         onFavorite={() => handleFavorite(item.id)}
         usuarioLogadoId={usuarioId}
+        isFavoriting={favoritingPetId === item.id}
       />
     </View>
   );

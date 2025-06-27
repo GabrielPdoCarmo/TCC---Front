@@ -25,9 +25,10 @@ interface MyPetCardProps {
   onRemove?: () => void;
   onFavorite?: (id: number) => void;
   isRemoving?: boolean;
+  isFavoriting?: boolean; //ROPRIEDADE para loading do favorito
 }
 
-const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = false }: MyPetCardProps) => {
+const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = false, isFavoriting = false }: MyPetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
@@ -39,10 +40,10 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
     setIsFavorite(pet.favorito || false);
   }, [pet.favorito]);
 
-  // Função para alternar o estado do favorito
+  // ATUALIZADA para alternar o estado do favorito
   const handleToggleFavorite = () => {
-    // ✅ PROTEÇÃO: Não permitir favoritar se estiver removendo
-    if (isRemoving) {
+    // PROTEÇÃO: Não permitir favoritar se estiver removendo ou favoritando
+    if (isRemoving || isFavoriting) {
       return;
     }
 
@@ -55,9 +56,9 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA: Proteção contra múltiplas remoções
+  //FUNÇÃO ATUALIZADA: Proteção contra múltiplas remoções
   const handleRemovePress = () => {
-    if (isRemoving) {
+    if (isRemoving || isFavoriting) {
       return;
     }
 
@@ -66,10 +67,15 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
     }
   };
 
-  // ✅ FUNÇÃO ATUALIZADA: Proteção durante remoção
+  //FUNÇÃO ATUALIZADA: Proteção durante remoção e favorito
   const handleCommunicatePress = () => {
     if (isRemoving) {
       Alert.alert('Aguarde', 'Operação em andamento. Aguarde a conclusão.');
+      return;
+    }
+
+    if (isFavoriting) {
+      Alert.alert('Aguarde', 'Processando favorito. Aguarde a conclusão.');
       return;
     }
 
@@ -80,7 +86,7 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
 
   // Função para expandir a foto do usuário
   const handleExpandUserPhoto = () => {
-    if (pet.usuario_foto && !isRemoving) {
+    if (pet.usuario_foto && !isRemoving && !isFavoriting) {
       setShowExpandedPhoto(true);
     }
   };
@@ -94,12 +100,20 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
   };
 
   return (
-    <View style={[styles.container, isRemoving && styles.containerRemoving]}>
-      {/* ✅ INDICADOR de remoção */}
+    <View style={[styles.container, (isRemoving || isFavoriting) && styles.containerProcessing]}>
+      {/*INDICADOR de remoção */}
       {isRemoving && (
         <View style={styles.removingOverlay}>
           <ActivityIndicator size="small" color="#FF6B6B" />
           <Text style={styles.removingText}>Removendo...</Text>
+        </View>
+      )}
+
+      {/*INDICADOR de favorito loading */}
+      {isFavoriting && (
+        <View style={styles.favoritingOverlay}>
+          <ActivityIndicator size="small" color="#FFD700" />
+          <Text style={styles.favoritingText}>Favoritando...</Text>
         </View>
       )}
 
@@ -122,20 +136,30 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
             Nome: <Text style={styles.value}>{pet.nome}</Text>
           </Text>
 
-          {/* Botão de favorito único */}
+          {/*DE FAVORITO ATUALIZADO com loading */}
           <TouchableOpacity
-            style={[styles.favoriteButton, isRemoving && styles.disabledButton]}
+            style={[
+              styles.favoriteButton,
+              (isRemoving || isFavoriting) && styles.disabledButton
+            ]}
             onPress={handleToggleFavorite}
-            disabled={isRemoving}
+            disabled={isRemoving || isFavoriting}
           >
-            <Image
-              source={
-                isFavorite
-                  ? require('../../assets/images/Icone/star-icon-open.png')
-                  : require('../../assets/images/Icone/star-icon.png')
-              }
-              style={[styles.favoriteIcon, isRemoving && styles.disabledIcon]}
-            />
+            {isFavoriting ? (
+              <ActivityIndicator size="small" color="#FFD700" />
+            ) : (
+              <Image
+                source={
+                  isFavorite
+                    ? require('../../assets/images/Icone/star-icon-open.png')
+                    : require('../../assets/images/Icone/star-icon.png')
+                }
+                style={[
+                  styles.favoriteIcon,
+                  (isRemoving || isFavoriting) && styles.disabledIcon
+                ]}
+              />
+            )}
           </TouchableOpacity>
 
           <Text style={styles.label}>
@@ -153,8 +177,8 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
           <TouchableOpacity
             style={styles.userInfoContainer}
             onPress={handleExpandUserPhoto}
-            activeOpacity={pet.usuario_foto && !isRemoving ? 0.7 : 1}
-            disabled={isRemoving}
+            activeOpacity={pet.usuario_foto && !isRemoving && !isFavoriting ? 0.7 : 1}
+            disabled={isRemoving || isFavoriting}
           >
             {pet.usuario_foto ? (
               <Image source={{ uri: pet.usuario_foto }} style={styles.userPhoto} />
@@ -177,22 +201,36 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
-            {/* ✅ BOTÃO ATUALIZADO com proteção */}
+            {/* BOTÃO ATUALIZADO com proteção para favorito */}
             <TouchableOpacity
-              style={[styles.communicateButton, isRemoving && styles.disabledButton]}
+              style={[
+                styles.communicateButton,
+                (isRemoving || isFavoriting) && styles.disabledButton
+              ]}
               onPress={handleCommunicatePress}
-              disabled={isRemoving}
+              disabled={isRemoving || isFavoriting}
             >
-              <Text style={[styles.buttonText, isRemoving && styles.disabledText]}>Comunicar</Text>
+              <Text style={[
+                styles.buttonText,
+                (isRemoving || isFavoriting) && styles.disabledText
+              ]}>
+                Comunicar
+              </Text>
             </TouchableOpacity>
 
-            {/* ✅ BOTÃO ATUALIZADO com proteção */}
+            {/*BOTÃO ATUALIZADO com proteção para favorito */}
             <TouchableOpacity
-              style={[styles.removeButton, isRemoving && styles.disabledButton]}
+              style={[
+                styles.removeButton,
+                (isRemoving || isFavoriting) && styles.disabledButton
+              ]}
               onPress={handleRemovePress}
-              disabled={isRemoving}
+              disabled={isRemoving || isFavoriting}
             >
-              <Text numberOfLines={1} style={[styles.buttonText, isRemoving && styles.disabledText]}>
+              <Text numberOfLines={1} style={[
+                styles.buttonText,
+                (isRemoving || isFavoriting) && styles.disabledText
+              ]}>
                 {isRemoving ? 'Removendo...' : 'Remover Pet'}
               </Text>
             </TouchableOpacity>
@@ -202,7 +240,7 @@ const MyPetsCard = ({ pet, onCommunicate, onRemove, onFavorite, isRemoving = fal
 
       {/* Modal para foto ampliada */}
       <Modal
-        visible={showExpandedPhoto && !isRemoving}
+        visible={showExpandedPhoto && !isRemoving && !isFavoriting}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowExpandedPhoto(false)}
@@ -241,12 +279,12 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
-  // ✅ NOVO: Estilo para container durante remoção
-  containerRemoving: {
+  // Estilo para container durante processamento (remoção ou favorito)
+  containerProcessing: {
     opacity: 0.7,
     backgroundColor: '#F8F8F8',
   },
-  // ✅ NOVO: Overlay de remoção
+  // Overlay de remoção
   removingOverlay: {
     position: 'absolute',
     top: 10,
@@ -260,6 +298,25 @@ const styles = StyleSheet.create({
     zIndex: 10,
   },
   removingText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 4,
+  },
+  //Overlay de favorito
+  favoritingOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  favoritingText: {
     color: '#FFFFFF',
     fontSize: 10,
     fontWeight: 'bold',
@@ -306,7 +363,7 @@ const styles = StyleSheet.create({
     color: '#0E9999FF',
     fontWeight: 'bold',
   },
-  // 🆕 NOVO: Estilo específico para status "Adotado" (verde)
+  // 🆕 MANTIDO: Estilo específico para status "Adotado" (verde)
   statusAdoptedText: {
     color: '#28A745', // Verde para status "Adotado"
     fontWeight: 'bold',
@@ -316,6 +373,10 @@ const styles = StyleSheet.create({
     top: -10,
     right: -10,
     padding: 5,
+    minWidth: 35,
+    minHeight: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   favoriteIcon: {
     width: 25,
@@ -388,7 +449,7 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: 'bold',
   },
-  // ✅ NOVOS: Estilos para elementos desabilitados
+  //OS: Estilos para elementos desabilitados
   disabledButton: {
     backgroundColor: '#E0E0E0',
     opacity: 0.6,

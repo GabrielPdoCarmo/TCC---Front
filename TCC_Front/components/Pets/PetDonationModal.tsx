@@ -229,7 +229,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       foto: null,
     });
 
-    // ✅ RESETAR ESTADOS DE FOTO
+    // RESETAR ESTADOS DE FOTO
     setLoadingFoto(false);
     setFotoProcessando(false);
     setTempoRestanteFoto(0);
@@ -743,7 +743,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       await new Promise((resolve) => setTimeout(resolve, 500));
     }
 
-    // ✅ VERIFICAÇÃO APRIMORADA DE LOADING
+    // VERIFICAÇÃO APRIMORADA DE LOADING
     if (!canShowForm()) {
       Alert.alert('Aguarde', 'Os dados ainda estão sendo carregados. Aguarde um momento e tente novamente.');
       return;
@@ -754,7 +754,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       return;
     }
 
-    // ✅ VERIFICAÇÃO ESPECÍFICA PARA NOVA FOTO
+    // VERIFICAÇÃO ESPECÍFICA PARA NOVA FOTO
     if (formData.foto && typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
       // Aguardar um pouco mais para garantir que a foto está estável
       await new Promise((resolve) => setTimeout(resolve, 300));
@@ -866,12 +866,12 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         return;
       }
 
-      // ✅ PROCESSAMENTO CORRETO DA FOTO - IGUAL AO PERFIL DE USUÁRIO
+      // PROCESSAMENTO CORRETO DA FOTO - IGUAL AO PERFIL DE USUÁRIO
       let fotoProcessada = null;
 
       if (formData.foto) {
         if (typeof formData.foto === 'string' && formData.foto.startsWith('file://')) {
-          // ✅ NOVA FOTO selecionada do dispositivo (URI local)
+          // NOVA FOTO selecionada do dispositivo (URI local)
           const filename = formData.foto.split('/').pop() || `pet_${Date.now()}.jpg`;
           const match = /\.(\w+)$/.exec(filename);
           const type = match ? `image/${match[1]}` : 'image/jpeg';
@@ -882,10 +882,10 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
             name: `${formData.nome.replace(/\s+/g, '_')}_${Date.now()}.${match ? match[1] : 'jpg'}`,
           };
         } else if (typeof formData.foto === 'string' && formData.foto.startsWith('http')) {
-          // ✅ FOTO EXISTENTE (URL completa) - manter como string
+          // FOTO EXISTENTE (URL completa) - manter como string
           fotoProcessada = formData.foto;
         } else {
-          // ✅ Caso não seja nem file:// nem http://, tratar como nova foto
+          // Caso não seja nem file:// nem http://, tratar como nova foto
           fotoProcessada = {
             uri: formData.foto,
             type: 'image/jpeg',
@@ -917,7 +917,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       let response;
       let operationSuccess = false;
 
-      // 🚨 CORREÇÃO PRINCIPAL: Verificação robusta de sucesso
+      // CORREÇÃO PRINCIPAL: Verificação robusta de sucesso
       if (isEditMode && pet) {
         try {
           response = await updatePet({
@@ -972,7 +972,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         }
       }
 
-      // 🚨 SÓ EXECUTAR AÇÕES DE SUCESSO SE REALMENTE DEU CERTO
+      // SÓ EXECUTAR AÇÕES DE SUCESSO SE REALMENTE DEU CERTO
       if (operationSuccess) {
         // Mostrar mensagem de sucesso
         Alert.alert('Sucesso!', isEditMode ? 'Pet atualizado com sucesso!' : 'Pet cadastrado com sucesso!', [
@@ -996,7 +996,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
     } catch (error) {
       let errorMessage = 'Ocorreu um erro ao processar sua solicitação. Tente novamente.';
 
-      // ✅ TRATAMENTO DE ERRO MAIS ESPECÍFICO
+      // TRATAMENTO DE ERRO MAIS ESPECÍFICO
       if (error instanceof Error) {
         // Verificar se é erro de rede
         if (error.message.includes('Network request failed') || error.message.includes('fetch')) {
@@ -1018,7 +1018,7 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
 
       Alert.alert('Erro', errorMessage);
 
-      // 🚨 IMPORTANTE: NÃO fechar o modal nem limpar dados em caso de erro
+      // IMPORTANTE: NÃO fechar o modal nem limpar dados em caso de erro
       // O usuário deve poder corrigir e tentar novamente
     } finally {
       setIsLoading(false);
@@ -1095,21 +1095,21 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
       if (!result.canceled) {
         const imageUri = result.assets[0].uri;
         if (imageUri && imageUri.startsWith('file://')) {
-          // ✅ INICIAR PERÍODO DE PROCESSAMENTO COM FEEDBACK VISUAL
+          // INICIAR PERÍODO DE PROCESSAMENTO COM FEEDBACK VISUAL
           setFotoProcessando(true);
           setTempoRestanteFoto(5); // 5 segundos de espera
 
-          // ✅ ATUALIZAR ESTADO DA FOTO IMEDIATAMENTE
+          // ATUALIZAR ESTADO DA FOTO IMEDIATAMENTE
           setFormData((prevData) => {
             const newData = { ...prevData, foto: imageUri };
 
             return newData;
           });
 
-          // ✅ LIMPAR ERRO DE FOTO
+          // LIMPAR ERRO DE FOTO
           setFotoErro('');
 
-          // ✅ COUNTDOWN COM FEEDBACK VISUAL
+          // COUNTDOWN COM FEEDBACK VISUAL
           const countdown = setInterval(() => {
             setTempoRestanteFoto((prev) => {
               if (prev <= 1) {
@@ -1162,9 +1162,6 @@ const PetDonationModal: React.FC<PetDonationModalProps> = ({
         <View style={styles.modalContent}>
           <View style={styles.formHeader}>
             <Text style={styles.formTitle}>Dados Do Pet</Text>
-            {/* ========================================
-                BOTÃO CORRIGIDO PARA USAR handleCloseModal
-                ======================================== */}
             <TouchableOpacity onPress={handleCloseModal}>
               <Image source={require('../../assets/images/Icone/close-icon.png')} style={styles.closeIcon} />
             </TouchableOpacity>

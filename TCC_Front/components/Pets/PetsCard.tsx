@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal } from 'react-native';
+import { View, Text, Image, StyleSheet, TouchableOpacity, Alert, Modal, ActivityIndicator } from 'react-native';
 
 // Interface PetCardProps atualizada
 interface PetCardProps {
@@ -23,9 +23,10 @@ interface PetCardProps {
   OnDetalhes?: () => void;
   onFavorite?: (id: number) => void;
   usuarioLogadoId?: number | null; // ID do usuário logado
+  isFavoriting?: boolean; 
 }
 
-const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: PetCardProps) => {
+const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId, isFavoriting = false }: PetCardProps) => {
   // Estado local para controlar a exibição do ícone de favorito
   const [isFavorite, setIsFavorite] = useState(pet.favorito || false);
 
@@ -43,8 +44,13 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
   // Verificar se o usuário logado é o dono do pet
   const isOwnPet = usuarioLogadoId !== null && pet.usuario_id === usuarioLogadoId;
 
-  // Função para alternar o estado do favorito
+  // FUNÇÃO ATUALIZADA para alternar o estado do favorito
   const handleToggleFavorite = () => {
+    // Proteção: Não permitir favoritar se estiver processando
+    if (isFavoriting) {
+      return;
+    }
+
     // Atualizar o estado local imediatamente para feedback visual rápido
     setIsFavorite(!isFavorite);
 
@@ -66,23 +72,39 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
       return;
     }
 
+    // Proteção: Não permitir adoção se estiver favoritando
+    if (isFavoriting) {
+      Alert.alert('Aguarde', 'Processando favorito. Aguarde a conclusão.');
+      return;
+    }
+
     // Chamar a função de adoção
     if (onAdopt) {
       onAdopt();
     }
   };
 
-  // Função para expandir a foto do usuário
+  //FUNÇÃO ATUALIZADA para expandir a foto do usuário
   const handleExpandUserPhoto = () => {
-    if (pet.usuario_foto) {
+    if (pet.usuario_foto && !isFavoriting) {
       setShowExpandedPhoto(true);
     }
   };
 
+  //FUNÇÃO ATUALIZADA para detalhes
+  const handleDetailsPress = () => {
+    if (isFavoriting) {
+      Alert.alert('Aguarde', 'Processando favorito. Aguarde a conclusão.');
+      return;
+    }
 
+    if (OnDetalhes) {
+      OnDetalhes();
+    }
+  };
 
   return (
-    <View style={styles.container}>
+    <View style={[styles.container, isFavoriting && styles.containerProcessing]}>
       {/* Parte esquerda - Imagem do pet */}
       <View style={styles.imageContainer}>
         {pet.foto ? (
@@ -94,6 +116,14 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
         )}
       </View>
 
+      {/* INDICADOR de favorito loading */}
+      {isFavoriting && (
+        <View style={styles.favoritingOverlay}>
+          <ActivityIndicator size="small" color="#FFD700" />
+          <Text style={styles.favoritingText}>Favoritando...</Text>
+        </View>
+      )}
+
       {/* Parte direita - Informações e botões */}
       <View style={styles.infoContainer}>
         {/* Informações do pet */}
@@ -102,16 +132,30 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
             Nome: <Text style={styles.value}>{pet.nome}</Text>
           </Text>
 
-          {/* Botão de favorito único */}
-          <TouchableOpacity style={styles.favoriteButton} onPress={handleToggleFavorite}>
-            <Image
-              source={
-                isFavorite
-                  ? require('../../assets/images/Icone/star-icon-open.png')
-                  : require('../../assets/images/Icone/star-icon.png')
-              }
-              style={styles.favoriteIcon}
-            />
+          {/*BOTÃO DE FAVORITO ATUALIZADO com loading */}
+          <TouchableOpacity
+            style={[
+              styles.favoriteButton,
+              isFavoriting && styles.disabledButton
+            ]}
+            onPress={handleToggleFavorite}
+            disabled={isFavoriting}
+          >
+            {isFavoriting ? (
+              <ActivityIndicator size="small" color="#FFD700" />
+            ) : (
+              <Image
+                source={
+                  isFavorite
+                    ? require('../../assets/images/Icone/star-icon-open.png')
+                    : require('../../assets/images/Icone/star-icon.png')
+                }
+                style={[
+                  styles.favoriteIcon,
+                  isFavoriting && styles.disabledIcon
+                ]}
+              />
+            )}
           </TouchableOpacity>
 
           <Text style={styles.label}>
@@ -129,7 +173,8 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
           <TouchableOpacity
             style={styles.userInfoContainer}
             onPress={handleExpandUserPhoto}
-            activeOpacity={pet.usuario_foto ? 0.7 : 1}
+            activeOpacity={pet.usuario_foto && !isFavoriting ? 0.7 : 1}
+            disabled={isFavoriting}
           >
             {pet.usuario_foto ? (
               <Image source={{ uri: pet.usuario_foto }} style={styles.userPhoto} />
@@ -140,7 +185,9 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
                 </Text>
               </View>
             )}
-            <Text style={styles.usuarioNome} numberOfLines={1}>{pet.usuario_nome}</Text>
+            <Text style={styles.usuarioNome} numberOfLines={1}>
+              {pet.usuario_nome}
+            </Text>
           </TouchableOpacity>
 
           <Text style={[styles.label, isAvailableForAdoption ? styles.statusAdoption : null]}>
@@ -154,27 +201,41 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
         {/* Botões de ação */}
         <View style={styles.actionContainer}>
           <View style={styles.editDeleteContainer}>
-            {/*  BOTÃO ATUALIZADO com validação */}
+            {/*  BOTÃO ATUALIZADO com validação e proteção para favorito */}
             <TouchableOpacity
               style={[
                 styles.editButton,
-                isOwnPet && styles.disabledButton // Aplicar estilo desabilitado se for próprio pet
+                (isOwnPet || isFavoriting) && styles.disabledButton, // Aplicar estilo desabilitado se for próprio pet ou favoritando
               ]}
               onPress={handleAdoptPress}
-              disabled={isOwnPet} // Desabilitar se for próprio pet
+              disabled={isOwnPet || isFavoriting} // Desabilitar se for próprio pet ou favoritando
             >
               <Text
                 numberOfLines={1}
                 style={[
                   styles.buttonText,
-                  isOwnPet && styles.disabledText // Aplicar estilo de texto desabilitado
+                  (isOwnPet || isFavoriting) && styles.disabledText, // Aplicar estilo de texto desabilitado
                 ]}
               >
                 {isOwnPet ? 'Adicionar aos meus Pets' : 'Adicionar aos meus Pets'}
               </Text>
             </TouchableOpacity>
-            <TouchableOpacity style={styles.detalhesButton} onPress={OnDetalhes}>
-              <Text style={styles.buttonText}>Detalhes</Text>
+            
+            {/*BOTÃO DETALHES ATUALIZADO com proteção */}
+            <TouchableOpacity 
+              style={[
+                styles.detalhesButton,
+                isFavoriting && styles.disabledButton
+              ]} 
+              onPress={handleDetailsPress}
+              disabled={isFavoriting}
+            >
+              <Text style={[
+                styles.buttonText,
+                isFavoriting && styles.disabledText
+              ]}>
+                Detalhes
+              </Text>
             </TouchableOpacity>
           </View>
         </View>
@@ -182,7 +243,7 @@ const PetsCard = ({ pet, onAdopt, OnDetalhes, onFavorite, usuarioLogadoId }: Pet
 
       {/* Modal para foto ampliada */}
       <Modal
-        visible={showExpandedPhoto}
+        visible={showExpandedPhoto && !isFavoriting}
         transparent={true}
         animationType="fade"
         onRequestClose={() => setShowExpandedPhoto(false)}
@@ -220,6 +281,30 @@ const styles = StyleSheet.create({
     shadowRadius: 3,
     borderWidth: 1,
     borderColor: '#E0E0E0',
+  },
+  //NOVO: Estilo para container durante processamento
+  containerProcessing: {
+    opacity: 0.7,
+    backgroundColor: '#F8F8F8',
+  },
+  //NOVO: Overlay de favorito
+  favoritingOverlay: {
+    position: 'absolute',
+    top: 10,
+    left: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: 'rgba(255, 215, 0, 0.9)',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 12,
+    zIndex: 10,
+  },
+  favoritingText: {
+    color: '#FFFFFF',
+    fontSize: 10,
+    fontWeight: 'bold',
+    marginLeft: 4,
   },
   imageContainer: {
     width: '50%',
@@ -260,6 +345,10 @@ const styles = StyleSheet.create({
     top: -10,
     right: -10,
     padding: 5,
+    minWidth: 35,
+    minHeight: 35,
+    justifyContent: 'center',
+    alignItems: 'center',
   },
   favoriteIcon: {
     width: 25,
@@ -342,16 +431,19 @@ const styles = StyleSheet.create({
     flexShrink: 1,
     flexWrap: 'wrap',
     maxWidth: '100%',
-    fontWeight: 'bold'
+    fontWeight: 'bold',
   },
 
-  //  ESTILOS ATUALIZADOS para dispositivos desabilitados
+  // ESTILOS PARA ELEMENTOS DESABILITADOS
   disabledButton: {
     backgroundColor: '#E0E0E0',
     opacity: 0.6,
   },
   disabledText: {
     color: '#A0A0A0',
+  },
+  disabledIcon: {
+    opacity: 0.5,
   },
   // Estilo para destacar status de adoção
   statusAdoption: {
