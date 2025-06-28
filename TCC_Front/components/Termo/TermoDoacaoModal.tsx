@@ -23,7 +23,6 @@ interface TermoDoacaoData {
   doador_nome: string;
   doador_email: string;
   doador_telefone?: string;
-  doador_cpf?: string;
   motivo_doacao: string;
   condicoes_adocao?: string;
   observacoes?: string;

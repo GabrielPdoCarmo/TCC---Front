@@ -1,21 +1,68 @@
 import api from '../api';
 import axios from 'axios';
+import { cpf, cnpj } from 'cpf-cnpj-validator';
+
 interface ValidationResponse {
   exists?: boolean;
   [key: string]: any;
 }
 
+// ✅ INTERFACE ATUALIZADA: documento em vez de cpf
 interface UsuarioData {
   nome: string;
   sexo_id: number;
   telefone: string;
   email: string;
   senha: string;
-  cpf: string;
+  documento: string; // ✅ ALTERADO: documento em vez de cpf
   cidade_id?: number; // cidade_id opcional porque pode ser preenchido pelo cep
-  estado_id?: number; //
+  estado_id?: number;
   cep?: string; // cep opcional
   foto: string;
+}
+
+// ✅ NOVA FUNÇÃO: Validação de documento (CPF ou CNPJ)
+function validarDocumento(documentoValue: string): { 
+  isValid: boolean; 
+  tipoDocumento?: 'CPF' | 'CNPJ';
+  errorMessage?: string 
+} {
+  // Remove caracteres não numéricos
+  const documentoNumerico = documentoValue.replace(/\D/g, '');
+
+  if (!documentoNumerico) {
+    return { isValid: false, errorMessage: 'Documento é obrigatório' };
+  }
+
+  // Verificar se é CPF (11 dígitos)
+  if (documentoNumerico.length === 11) {
+    if (cpf.isValid(documentoNumerico)) {
+      return { 
+        isValid: true, 
+        tipoDocumento: 'CPF'
+      };
+    } else {
+      return { isValid: false, errorMessage: 'CPF inválido' };
+    }
+  }
+  // Verificar se é CNPJ (14 dígitos)
+  else if (documentoNumerico.length === 14) {
+    if (cnpj.isValid(documentoNumerico)) {
+      return { 
+        isValid: true, 
+        tipoDocumento: 'CNPJ'
+      };
+    } else {
+      return { isValid: false, errorMessage: 'CNPJ inválido' };
+    }
+  }
+  // Comprimento inválido
+  else {
+    return { 
+      isValid: false, 
+      errorMessage: 'Documento deve ter 11 dígitos (CPF) ou 14 dígitos (CNPJ)' 
+    };
+  }
 }
 
 export async function validarUsuario(usuarioData: UsuarioData): Promise<ValidationResponse> {
@@ -71,11 +118,48 @@ export async function validarUsuario(usuarioData: UsuarioData): Promise<Validati
     throw { error: 'Email é obrigatório.' };
   }
 
-  if (!usuarioData.cpf) {
-    throw { error: 'CPF é obrigatório.' };
+  // ✅ VALIDAÇÃO ATUALIZADA: Documento (CPF ou CNPJ)
+  if (!usuarioData.documento) {
+    throw { error: 'Documento (CPF ou CNPJ) é obrigatório.' };
+  }
+
+  const documentoValidation = validarDocumento(usuarioData.documento);
+  if (!documentoValidation.isValid) {
+    throw { 
+      error: 'Documento inválido', 
+      message: documentoValidation.errorMessage,
+      tipoDocumento: documentoValidation.tipoDocumento
+    };
   }
 
   // Retornar resposta de sucesso se tudo estiver válido
-  return { exists: false, valid: true };
+  return { 
+    exists: false, 
+    valid: true,
+    tipoDocumento: documentoValidation.tipoDocumento
+  };
 }
+
+// ✅ FUNÇÃO PARA COMPATIBILIDADE: Validar usuário com CPF (interface antiga)
+export async function validarUsuarioLegacy(usuarioData: {
+  nome: string;
+  sexo_id: number;
+  telefone: string;
+  email: string;
+  senha: string;
+  cpf: string; // Interface antiga
+  cidade_id?: number;
+  estado_id?: number;
+  cep?: string;
+  foto: string;
+}): Promise<ValidationResponse> {
+  // Converter para nova interface
+  const newUsuarioData: UsuarioData = {
+    ...usuarioData,
+    documento: usuarioData.cpf // cpf vira documento
+  };
+  
+  return await validarUsuario(newUsuarioData);
+}
+
 export default validarUsuario;

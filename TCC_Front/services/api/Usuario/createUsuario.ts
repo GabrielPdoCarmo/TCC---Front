@@ -1,5 +1,5 @@
 import api from '../api';
-import { cpf } from 'cpf-cnpj-validator';
+import { cpf, cnpj } from 'cpf-cnpj-validator';
 import validator from 'validator';
 
 interface UsuarioPayload {
@@ -8,28 +8,58 @@ interface UsuarioPayload {
   telefone: string;
   email: string;
   senha: string;
-  cpf: string;
+  documento: string; // ✅ ALTERADO: documento em vez de cpf
   cidade_id: number;
   estado_id?: number;
   cep?: string;
   foto?: File | null;
 }
 
-// Função para validar CPF (mantida igual)
-export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
+// ✅ NOVA FUNÇÃO: Validação de documento (CPF ou CNPJ)
+export const validateDocumento = (documentoValue: string): { 
+  isValid: boolean; 
+  formattedDocumento?: string; 
+  tipoDocumento?: 'CPF' | 'CNPJ';
+  errorMessage?: string 
+} => {
   // Remove caracteres não numéricos
-  const cpfNumerico = cpfValue.replace(/\D/g, '');
+  const documentoNumerico = documentoValue.replace(/\D/g, '');
 
-  if (!cpfNumerico) {
-    return { isValid: false, errorMessage: 'CPF é obrigatório' };
+  if (!documentoNumerico) {
+    return { isValid: false, errorMessage: 'Documento é obrigatório' };
   }
 
-  if (!cpf.isValid(cpfNumerico)) {
-    return { isValid: false, errorMessage: 'CPF inválido' };
+  // Verificar se é CPF (11 dígitos)
+  if (documentoNumerico.length === 11) {
+    if (cpf.isValid(documentoNumerico)) {
+      return { 
+        isValid: true, 
+        formattedDocumento: cpf.format(documentoNumerico),
+        tipoDocumento: 'CPF'
+      };
+    } else {
+      return { isValid: false, errorMessage: 'CPF inválido' };
+    }
   }
-
-  // CPF válido, retornar formatado
-  return { isValid: true, formattedCpf: cpf.format(cpfNumerico) };
+  // Verificar se é CNPJ (14 dígitos)
+  else if (documentoNumerico.length === 14) {
+    if (cnpj.isValid(documentoNumerico)) {
+      return { 
+        isValid: true, 
+        formattedDocumento: cnpj.format(documentoNumerico),
+        tipoDocumento: 'CNPJ'
+      };
+    } else {
+      return { isValid: false, errorMessage: 'CNPJ inválido' };
+    }
+  }
+  // Comprimento inválido
+  else {
+    return { 
+      isValid: false, 
+      errorMessage: 'Documento deve ter 11 dígitos (CPF) ou 14 dígitos (CNPJ)' 
+    };
+  }
 };
 
 // Função para validar telefone (mantida igual)
@@ -182,7 +212,7 @@ export const validateSenha = (senha: string): { isValid: boolean; errors: string
   };
 };
 
-// Função createUsuario ATUALIZADA com validação usando validator
+// Função createUsuario ATUALIZADA com validação de documento
 export const createUsuario = async (usuarioData: UsuarioPayload) => {
   try {
     // VALIDAÇÃO ATUALIZADA: Usar validator para email
@@ -209,10 +239,14 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
       };
     }
 
-    // Validar CPF
-    const cpfValidation = validateCpf(usuarioData.cpf);
-    if (!cpfValidation.isValid) {
-      throw new Error(cpfValidation.errorMessage);
+    // ✅ VALIDAR DOCUMENTO (CPF ou CNPJ)
+    const documentoValidation = validateDocumento(usuarioData.documento);
+    if (!documentoValidation.isValid) {
+      throw {
+        error: 'Documento inválido',
+        message: documentoValidation.errorMessage,
+        documentoErrors: [documentoValidation.errorMessage]
+      };
     }
 
     // Validar telefone
@@ -221,7 +255,7 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
       throw new Error(telefoneValidation.errorMessage);
     }
 
-    const formattedCpf = cpfValidation.formattedCpf;
+    const formattedDocumento = documentoValidation.formattedDocumento;
     const formattedTelefone = telefoneValidation.formattedTelefone;
 
     const formData = new FormData();
@@ -231,7 +265,7 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
     formData.append('telefone', formattedTelefone || usuarioData.telefone);
     formData.append('email', usuarioData.email); // Email já validado com validator
     formData.append('senha', usuarioData.senha);
-    formData.append('cpf', formattedCpf || usuarioData.cpf);
+    formData.append('documento', formattedDocumento || usuarioData.documento); // ✅ ALTERADO
     formData.append('cidade_id', String(usuarioData.cidade_id));
     formData.append('estado_id', String(usuarioData.estado_id));
 
@@ -252,13 +286,30 @@ export const createUsuario = async (usuarioData: UsuarioPayload) => {
     return response.data;
   } catch (error: any) {
     // Se o erro já tem a estrutura de validação granular, propagar
-    if (error.passwordErrors || error.emailErrors) {
+    if (error.passwordErrors || error.emailErrors || error.documentoErrors) {
       throw error;
     }
     
     // Para outros erros, manter comportamento original
     throw error || { error: 'Erro ao criar usuário' };
   }
+};
+
+// ✅ MANTER COMPATIBILIDADE: Função validateCpf para uso existente
+export const validateCpf = (cpfValue: string): { isValid: boolean; formattedCpf?: string; errorMessage?: string } => {
+  const documentoValidation = validateDocumento(cpfValue);
+  
+  if (documentoValidation.isValid && documentoValidation.tipoDocumento === 'CPF') {
+    return {
+      isValid: true,
+      formattedCpf: documentoValidation.formattedDocumento
+    };
+  }
+  
+  return {
+    isValid: false,
+    errorMessage: documentoValidation.errorMessage || 'CPF inválido'
+  };
 };
 
 export default createUsuario;

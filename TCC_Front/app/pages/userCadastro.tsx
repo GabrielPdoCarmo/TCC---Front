@@ -23,7 +23,7 @@ import createUsuario from '@/services/api/Usuario/createUsuario';
 import checkDuplicateFields from '@/services/api/Usuario/checkDuplicateFields';
 import Feather from 'react-native-vector-icons/Feather';
 import { router } from 'expo-router';
-import { cpf as cpfValidator } from 'cpf-cnpj-validator';
+import { cpf as cpfValidator, cnpj as cnpjValidator } from 'cpf-cnpj-validator';
 import validator from 'validator';
 
 // Define the cidade type to ensure consistency throughout the component
@@ -42,23 +42,41 @@ interface CEPData {
 
 // Helper functions defined at the top to avoid "used before declaration" error
 
-// Formatting functions for inputs
-const formatCPF = (cpf: string): string => {
-  // Remove non-numeric characters
-  const numericValue = cpf.replace(/\D/g, '');
+// Helper function to remove all non-numeric characters
+const stripNonNumeric = (text: string): string => {
+  return text.replace(/\D/g, '');
+};
 
-  // Apply CPF mask: 000.000.000-00
-  if (numericValue.length <= 3) {
-    return numericValue;
-  } else if (numericValue.length <= 6) {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3)}`;
-  } else if (numericValue.length <= 9) {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6)}`;
-  } else {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6, 9)}-${numericValue.slice(
-      9,
-      11
-    )}`;
+// NEW: Format CPF or CNPJ based on number of digits
+const formatCPFCNPJ = (value: string): string => {
+  // Remove non-numeric characters
+  const numericValue = stripNonNumeric(value);
+  
+  // If 11 digits or less, format as CPF: 000.000.000-00
+  if (numericValue.length <= 11) {
+    if (numericValue.length <= 3) {
+      return numericValue;
+    } else if (numericValue.length <= 6) {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3)}`;
+    } else if (numericValue.length <= 9) {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6)}`;
+    } else {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6, 9)}-${numericValue.slice(9, 11)}`;
+    }
+  } 
+  // If more than 11 digits, format as CNPJ: 00.000.000/0000-00
+  else {
+    if (numericValue.length <= 2) {
+      return numericValue;
+    } else if (numericValue.length <= 5) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2)}`;
+    } else if (numericValue.length <= 8) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5)}`;
+    } else if (numericValue.length <= 12) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5, 8)}/${numericValue.slice(8)}`;
+    } else {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5, 8)}/${numericValue.slice(8, 12)}-${numericValue.slice(12, 14)}`;
+    }
   }
 };
 
@@ -92,9 +110,56 @@ const formatCEP = (cep: string): string => {
   }
 };
 
-// Helper function to remove all non-numeric characters
-const stripNonNumeric = (text: string): string => {
-  return text.replace(/\D/g, '');
+// NEW: Validate CPF or CNPJ using cpf-cnpj-validator library
+const validarCpfCnpj = (value: string): boolean => {
+  const numericValue = stripNonNumeric(value);
+  
+  // Check if empty
+  if (!numericValue) {
+    return false;
+  }
+  
+  // If 11 digits, validate as CPF
+  if (numericValue.length === 11) {
+    return cpfValidator.isValid(numericValue);
+  }
+  // If 14 digits, validate as CNPJ  
+  else if (numericValue.length === 14) {
+    return cnpjValidator.isValid(numericValue);
+  }
+  
+  // Invalid length
+  return false;
+};
+
+// Helper function to get document type
+const getDocumentType = (value: string): 'CPF' | 'CNPJ' | 'invalid' => {
+  const numericValue = stripNonNumeric(value);
+  
+  if (numericValue.length === 11) {
+    return 'CPF';
+  } else if (numericValue.length === 14) {
+    return 'CNPJ';
+  }
+  
+  return 'invalid';
+};
+
+// Helper function to get appropriate error message
+const getCpfCnpjErrorMessage = (value: string): string => {
+  const numericValue = stripNonNumeric(value);
+  
+  if (numericValue.length === 11) {
+    return 'CPF inválido. Verifique os números digitados.';
+  } else if (numericValue.length === 14) {
+    return 'CNPJ inválido. Verifique os números digitados.';
+  } else if (numericValue.length < 11) {
+    return 'CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.';
+  } else if (numericValue.length > 11 && numericValue.length < 14) {
+    return 'Número inválido. CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.';
+  } else {
+    return 'Documento deve ter 11 dígitos (CPF) ou 14 dígitos (CNPJ).';
+  }
 };
 
 // Validação granular de email usando validator
@@ -202,13 +267,24 @@ const normalizeString = (str: string): string => {
     .trim(); // Remove extra spaces
 };
 
+const validarTelefone = (telefone: string) => {
+  const somenteNumeros = stripNonNumeric(telefone);
+  return somenteNumeros.length >= 10;
+};
+
+const validarCep = (cep: string) => {
+  const regex = /^\d{8}$/;
+  return regex.test(stripNonNumeric(cep));
+};
+
 export default function CadastroUsuario() {
   const [foto, setFoto] = useState<string | null>(null);
   const [fotoErro, setFotoErro] = useState('');
   const [sexo, setSexo] = useState<{ id: number; descricao: string }>({ id: 0, descricao: '' });
   const [sexos, setSexos] = useState<{ id: number; descricao: string }[]>([]);
   const [nome, setNome] = useState('');
-  const [cpf, setCpf] = useState('');
+  const [documento, setDocumento] = useState(''); // MUDADO de cpf para documento
+  const [tipoDocumento, setTipoDocumento] = useState<'CPF' | 'CNPJ'>('CPF'); // NOVO campo
   const [telefone, setTelefone] = useState('');
   const [estado, setEstado] = useState<{ id: number; nome: string } | null>(null);
   const [estados, setEstados] = useState<{ id: number; nome: string }[]>([]);
@@ -224,7 +300,7 @@ export default function CadastroUsuario() {
   const [senha, setSenha] = useState<string>('');
   const [confirmarSenha, setConfirmarSenha] = useState<string>('');
   const [nomeErro, setNomeErro] = useState('');
-  const [cpfErro, setCpfErro] = useState('');
+  const [documentoErro, setDocumentoErro] = useState(''); // MUDADO de cpfErro
   const [telefoneErro, setTelefoneErro] = useState('');
   const [estadoErro, setEstadoErro] = useState('');
   const [cidadeErro, setCidadeErro] = useState('');
@@ -430,32 +506,6 @@ export default function CadastroUsuario() {
     if (!showCidades) setCidadeSearch({ id: 0, nome: '' });
   };
 
-  // No início do arquivo, adicione esta importação
-
-  // Substitua a função validarCpf existente por esta:
-  const validarCpf = (cpfValue: string) => {
-    // Remove caracteres não numéricos
-    const numericValue = stripNonNumeric(cpfValue);
-
-    // Verifica se está vazio
-    if (!numericValue) {
-      return false;
-    }
-
-    // Usa a biblioteca para validação completa (note o uso de cpfValidator em vez de cpf)
-    return cpfValidator.isValid(numericValue);
-  };
-
-  const validarTelefone = (telefone: string) => {
-    const somenteNumeros = stripNonNumeric(telefone);
-    return somenteNumeros.length >= 10;
-  };
-
-  const validarCep = (cep: string) => {
-    const regex = /^\d{8}$/;
-    return regex.test(stripNonNumeric(cep));
-  };
-
   const handleSalvar = async () => {
     // Evitar múltiplos cliques durante o loading
     if (loadingCadastro) {
@@ -469,7 +519,7 @@ export default function CadastroUsuario() {
       // Limpar mensagens anteriores
       setFotoErro('');
       setNomeErro('');
-      setCpfErro('');
+      setDocumentoErro(''); // MUDADO
       setTelefoneErro('');
       setEstadoErro('');
       setCidadeErro('');
@@ -492,11 +542,12 @@ export default function CadastroUsuario() {
         hasError = true;
       }
 
-      if (!cpf) {
-        setCpfErro('O CPF é obrigatório.');
+      // VALIDAÇÃO ATUALIZADA para documento
+      if (!documento) {
+        setDocumentoErro('O CPF/CNPJ é obrigatório.');
         hasError = true;
-      } else if (!validarCpf(cpf)) {
-        setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+      } else if (!validarCpfCnpj(documento)) {
+        setDocumentoErro(getCpfCnpjErrorMessage(documento));
         hasError = true;
       }
 
@@ -568,7 +619,7 @@ export default function CadastroUsuario() {
       try {
         const validationResponse = await checkDuplicateFields({
           email: email,
-          cpf: stripNonNumeric(cpf),
+          documento: stripNonNumeric(documento), // MUDADO de cpf para documento
           telefone: stripNonNumeric(telefone),
         });
 
@@ -576,8 +627,8 @@ export default function CadastroUsuario() {
         if (validationResponse && validationResponse.exists) {
           let validationHasError = false;
 
-          if (validationResponse.duplicateFields?.includes('cpf')) {
-            setCpfErro('Este CPF já está cadastrado no sistema.');
+          if (validationResponse.duplicateFields?.includes('documento')) { // MUDADO
+            setDocumentoErro('Este CPF/CNPJ já está cadastrado no sistema.');
             validationHasError = true;
           }
 
@@ -615,14 +666,15 @@ export default function CadastroUsuario() {
         } as unknown as File;
       }
 
-      // Dados completos do usuário
+      // Dados completos do usuário - ATUALIZADOS
       const usuarioData = {
         nome,
         sexo_id: sexo.id,
         telefone: stripNonNumeric(telefone),
         email,
         senha,
-        cpf: stripNonNumeric(cpf),
+        documento: stripNonNumeric(documento), // MUDADO de cpf para documento
+        tipo_documento: getDocumentType(documento), // NOVO campo
         cidade_id: cidade.id,
         estado_id: estado?.id,
         cep: stripNonNumeric(cep),
@@ -656,8 +708,8 @@ export default function CadastroUsuario() {
           if (serverError.duplicateField || serverError.duplicateFields) {
             const fields = serverError.duplicateFields || [serverError.duplicateField];
 
-            if (fields.includes('cpf')) {
-              setCpfErro('Este CPF já está cadastrado no sistema.');
+            if (fields.includes('documento')) { // MUDADO
+              setDocumentoErro('Este CPF/CNPJ já está cadastrado no sistema.');
             }
             if (fields.includes('email')) {
               setEmailErros(['Este e-mail já está cadastrado no sistema.']);
@@ -670,14 +722,14 @@ export default function CadastroUsuario() {
 
             if (message.includes('email') || message.includes('e-mail')) {
               setEmailErros(['Este e-mail já está cadastrado no sistema.']);
-            } else if (message.includes('cpf')) {
-              setCpfErro('Este CPF já está cadastrado no sistema.');
+            } else if (message.includes('cpf') || message.includes('cnpj') || message.includes('documento')) {
+              setDocumentoErro('Este CPF/CNPJ já está cadastrado no sistema.');
             } else if (message.includes('telefone')) {
               setTelefoneErro('Este telefone já está cadastrado no sistema.');
             } else {
               Alert.alert(
                 'Dados Duplicados',
-                serverError.message || 'Email, CPF ou telefone já cadastrado no sistema.'
+                serverError.message || 'Email, CPF/CNPJ ou telefone já cadastrado no sistema.'
               );
             }
           }
@@ -704,22 +756,30 @@ export default function CadastroUsuario() {
   };
 
   // FUNÇÕES ATUALIZADAS: Handlers com verificação de loading
-  const handleCpfChange = (text: string) => {
+  const handleDocumentoChange = (text: string) => { // MUDADO de handleCpfChange
     if (loadingCadastro) return; // Bloquear durante loading
 
-    const formattedCpf = formatCPF(text);
-    setCpf(formattedCpf);
+    const formattedDocumento = formatCPFCNPJ(text);
+    setDocumento(formattedDocumento);
 
-    // Verifica a validade do CPF enquanto o usuário digita
+    // Detectar automaticamente o tipo de documento
+    const numericValue = stripNonNumeric(text);
+    if (numericValue.length === 11) {
+      setTipoDocumento('CPF');
+    } else if (numericValue.length === 14) {
+      setTipoDocumento('CNPJ');
+    }
+
+    // Verifica a validade do documento enquanto o usuário digita
     if (text) {
-      if (stripNonNumeric(text).length === 11) {
-        if (!validarCpf(text)) {
-          setCpfErro('CPF inválido. Verifique os números digitados.');
+      if (numericValue.length === 11 || numericValue.length === 14) {
+        if (!validarCpfCnpj(text)) {
+          setDocumentoErro(getCpfCnpjErrorMessage(text));
         } else {
-          setCpfErro('');
+          setDocumentoErro('');
         }
       } else {
-        setCpfErro(''); // Limpa o erro enquanto o usuário está digitando
+        setDocumentoErro(''); // Limpa o erro enquanto o usuário está digitando
       }
     }
   };
@@ -1160,29 +1220,30 @@ export default function CadastroUsuario() {
               {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
             </View>
 
-            {/* CPF ATUALIZADO: Com editable={!loadingCadastro} */}
+            {/* CAMPO ATUALIZADO: CPF/CNPJ */}
             <View style={styles.inputGroup}>
               <Text style={styles.label}>
-                CPF <Text style={styles.required}>*</Text>
+                CPF/CNPJ <Text style={styles.required}>*</Text>
               </Text>
               <TextInput
                 style={[
                   styles.input,
-                  cpfErro ? { borderColor: 'red', borderWidth: 1 } : {},
+                  documentoErro ? { borderColor: 'red', borderWidth: 1 } : {},
                   loadingCadastro && styles.disabledInput,
                 ]}
-                placeholder="000.000.000-00"
+                placeholder="000.000.000-00 ou 00.000.000/0000-00"
                 keyboardType="numeric"
-                value={cpf}
+                value={documento}
                 multiline={false}
                 scrollEnabled={false}
                 disableFullscreenUI={true}
                 numberOfLines={1}
                 editable={!loadingCadastro} // PRINCIPAL MUDANÇA
-                onChangeText={handleCpfChange}
-                maxLength={14}
+                onChangeText={handleDocumentoChange}
+                maxLength={18} // Aumentado para comportar CNPJ
               />
-              {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
+              {documentoErro ? <Text style={styles.errorText}>{documentoErro}</Text> : null}
+             
             </View>
 
             {/* CEP ATUALIZADO: Com editable={!loadingCadastro} */}
@@ -1591,6 +1652,13 @@ const styles = StyleSheet.create({
     marginTop: 2,
     marginLeft: 10,
   },
+  infoText: {
+    fontSize: 12,
+    color: '#4CAF50',
+    marginTop: 5,
+    marginLeft: 10,
+    fontStyle: 'italic',
+  },
   searchInput: {
     height: 40,
     borderColor: '#ccc',
@@ -1648,4 +1716,3 @@ const styles = StyleSheet.create({
     fontStyle: 'italic',
   },
 });
-('');

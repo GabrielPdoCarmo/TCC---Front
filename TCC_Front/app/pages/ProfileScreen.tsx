@@ -23,7 +23,7 @@ import getUsuarioById from '@/services/api/Usuario/getUsuarioById';
 import updateUsuario from '@/services/api/Usuario/updateUsuario';
 import getSexoUsuario from '@/services/api/Sexo/getSexoUsuario';
 import getCidadesPorEstadoID from '@/services/api/Cidades/getCidadesPorEstadoID';
-import { cpf } from 'cpf-cnpj-validator';
+import { cpf, cnpj } from 'cpf-cnpj-validator';
 import checkDuplicateFieldsProfile from '@/services/api/Usuario/checkDuplicateFieldsProfile';
 import { useAuth } from '@/contexts/AuthContext';
 
@@ -32,7 +32,8 @@ interface Usuario {
   nome: string;
   email: string;
   telefone: string;
-  cpf: string;
+  documento: string;
+  tipo_documento: 'CPF' | 'CNPJ';
   cep: string;
   estado_id: number;
   cidade_id: number;
@@ -54,10 +55,11 @@ interface UsuarioData {
   nome: string;
   email: string;
   telefone: string;
-  cpf: string;
+  documento: string;
+  tipo_documento: 'CPF' | 'CNPJ';
   cep: string;
-  estado_id: number | undefined; // Mudado de null para undefined
-  cidade_id: number | undefined; // Mudado de null para undefined
+  estado_id: number | undefined;
+  cidade_id: number | undefined;
   sexo_id: number;
   senha?: string | undefined;
   foto: string | null | { uri: string; type: string; name: string };
@@ -87,23 +89,43 @@ interface CEPData {
   cidadeNome: string;
 }
 
-// Helper functions for formatting and validation
-const formatCPF = (cpf: string): string => {
-  // Remove non-numeric characters
-  const numericValue = cpf.replace(/\D/g, '');
+// Helper functions for formatting and validation - UPDATED FOR CPF/CNPJ
 
-  // Apply CPF mask: 000.000.000-00
-  if (numericValue.length <= 3) {
-    return numericValue;
-  } else if (numericValue.length <= 6) {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3)}`;
-  } else if (numericValue.length <= 9) {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6)}`;
-  } else {
-    return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6, 9)}-${numericValue.slice(
-      9,
-      11
-    )}`;
+// Helper function to remove all non-numeric characters
+const stripNonNumeric = (text: string): string => {
+  return text.replace(/\D/g, '');
+};
+
+// NEW: Format CPF or CNPJ based on number of digits
+const formatCPFCNPJ = (value: string): string => {
+  // Remove non-numeric characters
+  const numericValue = stripNonNumeric(value);
+  
+  // If 11 digits or less, format as CPF: 000.000.000-00
+  if (numericValue.length <= 11) {
+    if (numericValue.length <= 3) {
+      return numericValue;
+    } else if (numericValue.length <= 6) {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3)}`;
+    } else if (numericValue.length <= 9) {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6)}`;
+    } else {
+      return `${numericValue.slice(0, 3)}.${numericValue.slice(3, 6)}.${numericValue.slice(6, 9)}-${numericValue.slice(9, 11)}`;
+    }
+  } 
+  // If more than 11 digits, format as CNPJ: 00.000.000/0000-00
+  else {
+    if (numericValue.length <= 2) {
+      return numericValue;
+    } else if (numericValue.length <= 5) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2)}`;
+    } else if (numericValue.length <= 8) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5)}`;
+    } else if (numericValue.length <= 12) {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5, 8)}/${numericValue.slice(8)}`;
+    } else {
+      return `${numericValue.slice(0, 2)}.${numericValue.slice(2, 5)}.${numericValue.slice(5, 8)}/${numericValue.slice(8, 12)}-${numericValue.slice(12, 14)}`;
+    }
   }
 };
 
@@ -137,29 +159,62 @@ const formatCEP = (cep: string): string => {
   }
 };
 
-// Helper function to remove all non-numeric characters
-const stripNonNumeric = (text: string): string => {
-  return text.replace(/\D/g, '');
-};
-
 // Function to validate email format
 const validarEmail = (email: string) => {
   const regex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
   return regex.test(email);
 };
 
-// Function to validate CPF format
-const validarCpf = (cpfValue: string) => {
-  // Remove caracteres não numéricos
-  const numericValue = stripNonNumeric(cpfValue);
-
-  // Verifica se está vazio
+// NEW: Validate CPF or CNPJ using cpf-cnpj-validator library
+const validarCpfCnpj = (value: string): boolean => {
+  const numericValue = stripNonNumeric(value);
+  
+  // Check if empty
   if (!numericValue) {
     return false;
   }
+  
+  // If 11 digits, validate as CPF
+  if (numericValue.length === 11) {
+    return cpf.isValid(numericValue);
+  }
+  // If 14 digits, validate as CNPJ  
+  else if (numericValue.length === 14) {
+    return cnpj.isValid(numericValue);
+  }
+  
+  // Invalid length
+  return false;
+};
 
-  // Usa a biblioteca para validação completa
-  return cpf.isValid(numericValue);
+// Helper function to get document type
+const getDocumentType = (value: string): 'CPF' | 'CNPJ' | 'invalid' => {
+  const numericValue = stripNonNumeric(value);
+  
+  if (numericValue.length === 11) {
+    return 'CPF';
+  } else if (numericValue.length === 14) {
+    return 'CNPJ';
+  }
+  
+  return 'invalid';
+};
+
+// Helper function to get appropriate error message
+const getCpfCnpjErrorMessage = (value: string): string => {
+  const numericValue = stripNonNumeric(value);
+  
+  if (numericValue.length === 11) {
+    return 'CPF inválido. Verifique os números digitados.';
+  } else if (numericValue.length === 14) {
+    return 'CNPJ inválido. Verifique os números digitados.';
+  } else if (numericValue.length < 11) {
+    return 'CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.';
+  } else if (numericValue.length > 11 && numericValue.length < 14) {
+    return 'Número inválido. CPF deve ter 11 dígitos ou CNPJ deve ter 14 dígitos.';
+  } else {
+    return 'Documento deve ter 11 dígitos (CPF) ou 14 dígitos (CNPJ).';
+  }
 };
 
 // Function to validate telephone format
@@ -276,7 +331,8 @@ export default function ProfileScreen() {
   const [nome, setNome] = useState<string>('');
   const [email, setEmail] = useState<string>('');
   const [telefone, setTelefone] = useState<string>('');
-  const [cpfCnpj, setCpfCnpj] = useState<string>('');
+  const [documento, setDocumento] = useState<string>(''); // MUDADO de cpfCnpj para documento
+  const [tipoDocumento, setTipoDocumento] = useState<'CPF' | 'CNPJ'>('CPF'); // NOVO campo
   const [cep, setCep] = useState<string>('');
   const [estado, setEstado] = useState<string>('');
   const [cidade, setCidade] = useState<string>('');
@@ -290,7 +346,7 @@ export default function ProfileScreen() {
   const [nomeErro, setNomeErro] = useState<string>('');
   const [emailErro, setEmailErro] = useState<string>('');
   const [telefoneErro, setTelefoneErro] = useState<string>('');
-  const [cpfErro, setCpfErro] = useState<string>('');
+  const [documentoErro, setDocumentoErro] = useState<string>(''); // MUDADO de cpfErro
   const [cepErro, setCepErro] = useState<string>('');
   const [estadoErro, setEstadoErro] = useState<string>('');
   const [cidadeErro, setCidadeErro] = useState<string>('');
@@ -322,6 +378,7 @@ export default function ProfileScreen() {
       router.replace('/pages/LoginScreen');
     }
   }, [isAuthenticated, authLoading]);
+
   // Função para inicializar todos os dados necessários
   const initializeData = async () => {
     try {
@@ -353,8 +410,6 @@ export default function ProfileScreen() {
   const fetchCidades = async (estadoId: number) => {
     const estadoKey = estadoId.toString();
 
-    // Log para depuração
-
     // Verificar se já existe no cache
     if (cidadesCache.current[estadoKey]) {
       setCidades(cidadesCache.current[estadoKey]);
@@ -363,8 +418,6 @@ export default function ProfileScreen() {
 
     setLoadingCidades(true);
     try {
-      // Chamar a API diretamente com o ID, sem tentar encontrar o estado
-
       const data = await getCidadesPorEstadoID(estadoId);
 
       setCidades(data);
@@ -380,7 +433,6 @@ export default function ProfileScreen() {
   // Função para buscar dados do usuário usando AsyncStorage
   const fetchUserData = async (estadosData?: Estado[]) => {
     try {
-      // Use the same '@App:userId' key that was used to store
       const userId = await AsyncStorage.getItem('@App:userId');
 
       if (!userId) {
@@ -405,7 +457,8 @@ export default function ProfileScreen() {
       setNome(userData.nome || '');
       setEmail(userData.email || '');
       setTelefone(formatTelefone(userData.telefone || ''));
-      setCpfCnpj(formatCPF(userData.cpf || ''));
+      setDocumento(formatCPFCNPJ(userData.documento || '')); // MUDADO para documento
+      setTipoDocumento(userData.tipo_documento || 'CPF'); // NOVO campo
       setCep(formatCEP(userData.cep || ''));
       setSexoId(userData.sexo_id || 1);
 
@@ -474,10 +527,6 @@ export default function ProfileScreen() {
     }
 
     // Se chegou até aqui, CEP foi digitado manualmente
-    // Aqui você pode escolher: sempre limpar ou não limpar
-
-    // Subopção 2A: SEMPRE limpar CEP quando estado/cidade mudar (independente de como foi preenchido)
-
     setCep('');
     setCepErro('');
     setDadosDoCep({
@@ -486,22 +535,16 @@ export default function ProfileScreen() {
       estadoNome: '',
       cidadeNome: '',
     });
-
-    // Subopção 2B: NÃO limpar CEP se foi digitado manualmente
-    // console.log(' CEP foi digitado manualmente - não limpar');
-    // return;
   };
 
   // Handlers para inputs formatados
   const handleNomeChange = (text: string) => {
     setNome(text);
-    // Limpa o erro se houver texto ou se o campo estiver vazio
     setNomeErro('');
   };
 
   const handleEmailChange = (text: string) => {
     setEmail(text);
-    // Limpa o erro se o email for válido ou se o campo estiver vazio
     if (validarEmail(text) || text === '') {
       setEmailErro('');
     }
@@ -510,22 +553,29 @@ export default function ProfileScreen() {
   const handleTelefoneChange = (text: string) => {
     const formattedTelefone = formatTelefone(text);
     setTelefone(formattedTelefone);
-    // Limpa o erro se o telefone for válido ou se o campo estiver vazio
     if (validarTelefone(formattedTelefone) || stripNonNumeric(text) === '') {
       setTelefoneErro('');
     }
   };
 
-  const handleCpfChange = (text: string) => {
-    const formattedCpf = formatCPF(text);
-    setCpfCnpj(formattedCpf);
+  // NOVA FUNÇÃO: Handler para documento (CPF/CNPJ)
+  const handleDocumentoChange = (text: string) => {
+    const formattedDocumento = formatCPFCNPJ(text);
+    setDocumento(formattedDocumento);
 
-    // Limpa o erro se o CPF for válido ou se o campo estiver vazio
+    // Detectar automaticamente o tipo de documento
     const numericValue = stripNonNumeric(text);
-    if (validarCpf(text) || numericValue === '') {
-      setCpfErro('');
-    } else if (numericValue.length === 11) {
-      setCpfErro('CPF inválido. Verifique os números digitados.');
+    if (numericValue.length === 11) {
+      setTipoDocumento('CPF');
+    } else if (numericValue.length === 14) {
+      setTipoDocumento('CNPJ');
+    }
+
+    // Limpa o erro se o documento for válido ou se o campo estiver vazio
+    if (validarCpfCnpj(text) || numericValue === '') {
+      setDocumentoErro('');
+    } else if (numericValue.length === 11 || numericValue.length === 14) {
+      setDocumentoErro(getCpfCnpjErrorMessage(text));
     }
   };
 
@@ -534,7 +584,6 @@ export default function ProfileScreen() {
     setCep(formattedCep);
 
     const numericCep = stripNonNumeric(text);
-    // Limpa o erro se o CEP for válido ou se o campo estiver vazio
     if (validarCep(numericCep) || numericCep === '') {
       setCepErro('');
     }
@@ -668,7 +717,7 @@ export default function ProfileScreen() {
     setNomeErro('');
     setEmailErro('');
     setTelefoneErro('');
-    setCpfErro('');
+    setDocumentoErro(''); // MUDADO
     setCepErro('');
     setEstadoErro('');
     setCidadeErro('');
@@ -704,11 +753,12 @@ export default function ProfileScreen() {
       hasError = true;
     }
 
-    if (!cpfCnpj) {
-      setCpfErro('O CPF é obrigatório.');
+    // VALIDAÇÃO ATUALIZADA para documento
+    if (!documento) {
+      setDocumentoErro('O CPF/CNPJ é obrigatório.');
       hasError = true;
-    } else if (!validarCpf(stripNonNumeric(cpfCnpj))) {
-      setCpfErro('CPF inválido. Informe um CPF com 11 números.');
+    } else if (!validarCpfCnpj(stripNonNumeric(documento))) {
+      setDocumentoErro(getCpfCnpjErrorMessage(documento));
       hasError = true;
     }
 
@@ -745,11 +795,10 @@ export default function ProfileScreen() {
       }
 
       // Verificar campos duplicados antes de tentar salvar
-
       const validationResponse = await checkDuplicateFieldsProfile({
         userId: usuario.id,
         email: email,
-        cpf: stripNonNumeric(cpfCnpj),
+        documento: stripNonNumeric(documento), // MUDADO de cpf para documento
         telefone: stripNonNumeric(telefone),
       });
 
@@ -757,8 +806,8 @@ export default function ProfileScreen() {
       if (validationResponse && validationResponse.exists) {
         let validationHasError = false;
 
-        if (validationResponse.duplicateFields?.includes('cpf')) {
-          setCpfErro('Este CPF já está sendo usado por outro usuário.');
+        if (validationResponse.duplicateFields?.includes('documento')) { // MUDADO
+          setDocumentoErro('Este CPF/CNPJ já está sendo usado por outro usuário.');
           validationHasError = true;
         }
 
@@ -787,7 +836,8 @@ export default function ProfileScreen() {
         nome,
         email,
         telefone: stripNonNumeric(telefone),
-        cpf: stripNonNumeric(cpfCnpj),
+        documento: stripNonNumeric(documento), // MUDADO
+        tipo_documento: getDocumentType(documento) as 'CPF' | 'CNPJ', // NOVO
         cep: stripNonNumeric(cep),
         estado_id: estadoSelecionado ? Number(estadoSelecionado) : undefined,
         cidade_id: cidadeSelecionada ? Number(cidadeSelecionada) : undefined,
@@ -852,8 +902,8 @@ export default function ProfileScreen() {
           if (serverError.duplicateField || serverError.duplicateFields) {
             const fields = serverError.duplicateFields || [serverError.duplicateField];
 
-            if (fields.includes('cpf')) {
-              setCpfErro('Este CPF já está sendo usado por outro usuário.');
+            if (fields.includes('documento')) { // MUDADO
+              setDocumentoErro('Este CPF/CNPJ já está sendo usado por outro usuário.');
             }
             if (fields.includes('email')) {
               setEmailErro('Este e-mail já está sendo usado por outro usuário.');
@@ -869,8 +919,8 @@ export default function ProfileScreen() {
 
             if (message.includes('email') || message.includes('e-mail')) {
               setEmailErro('Este e-mail já está sendo usado por outro usuário.');
-            } else if (message.includes('cpf')) {
-              setCpfErro('Este CPF já está sendo usado por outro usuário.');
+            } else if (message.includes('cpf') || message.includes('cnpj') || message.includes('documento')) {
+              setDocumentoErro('Este CPF/CNPJ já está sendo usado por outro usuário.');
             } else if (message.includes('telefone')) {
               setTelefoneErro('Este telefone já está sendo usado por outro usuário.');
             } else {
@@ -947,6 +997,7 @@ export default function ProfileScreen() {
       Alert.alert('Erro', 'Não foi possível selecionar a imagem. Tente novamente.');
     }
   };
+  
   if (authLoading) {
     return (
       <View style={[styles.container, { justifyContent: 'center', alignItems: 'center' }]}>
@@ -960,6 +1011,7 @@ export default function ProfileScreen() {
   if (!isAuthenticated) {
     return null;
   }
+  
   return (
     <SafeAreaView style={styles.container}>
       <ImageBackground source={require('../../assets/images/backgrounds/Fundo_04.png')} style={styles.backgroundImage}>
@@ -1010,7 +1062,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
-                  maxLength={50} // Limitando o nome a 50 caracteres
+                  maxLength={50}
                 />
                 {nomeErro ? <Text style={styles.errorText}>{nomeErro}</Text> : null}
 
@@ -1051,7 +1103,7 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
-                  maxLength={100} // Limitando o email a 100 caracteres
+                  maxLength={100}
                 />
                 {emailErro ? <Text style={styles.errorText}>{emailErro}</Text> : null}
 
@@ -1067,25 +1119,27 @@ export default function ProfileScreen() {
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
-                  maxLength={15} // Limitando o telefone a 15 caracteres (formato: (00) 00000-0000)
+                  maxLength={15}
                 />
                 {telefoneErro ? <Text style={styles.errorText}>{telefoneErro}</Text> : null}
 
-                <Text style={styles.inputLabel}>CPF</Text>
+                {/* CAMPO ATUALIZADO: CPF/CNPJ */}
+                <Text style={styles.inputLabel}>CPF/CNPJ</Text>
                 <TextInput
-                  style={[styles.inputNoScroll, cpfErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
-                  placeholder="000.000.000-00"
-                  value={cpfCnpj}
-                  onChangeText={handleCpfChange}
+                  style={[styles.inputNoScroll, documentoErro ? { borderColor: 'red', borderWidth: 1 } : {}]}
+                  placeholder="000.000.000-00 ou 00.000.000/0000-00"
+                  value={documento}
+                  onChangeText={handleDocumentoChange}
                   keyboardType="numeric"
                   multiline={false}
                   scrollEnabled={false}
                   disableFullscreenUI={true}
                   numberOfLines={1}
                   textAlignVertical="center"
-                  maxLength={14} // Limitando o CPF a 14 caracteres (formato: 000.000.000-00)
+                  maxLength={18} // Aumentado para comportar CNPJ
                 />
-                {cpfErro ? <Text style={styles.errorText}>{cpfErro}</Text> : null}
+                {documentoErro ? <Text style={styles.errorText}>{documentoErro}</Text> : null}
+               
 
                 <Text style={styles.inputLabel}>CEP</Text>
                 <View style={[styles.inputWithIcon, cepErro ? { borderColor: 'red', borderWidth: 1 } : {}]}>
@@ -1100,7 +1154,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
-                    maxLength={9} // Limitando o CEP a 9 caracteres (formato: 00000-000)
+                    maxLength={9}
                   />
                   {loadingCep && <ActivityIndicator size="small" color="#4682B4" style={styles.loadingIcon} />}
                 </View>
@@ -1111,10 +1165,10 @@ export default function ProfileScreen() {
                   estado={estados.find((estado) => estado.id === estadoSelecionado) || null}
                   estados={estados}
                   onSelectEstado={handleEstadoSelect}
-                  showEstados={false} // esta prop está definida mas não é usada
-                  setShowEstados={() => {}} // esta prop está definida mas não é usada
-                  estadoSearch={{ id: -1, nome: '' }} // ou seu estado real de busca
-                  setEstadoSearch={() => {}} // ou sua função real de setter
+                  showEstados={false}
+                  setShowEstados={() => {}}
+                  estadoSearch={{ id: -1, nome: '' }}
+                  setEstadoSearch={() => {}}
                 />
                 {estadoErro ? <Text style={styles.errorText}>{estadoErro}</Text> : null}
 
@@ -1122,12 +1176,12 @@ export default function ProfileScreen() {
                 <CidadeSelect
                   cidade={cidades.find((cidade) => cidade.id === cidadeSelecionada) || null}
                   cidades={cidades}
-                  cidadesCarregadas={true} // ou seu estado real de carregamento
-                  loadingCidades={false} // ou seu estado real de carregamento
-                  showCidades={false} // esta prop está definida mas não é usada no componente
-                  setShowCidades={() => {}} // esta prop está definida mas não é usada no componente
+                  cidadesCarregadas={true}
+                  loadingCidades={false}
+                  showCidades={false}
+                  setShowCidades={() => {}}
                   onSelectCidade={handleCidadeSelect}
-                  toggleCidades={() => {}} // esta prop está definida mas não é usada no componente
+                  toggleCidades={() => {}}
                   disabled={!estadoSelecionado}
                 />
                 {cidadeErro ? <Text style={styles.errorText}>{cidadeErro}</Text> : null}
@@ -1147,7 +1201,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
-                    maxLength={50} // Limitando a senha a 50 caracteres
+                    maxLength={50}
                   />
                   <TouchableOpacity onPress={toggleSenhaVisibility}>
                     <Feather name={showSenha ? 'eye-off' : 'eye'} size={20} color="#888" />
@@ -1177,7 +1231,7 @@ export default function ProfileScreen() {
                     disableFullscreenUI={true}
                     numberOfLines={1}
                     textAlignVertical="center"
-                    maxLength={50} // Limitando a confirmação de senha a 50 caracteres
+                    maxLength={50}
                   />
                   <TouchableOpacity onPress={toggleConfirmarSenhaVisibility}>
                     <Feather name={showConfirmarSenha ? 'eye-off' : 'eye'} size={20} color="#888" />

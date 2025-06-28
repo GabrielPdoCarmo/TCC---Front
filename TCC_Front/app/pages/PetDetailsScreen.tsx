@@ -529,7 +529,7 @@ const styles = StyleSheet.create({
     fontWeight: 'bold',
     color: '#FFFFFF',
     textAlign: 'center',
-    flex: 1,
+    flex: 2,
   },
   backIcon: {
     width: 24,
@@ -542,9 +542,11 @@ const styles = StyleSheet.create({
   backButton: {
     padding: 5,
   },
-  settingsButton: {
-    padding: 5,
-  },
+ settingsButton: {
+  backgroundColor: 'rgba(255, 255, 255, 0.9)',
+  borderRadius: 25,
+  padding: 8,
+},
   loadingContainer: {
     flex: 1,
     justifyContent: 'center',

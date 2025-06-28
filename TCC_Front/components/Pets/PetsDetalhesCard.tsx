@@ -185,6 +185,11 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
             </Text>
           </View>
 
+          <View style={styles.infoRow}>
+            <Text style={styles.infoLabel}>Sexo:</Text>
+            <Text style={styles.infoValue}>{pet.sexo_nome || 'Não informado'}</Text>
+          </View>
+
           {/* RG do Pet com formatação adequada */}
           <View style={styles.infoRow}>
             <Text style={styles.infoLabel}>RG do Pet:</Text>
@@ -216,16 +221,11 @@ const PetsDetalhesCard: React.FC<PetCardProps> = ({
             <Text style={styles.infoValue}>{getLocation()}</Text>
           </View>
 
-          <View style={styles.infoRow}>
-            <Text style={styles.infoLabel}>Sexo:</Text>
-            <Text style={styles.infoValue}>{pet.sexo_nome || 'Não informado'}</Text>
-          </View>
-
           {/* Mostrar doenças/deficiências apenas se existirem */}
           {doencasParaMostrar.length > 0 && (
-            <View style={styles.infoRow}>
+            <View style={styles.motiveSection}>
               <Text style={styles.infoLabel}>Doenças/Deficiências:</Text>
-              <Text style={styles.infoValue}>{doencasParaMostrar}</Text>
+              <Text style={styles.description}>{doencasParaMostrar}</Text>
             </View>
           )}
 

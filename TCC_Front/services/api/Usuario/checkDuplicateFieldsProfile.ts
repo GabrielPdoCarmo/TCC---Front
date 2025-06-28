@@ -2,18 +2,19 @@
 
 import api from '../api';
 
+// ✅ INTERFACE ATUALIZADA: documento em vez de cpf
 // Função para verificar campos duplicados durante edição de perfil
 export const checkDuplicateFieldsProfile = async (userData: {
   userId: number; // ID do usuário atual para excluir da verificação
   email?: string;
-  cpf?: string;
+  documento?: string; // ✅ ALTERADO: documento em vez de cpf
   telefone?: string;
 }) => {
   try {
     const response = await api.post('/usuarios/validar-edicao', {
       userId: userData.userId,
       email: userData.email,
-      cpf: userData.cpf?.replace(/\D/g, ''), // Remove formatação do CPF
+      documento: userData.documento?.replace(/\D/g, ''), // ✅ ALTERADO: Remove formatação do documento
       telefone: userData.telefone?.replace(/\D/g, ''), // Remove formatação do telefone
     });
 
@@ -35,7 +36,7 @@ export const validateSingleFieldProfile = async (userId: number, field: string, 
     const data: any = { userId };
 
     // Remove formatação se necessário
-    if (field === 'cpf' || field === 'telefone') {
+    if (field === 'documento' || field === 'telefone') { // ✅ ALTERADO: documento em vez de cpf
       data[field] = value.replace(/\D/g, '');
     } else {
       data[field] = value;
@@ -52,6 +53,29 @@ export const validateSingleFieldProfile = async (userId: number, field: string, 
   } catch (error) {
     return false;
   }
+};
+
+// ✅ FUNÇÃO PARA COMPATIBILIDADE: Verificar CPF especificamente
+export const validateCpfProfile = async (userId: number, cpf: string) => {
+  return await validateSingleFieldProfile(userId, 'documento', cpf);
+};
+
+// ✅ FUNÇÃO PARA COMPATIBILIDADE: Manter interface antiga
+export const checkDuplicateFieldsProfileLegacy = async (userData: {
+  userId: number;
+  email?: string;
+  cpf?: string;
+  telefone?: string;
+}) => {
+  // Converter para nova interface
+  const newUserData = {
+    userId: userData.userId,
+    email: userData.email,
+    documento: userData.cpf, // cpf vira documento
+    telefone: userData.telefone
+  };
+  
+  return await checkDuplicateFieldsProfile(newUserData);
 };
 
 export default checkDuplicateFieldsProfile;

@@ -48,7 +48,6 @@ interface TermoData {
   //Localização do adotante
   adotante_cidade_nome?: string;
   adotante_estado_nome?: string;
-  adotante_cpf?: string;
   assinatura_digital: string;
   data_assinatura: string;
   observacoes?: string;
