@@ -53,6 +53,11 @@ O Expo abrirá o ambiente para execução em emulador ou no aplicativo Expo Go, 
 
 ---
 
+## 💻 Backend 
+Link: (https://github.com/GabrielPdoCarmo/TCC---Back)
+
+---
+
 ## 👨‍💻 Autor
 
 Gabriel Pereira do Carmo  
